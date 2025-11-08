@@ -14,7 +14,7 @@ import salad from '../../assets/images/foodimage/salad.png';
 
 
 const foodItems = [
-  { id: 1, name: "Biryani", img: biryani },
+  { id: 1, name: "Biryani", img: biryaniplate },
   { id: 2, name: "Burger", img: burger },
   { id: 3, name: "Bhature", img: chholebhature },
   { id: 4, name: "Chinese", img: chinese },
