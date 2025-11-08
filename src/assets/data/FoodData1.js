@@ -3,7 +3,7 @@ import nonveg from '../../assets/images/foodimage/nonveg.png';
 import paneer from '../../assets/images/foodimage/paneer.png';
 import Naan from '../../assets/images/foodimage/Naan.png';
 import Snacks from '../../assets/images/foodimage/Snacks.png';
-import chaat from '../../assets/images/foodimage/chaat.png';
+import Chaat from '../../assets/images/foodimage/chaat.png';
 import pavbhaaji from '../../assets/images/foodimage/pavbhaaji.png';
 import rasmalai from '../../assets/images/foodimage/rasmalai.png';
 import gulabjaamun from '../../assets/images/foodimage/gulabjaamun.png';
