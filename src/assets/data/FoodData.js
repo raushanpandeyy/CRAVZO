@@ -19,7 +19,7 @@ const foodItems = [
   { id: 3, name: "Bhature", img: chholebhature },
   { id: 4, name: "Chinese", img: chinese },
   { id: 5, name: "South Indian", img: dosa },
-  { id: 6, name: "Thali", img: thali },
+  { id: 6, name: "Thali", img: indianthali },
   { id: 7, name: "Kebab", img: kebab },
   { id: 8, name: "Momo", img: momos },
   { id: 9, name: "Italian", img: pasta },
