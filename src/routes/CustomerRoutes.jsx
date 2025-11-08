@@ -16,41 +16,40 @@ import CustomerLayout from '../layouts/CustomerLayout.jsx';
 import Addresses from '../pages/customer/Addresses.jsx';
 
 function CustomerRoutes() {
-  const location = useLocation(); // वर्तमान URL (location) को get किया
+  const location = useLocation(); 
   
-  // चेक करें कि क्या पाथ /account से शुरू होता है (जैसे /account/profile, /account/orders, आदि)
+  
   const hideFooter = location.pathname.startsWith('/account');
 
-  return (
-    <div className="flex flex-col  min-h-screen">
-      <Navbar />
+return (
+ <div className="flex flex-col  min-h-screen">
+<Navbar />
 
-      {/* Main content will take all available space */}
-      <main className="flex-1 min-h-0">
-        <Routes>
-          {/* Public pages */}
-          <Route path="/" element={<Home />} />
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/dish/:dishName" element={<DishPage />} />
-          <Route path="/city/:cityName" element={<Citywise />} />
+ {/* Main content will take all available space */}
+<main className="flex-1 min-h-0">
+ <Routes>
+{/* Public pages */}
+ <Route path="/" element={<Home />} />
+<Route path="/signin" element={<SignIn />} />
+ <Route path="/dish/:dishName" element={<DishPage />} />
+<Route path="/city/:cityName" element={<Citywise />} />
 
-          {/* Account section */}
-          <Route path="/account" element={<CustomerLayout />}>
-            
-            <Route path="profile" element={<Profile />} />
-            <Route path="orders" element={<Orders />} />
-            <Route path="payments" element={<Payments />} />
-            <Route path="addresses" element={<Addresses />} />
-            <Route path="favourites" element={<Favourites />} />
-            <Route path="reviews" element={<Reviews />} />
-          </Route>
-        </Routes>
-      </main>
-      
-      {/* अगर hideFooter false है (यानी /account रूट नहीं है) तो Footer को render करें */}
-      {!hideFooter && <Footer />}
-      
-    </div>
+ {/* Account section */}
+<Route path="/account" element={<CustomerLayout />}>
+ 
+ <Route path="profile" element={<Profile />} />
+ <Route path="orders" element={<Orders />} />
+ <Route path="addresses" element={<Addresses />} />
+ <Route path="favourites" element={<Favourites />} />
+ <Route path="reviews" element={<Reviews />} />
+ <Route path="payments" element={<Payments />} />
+ </Route>
+ </Routes>
+ </main>
+ 
+
+ {!hideFooter && <Footer />} 
+</div>
 )
 }
 

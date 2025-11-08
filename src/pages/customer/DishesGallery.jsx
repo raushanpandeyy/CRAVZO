@@ -4,8 +4,8 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/autoplay';
-import foodItems from './FoodData';
-import foodItems1 from './FoodData1';
+import foodItems from '../../assets/data/FoodData.js';
+import foodItems1 from '../../assets/data/FoodData1.js';
 
 
 

@@ -4,10 +4,10 @@ import React from 'react';
 const Footer = () => {
 
 
-    return (
-        <footer className="px-6 pt-8 md:px-16 lg:px-36  w-full text-indigo-700">
-            <div className="flex flex-col md:flex-row justify-between w-full gap-10 border-b border-gray-500 pb-10">
-                <div className="md:max-w-96">
+    return (
+ <footer className="px-6 pt-8 md:px-16 lg:px-36  w-full text-indigo-700">
+ <div className="flex flex-col md:flex-row justify-between w-full gap-10 border-b border-gray-500 pb-10">
+<div className="md:max-w-96">
                     <img  onClick ={()=>
                         navigate('/')
                     } alt="" className="h-60 w-full bg-transparent" src="cravzologo.png" />
@@ -32,17 +32,17 @@ const Footer = () => {
                     </div>
                     <div>
                         <h2 className="font-semibold mb-5">Get in touch</h2>
-                        <div className="text-sm space-y-2">
-                            <p>+91 xxxxxxx</p>
-                            <p>xyaz@gmai.com</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <p className="pt-4 text-center text-sm pb-5">
-                Copyright {new Date().getFullYear()} © <a href="http://cravzo.shop">CRAVZO</a>. All Right Reserved.
-            </p>
-        </footer>
-    )
+ <div className="text-sm space-y-2">
+<p>+91 xxxxxxx</p>
+ <p>xyaz@gmai.com</p>
+ </div>
+ </div>
+ </div>
+</div>
+ <p className="pt-4 text-center text-sm pb-5">
+ Copyright {new Date().getFullYear()} © <a href="http://cravzo.shop">CRAVZO</a>. All Right Reserved.
+ </p>
+ </footer>
+ )
 }
 export default Footer;

@@ -1,5 +1,5 @@
 import React from 'react'
-import cities from "../../pages/customer/CityNames.js"
+import cities from "../../assets/data/CityNames.js";
 
 const Citywise = () => {
   return (

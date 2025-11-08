@@ -1,4 +1,6 @@
 import React from 'react';
+import { useState } from 'react';
+import SearchBar from '../../components/common/Searchbar.jsx';
 import veggieImage from '../../assets/images/foodimage/veggieImage.png';
 import resturant from '../../assets/images/resturant/resturant.png';
 import biryaniplate from '../../assets/images/foodimage/biryaniplate.png';
@@ -7,8 +9,8 @@ import gulabjamun from '../../assets/images/foodimage/gulabjamun.png';
 import cake from '../../assets/images/foodimage/cake.png';
 
 const rotatingImageStyles = "animate-spin-slow w-50 md:w-60 drop-shadow-xl hover:scale-110 transition-transform duration-300";
-
 const HeroSection = () => {
+  const [searchText, setSearchText] = useState("");
   return (
     <div className="bg-indigo-900 min-h-screen flex flex-col items-center justify-center px-6 py-10 pt-24 relative overflow-hidden">
       {/* Blurred Background Circles */}
@@ -28,14 +30,11 @@ const HeroSection = () => {
 
       {/* Search */}
       <div className="flex flex-col sm:flex-row items-center z-10 mb-10 w-full max-w-lg mx-auto">
-  <input
-    type="text"
-    placeholder="Search your favourite dishes and restaurants..."
-    className="w-full sm:flex-1 pl-4 pr-4 py-3 rounded-t-full sm:rounded-l-full sm:rounded-tr-none text-indigo-900 placeholder-indigo-900 bg-white focus:outline-none"
-  />
-  <button className="w-full sm:w-auto text-white bg-black py-3 px-4 rounded-b-full sm:rounded-r-full sm:rounded-bl-none">
-    Search
-  </button>
+  <SearchBar 
+        value={searchText} 
+        onChange={(e) => setSearchText(e.target.value)} 
+      />
+  
 </div>
 
 
