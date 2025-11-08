@@ -1,12 +1,12 @@
 
 
-import biryani from '../../assets/images/foodimage/biryaniplate.png';
+import biryaniplate from '../../assets/images/foodimage/biryaniplate.png';
 import burger from '../../assets/images/foodimage/burger.png';
 import cake from '../../assets/images/foodimage/cake.png';
 import chholebhature from '../../assets/images/foodimage/chholebhature.png';
 import chinese from '../../assets/images/foodimage/chinise.png';
 import dosa from '../../assets/images/foodimage/dosa.png';
-import thali from '../../assets/images/foodimage/indianthali.png';
+import indianthali from '../../assets/images/foodimage/indianthali.png';
 import kebab from '../../assets/images/foodimage/kebab.png';
 import momos from '../../assets/images/foodimage/momos.png';
 import pasta from '../../assets/images/foodimage/pasta.png';
