@@ -1,5 +1,9 @@
+// Base URL (from Vercel env)
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
+// 🔥 API prefix (backend uses /api)
+const BASE = "/api";
 
 // 🔥 Helper: query params
 const withQuery = (path, params = {}) => {
@@ -17,45 +21,45 @@ const withQuery = (path, params = {}) => {
 
 export const API_ENDPOINTS = {
   auth: {
-    login: "/auth/login",
-    signup: "/auth/signup",
-    sendOtp: "/auth/send-otp",
-    verifyOtp: "/auth/verify-otp",
-    me: "/auth/me",
-    logout: "/auth/logout",
+    login: `${BASE}/auth/login`,
+    signup: `${BASE}/auth/signup`,
+    sendOtp: `${BASE}/auth/send-otp`,
+    verifyOtp: `${BASE}/auth/verify-otp`,
+    me: `${BASE}/auth/me`,
+    logout: `${BASE}/auth/logout`,
   },
 
   user: {
-    profile: "/users/profile",
-    uploadImage: "/users/uploads/image",
-    addresses: "/users/addresses",
-    addressById: (id) => `/users/addresses/${id}`,
+    profile: `${BASE}/users/profile`,
+    uploadImage: `${BASE}/users/uploads/image`,
+    addresses: `${BASE}/users/addresses`,
+    addressById: (id) => `${BASE}/users/addresses/${id}`,
   },
 
   favorites: {
-    list: "/favorites",
-    create: "/favorites",
-    remove: (id) => `/favorites/${id}`,
+    list: `${BASE}/favorites`,
+    create: `${BASE}/favorites`,
+    remove: (id) => `${BASE}/favorites/${id}`,
   },
 
   reviews: {
-    mine: "/reviews/my",
-    byRestaurant: (id) => `/reviews/restaurant/${id}`,
-    save: "/reviews",
-    remove: (id) => `/reviews/${id}`,
+    mine: `${BASE}/reviews/my`,
+    byRestaurant: (id) => `${BASE}/reviews/restaurant/${id}`,
+    save: `${BASE}/reviews`,
+    remove: (id) => `${BASE}/reviews/${id}`,
   },
 
   admin: {
-    overview: (params) => withQuery("/admin/overview", params),
+    overview: (params) => withQuery(`${BASE}/admin/overview`, params),
     supportUserSearch: (query) =>
-      `/admin/support/user-search?query=${encodeURIComponent(query)}`,
-    users: (params) => withQuery("/admin/users", params),
-    restaurants: (params) => withQuery("/admin/restaurants", params),
-    userStatus: (id) => `/admin/users/${id}/status`,
-    restaurantStatus: (id) => `/admin/restaurants/${id}/status`,
-    pendingVendors: "/admin/vendors/pending",
-    approveVendor: (id) => `/admin/vendors/${id}/approve`,
-    pendingRiders: "/admin/riders/pending",
-    approveRider: (id) => `/admin/riders/${id}/approve`,
+      `${BASE}/admin/support/user-search?query=${encodeURIComponent(query)}`,
+    users: (params) => withQuery(`${BASE}/admin/users`, params),
+    restaurants: (params) => withQuery(`${BASE}/admin/restaurants`, params),
+    userStatus: (id) => `${BASE}/admin/users/${id}/status`,
+    restaurantStatus: (id) => `${BASE}/admin/restaurants/${id}/status`,
+    pendingVendors: `${BASE}/admin/vendors/pending`,
+    approveVendor: (id) => `${BASE}/admin/vendors/${id}/approve`,
+    pendingRiders: `${BASE}/admin/riders/pending`,
+    approveRider: (id) => `${BASE}/admin/riders/${id}/approve`,
   },
 };
