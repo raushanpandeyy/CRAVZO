@@ -1,0 +1,13 @@
+const sanitizeUser = (user) => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  phone: user.phone,
+  role: user.role,
+  status: user.status,
+  avatarUrl: user.avatarUrl,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
+});
+
+export { sanitizeUser };
