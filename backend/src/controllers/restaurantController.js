@@ -2,7 +2,7 @@ import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { getLatLngFromAddress } from "../utils/geocode.js";
-import { getNearbyRestaurantsService } from "../../../src/services/locationService.js";
+import { getNearbyRestaurantsService } from "../services/locationService.js";
 
 
 // ================= SERIALIZER =================

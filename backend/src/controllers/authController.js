@@ -3,7 +3,7 @@ import crypto from "crypto";
 
 import { prisma } from "../config/database.js";
 import { ROLES } from "../constants/roles.js";
-import { generateOTP } from "../../../src/services/otpService.js";
+import { generateOTP } from "../services/otpService.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { signToken } from "../utils/jwt.js";
