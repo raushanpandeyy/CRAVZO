@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String       @id @default(cuid())
+  name                  String
+  email                 String       @unique
+  phone                 String?      @unique
+  passwordHash          String
+  role                  UserRole
+  isOnline              Boolean      @default(false)
+  latitude              Float?
+  longitude             Float?
+  status                UserStatus   @default(PENDING)
+  avatarUrl             String?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+  vendorOnboarding      Json?
+  riderOnboarding       Json?
+  bankDetails           Json?
+  vehicleDetails        Json?
+  paymentMethods        Json?
+  onboardingSubmittedAt DateTime?
+  addresses             Address[]
+  favorites             Favorite[]
+  customerOrders        Order[]      @relation("CustomerOrders")
+  riderOrders           Order[]      @relation("AssignedRiderOrders")
+  restaurants           Restaurant[] @relation("VendorRestaurants")
+  reviews               Review[]
+}
+
+model Address {
+  id         String   @id @default(cuid())
+  userId     String
+  label      String?
+  fullName   String
+  phone      String
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  postalCode String
+  latitude   Float?
+  longitude  Float?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders     Order[]
+}
+
+model Restaurant {
+  id           String           @id @default(cuid())
+  vendorId     String
+  name         String
+  slug         String           @unique
+  description  String?
+  cuisine      String?
+  phone        String?
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  postalCode   String?
+  latitude     Float?
+  longitude    Float?
+  imageUrl     String?
+  status       RestaurantStatus @default(DRAFT)
+  isOpen       Boolean          @default(false)
+  openingTime  String?
+  closingTime  String?
+  openDays     Json?
+  bankDetails  Json?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  favorites    Favorite[]
+  menuItems    MenuItem[]
+  orders       Order[]
+  vendor       User             @relation("VendorRestaurants", fields: [vendorId], references: [id], onDelete: Cascade)
+  reviews      Review[]
+}
+
+model MenuItem {
+  id           String         @id @default(cuid())
+  restaurantId String
+  name         String
+  description  String?
+  category     String
+  imageUrl     String?
+  price        Decimal        @db.Decimal(10, 2)
+  isVeg        Boolean        @default(false)
+  status       MenuItemStatus @default(ACTIVE)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orderItems   OrderItem[]
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  customerId    String
+  restaurantId  String
+  addressId     String?
+  riderId       String?
+  rejectedRiderIds String[]   @default([])
+  gatewayProvider String?
+  gatewayOrderId  String?
+  gatewayPaymentId String?
+  gatewaySignature String?
+  status        OrderStatus   @default(PENDING)
+  paymentMethod PaymentMethod @default(COD)
+  paymentStatus PaymentStatus @default(PENDING)
+  subtotal      Decimal       @db.Decimal(10, 2)
+  deliveryFee   Decimal       @db.Decimal(10, 2)
+  packagingFee  Decimal       @db.Decimal(10, 2)
+  taxAmount     Decimal       @db.Decimal(10, 2)
+  totalAmount   Decimal       @db.Decimal(10, 2)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  address       Address?      @relation(fields: [addressId], references: [id])
+  customer      User          @relation("CustomerOrders", fields: [customerId], references: [id])
+  restaurant    Restaurant    @relation(fields: [restaurantId], references: [id])
+  rider         User?         @relation("AssignedRiderOrders", fields: [riderId], references: [id])
+  items         OrderItem[]
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  menuItemId String
+  quantity   Int
+  unitPrice  Decimal  @db.Decimal(10, 2)
+  totalPrice Decimal  @db.Decimal(10, 2)
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id           String     @id @default(cuid())
+  userId       String
+  restaurantId String
+  rating       Int
+  comment      String?
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Favorite {
+  id           String     @id @default(cuid())
+  userId       String
+  restaurantId String
+  createdAt    DateTime   @default(now())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restaurantId])
+}
+
+model OtpVerification {
+  id           String     @id
+  email        String
+  purpose      OtpPurpose
+  codeHash     String
+  pendingSignupData Json?
+  expiresAt    DateTime
+  verifiedAt   DateTime?
+  usedAt       DateTime?
+  sentCount    Int        @default(1)
+  attemptCount Int        @default(0)
+  lastSentAt   DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime
+
+  @@index([email, purpose, createdAt])
+}
+
+enum UserRole {
+  CUSTOMER
+  VENDOR
+  RIDER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING
+  BLOCKED
+}
+
+enum RestaurantStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  INACTIVE
+  REJECTED
+}
+
+enum MenuItemStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PREPARING
+  READY_FOR_PICKUP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  REJECTED
+}
+
+enum PaymentMethod {
+  COD
+  CARD
+  UPI
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum OtpPurpose {
+  CUSTOMER_SIGNUP
+  VENDOR_ONBOARDING
+  RIDER_ONBOARDING
+  PASSWORD_RESET
+}

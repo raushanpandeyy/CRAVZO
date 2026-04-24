@@ -1,0 +1,8 @@
+ALTER TABLE "User"
+ADD COLUMN "latitude" DOUBLE PRECISION,
+ADD COLUMN "longitude" DOUBLE PRECISION;
+
+ALTER TABLE "Restaurant"
+ADD COLUMN "openingTime" TEXT,
+ADD COLUMN "closingTime" TEXT,
+ADD COLUMN "openDays" JSONB;

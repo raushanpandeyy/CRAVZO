@@ -1,0 +1,2 @@
+ALTER TABLE "Order"
+ADD COLUMN "rejectedRiderIds" TEXT[] DEFAULT ARRAY[]::TEXT[] NOT NULL;
