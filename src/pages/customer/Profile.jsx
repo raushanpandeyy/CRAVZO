@@ -1,13 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Camera, Mail, Phone, Save, User } from "lucide-react";
 
-<<<<<<< HEAD
 import { getStoredUser } from "../../services/authService.js";
 import { getProfile, updateProfile, uploadImage } from "../../services/userService.js";
-=======
-import { getStoredUser } from "../../services/authService";
-import { getProfile, updateProfile, uploadImage } from "../../services/userService";
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const fallbackAvatar =
   "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80";

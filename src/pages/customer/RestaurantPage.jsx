@@ -3,15 +3,9 @@ import { Heart, Star } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "../../hooks/useAuth";
-<<<<<<< HEAD
 import { addFavorite, getFavorites, removeFavorite } from "../../services/favoriteService.js";
 import { getRestaurantById } from "../../services/foodService.js";
 import { getRestaurantReviews, saveReview } from "../../services/reviewService.js";
-=======
-import { addFavorite, getFavorites, removeFavorite } from "../../services/favoriteService";
-import { getRestaurantById } from "../../services/foodService";
-import { getRestaurantReviews, saveReview } from "../../services/reviewService";
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(0)}`;
 

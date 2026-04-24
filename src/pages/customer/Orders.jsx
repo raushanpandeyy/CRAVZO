@@ -4,17 +4,12 @@ import { Link } from "react-router-dom";
 
 import cart from "../../assets/logos/cart.png";
 import SearchBar from "../../components/common/Searchbar.jsx";
-<<<<<<< HEAD
 import { cancelOrder, getMyOrders } from "../../services/orderService.js";
-=======
-import { getMyOrders } from "../../services/orderService";
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 export default function Orders() {
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-<<<<<<< HEAD
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -51,24 +46,6 @@ export default function Orders() {
     }
   };
 
-=======
-
-  useEffect(() => {
-    const loadOrders = async () => {
-      try {
-        const data = await getMyOrders();
-        setOrders(data);
-      } catch (error) {
-        console.error("Failed to load orders", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadOrders();
-  }, []);
-
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const filteredOrders = useMemo(
     () =>
       orders.filter((order) => {
@@ -92,11 +69,8 @@ export default function Orders() {
       </div>
 
       <div className="w-full max-w-7xl flex flex-col gap-4">
-<<<<<<< HEAD
         {message ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
         {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-white rounded-3xl shadow-md border border-indigo-100">
           <div>
             <h1 className="text-3xl font-bold text-indigo-900">My Orders</h1>
@@ -147,7 +121,6 @@ export default function Orders() {
 
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-yellow-600 font-semibold">{order.paymentMethod}</div>
-<<<<<<< HEAD
                       <div className="flex items-center gap-3">
                         {cancellableStatuses.includes(order.status) ? (
                           <button
@@ -161,11 +134,6 @@ export default function Orders() {
                           Open Restaurant <ArrowRight className="w-4 h-4" />
                         </span>
                       </div>
-=======
-                      <span className="inline-flex items-center gap-2 text-indigo-700 font-semibold hover:text-indigo-900">
-                        Open Restaurant <ArrowRight className="w-4 h-4" />
-                      </span>
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
                     </div>
                   </div>
                 </Link>

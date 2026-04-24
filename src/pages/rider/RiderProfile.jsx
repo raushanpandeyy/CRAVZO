@@ -1,17 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-<<<<<<< HEAD
 import { Bike, Camera, Mail, Phone, Save, User } from "lucide-react";
 
 import RiderNavbar from "./RiderNav";
 import { getStoredUser } from "../../services/authService.js";
 import { getProfile, updateProfile, uploadImage } from "../../services/userService.js";
-=======
-import { Camera, IndianRupeeIcon, Mail, Phone, Save, User } from "lucide-react";
-
-import RiderNavbar from "./RiderNav";
-import { getStoredUser } from "../../services/authService";
-import { getProfile, updateProfile, uploadImage } from "../../services/userService";
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const fallbackAvatar =
   "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80";
@@ -21,7 +13,6 @@ const buildInitialForm = (user) => ({
   email: user?.email || "",
   phone: user?.phone || "",
   avatarUrl: user?.avatarUrl || "",
-<<<<<<< HEAD
   bankDetails: {
     accountHolderName: user?.bankDetails?.accountHolderName || "",
     bankName: user?.bankDetails?.bankName || "",
@@ -32,8 +23,6 @@ const buildInitialForm = (user) => ({
     type: user?.vehicleDetails?.type || "BICYCLE",
     registrationNumber: user?.vehicleDetails?.registrationNumber || "",
   },
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 });
 
 const RiderProfile = () => {
@@ -44,15 +33,6 @@ const RiderProfile = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-<<<<<<< HEAD
-=======
-  const [bank, setBank] = useState({
-    bankName: "",
-    accountNumber: "",
-    ifsc: "",
-  });
-  const [urgentRequest, setUrgentRequest] = useState("");
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
   const previewAvatar = useMemo(() => form.avatarUrl || fallbackAvatar, [form.avatarUrl]);
 
@@ -82,7 +62,6 @@ const RiderProfile = () => {
     }));
   };
 
-<<<<<<< HEAD
   const handleNestedChange = (section, field, value) => {
     setForm((prev) => ({
       ...prev,
@@ -93,8 +72,6 @@ const RiderProfile = () => {
     }));
   };
 
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const handleAvatarChange = async (event) => {
     const file = event.target.files?.[0];
 
@@ -129,7 +106,6 @@ const RiderProfile = () => {
         email: form.email,
         phone: form.phone || null,
         avatarUrl: form.avatarUrl || null,
-<<<<<<< HEAD
         bankDetails: form.bankDetails.accountHolderName || form.bankDetails.bankName || form.bankDetails.accountNumber || form.bankDetails.ifsc
           ? form.bankDetails
           : null,
@@ -137,8 +113,6 @@ const RiderProfile = () => {
           type: form.vehicleDetails.type,
           registrationNumber: form.vehicleDetails.type === "BIKE" ? form.vehicleDetails.registrationNumber || null : null,
         },
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       });
 
       setProfile(updatedUser);
@@ -151,34 +125,8 @@ const RiderProfile = () => {
     }
   };
 
-<<<<<<< HEAD
   return (
     <div className="min-h-screen bg-gray-50 pb-10 pt-24">
-=======
-  const handleAddBank = () => {
-    if (!bank.bankName || !bank.accountNumber || !bank.ifsc) {
-      setError("Please fill all bank account fields before saving.");
-      return;
-    }
-
-    setMessage("Bank details saved locally for now.");
-    setError("");
-  };
-
-  const handleRaiseIssue = () => {
-    if (!urgentRequest.trim()) {
-      setError("Please enter your request details.");
-      return;
-    }
-
-    setUrgentRequest("");
-    setMessage("Your request has been noted.");
-    setError("");
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50 pt-24 pb-10">
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       <div className="mx-auto max-w-7xl px-6">
         <div className="rounded-3xl border border-indigo-300 bg-indigo-700 p-8 text-white shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -246,42 +194,23 @@ const RiderProfile = () => {
                 <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
                   <p><strong>Role:</strong> {profile?.role || "RIDER"}</p>
                   <p className="mt-1"><strong>Status:</strong> {profile?.status || "PENDING"}</p>
-<<<<<<< HEAD
                   <p className="mt-1"><strong>Availability:</strong> {profile?.isOnline ? "Online" : "Offline"}</p>
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
                 </div>
               </div>
             )}
           </div>
 
           <div className="rounded-3xl bg-white p-6 shadow-lg">
-<<<<<<< HEAD
             <h2 className="mb-4 text-xl font-bold text-indigo-900">Bank Details</h2>
             <div className="space-y-3">
               <input value={form.bankDetails.accountHolderName} onChange={(event) => handleNestedChange("bankDetails", "accountHolderName", event.target.value)} className="w-full rounded-xl border p-3" placeholder="Account Holder Name" />
               <input value={form.bankDetails.bankName} onChange={(event) => handleNestedChange("bankDetails", "bankName", event.target.value)} className="w-full rounded-xl border p-3" placeholder="Bank Name" />
               <input value={form.bankDetails.accountNumber} onChange={(event) => handleNestedChange("bankDetails", "accountNumber", event.target.value)} className="w-full rounded-xl border p-3" placeholder="Account Number" />
               <input value={form.bankDetails.ifsc} onChange={(event) => handleNestedChange("bankDetails", "ifsc", event.target.value.toUpperCase())} className="w-full rounded-xl border p-3" placeholder="IFSC Code" />
-=======
-            <h2 className="mb-4 text-xl font-bold text-indigo-900"><IndianRupeeIcon className="inline h-5 w-5" /> Earnings</h2>
-            <p className="text-4xl font-black text-indigo-700">Rs 18,450</p>
-            <p className="text-sm text-gray-500">This week</p>
-          </div>
-
-          <div className="rounded-3xl bg-white p-6 shadow-lg">
-            <h2 className="mb-4 text-xl font-bold text-indigo-900">Bank</h2>
-            <div className="space-y-2">
-              <input value={bank.bankName} onChange={(event) => setBank((prev) => ({ ...prev, bankName: event.target.value }))} className="w-full rounded-xl border p-2" placeholder="Bank" />
-              <input value={bank.accountNumber} onChange={(event) => setBank((prev) => ({ ...prev, accountNumber: event.target.value }))} className="w-full rounded-xl border p-2" placeholder="Account" />
-              <input value={bank.ifsc} onChange={(event) => setBank((prev) => ({ ...prev, ifsc: event.target.value }))} className="w-full rounded-xl border p-2" placeholder="IFSC" />
-              <button onClick={handleAddBank} className="w-full rounded-xl bg-indigo-700 py-2 text-white">Save</button>
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
             </div>
           </div>
 
           <div className="rounded-3xl bg-white p-6 shadow-lg lg:col-span-2">
-<<<<<<< HEAD
             <h2 className="mb-4 text-xl font-bold text-indigo-900">Vehicle Details</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
@@ -305,11 +234,6 @@ const RiderProfile = () => {
                 </div>
               )}
             </div>
-=======
-            <h2 className="mb-4 text-xl font-bold text-indigo-900">Raise Issue</h2>
-            <textarea value={urgentRequest} onChange={(event) => setUrgentRequest(event.target.value)} className="h-28 w-full rounded-xl border p-3" />
-            <button onClick={handleRaiseIssue} className="mt-3 rounded-xl bg-orange-500 px-6 py-2 text-white">Submit</button>
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
           </div>
         </div>
       </div>

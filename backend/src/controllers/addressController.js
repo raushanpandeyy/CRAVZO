@@ -1,17 +1,12 @@
 import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
-<<<<<<< HEAD
 import { getLatLngFromAddress } from "../utils/geocode.js";
 import { createAddressSchema, updateAddressSchema } from "../validators/addressValidators.js";
 
 const buildFullAddress = ({ line1, line2, city, state, postalCode }) =>
   [line1, line2, city, state, postalCode, "India"].filter(Boolean).join(", ");
 
-=======
-import { createAddressSchema, updateAddressSchema } from "../validators/addressValidators.js";
-
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 const serializeAddress = (address) => ({
   id: address.id,
   label: address.label,
@@ -22,11 +17,8 @@ const serializeAddress = (address) => ({
   city: address.city,
   state: address.state,
   postalCode: address.postalCode,
-<<<<<<< HEAD
   latitude: address.latitude,
   longitude: address.longitude,
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   isDefault: address.isDefault,
   createdAt: address.createdAt,
   updatedAt: address.updatedAt,
@@ -48,7 +40,6 @@ const listAddresses = async (req, res) => {
 
 const createAddress = async (req, res) => {
   const payload = createAddressSchema.parse(req.body);
-<<<<<<< HEAD
   const fullAddress = buildFullAddress({
     line1: payload.line1.trim(),
     line2: payload.line2?.trim(),
@@ -57,8 +48,6 @@ const createAddress = async (req, res) => {
     postalCode: payload.postalCode.trim(),
   });
   const { lat, lng } = await getLatLngFromAddress(fullAddress);
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
   const address = await prisma.$transaction(async (tx) => {
     const existingCount = await tx.address.count({
@@ -85,11 +74,8 @@ const createAddress = async (req, res) => {
         city: payload.city.trim(),
         state: payload.state.trim(),
         postalCode: payload.postalCode.trim(),
-<<<<<<< HEAD
         latitude: lat,
         longitude: lng,
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
         isDefault: shouldBeDefault,
       },
     });
@@ -117,7 +103,6 @@ const updateAddress = async (req, res) => {
     throw new ApiError(404, "Address not found");
   }
 
-<<<<<<< HEAD
   const nextAddressFields = {
     line1: payload.line1?.trim() ?? existingAddress.line1,
     line2: payload.line2 !== undefined ? payload.line2?.trim() || null : existingAddress.line2,
@@ -137,8 +122,6 @@ const updateAddress = async (req, res) => {
     ? await getLatLngFromAddress(buildFullAddress(nextAddressFields))
     : { lat: existingAddress.latitude, lng: existingAddress.longitude };
 
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const address = await prisma.$transaction(async (tx) => {
     const shouldBeDefault = payload.isDefault === true;
 
@@ -163,10 +146,7 @@ const updateAddress = async (req, res) => {
         ...(payload.city !== undefined ? { city: payload.city.trim() } : {}),
         ...(payload.state !== undefined ? { state: payload.state.trim() } : {}),
         ...(payload.postalCode !== undefined ? { postalCode: payload.postalCode.trim() } : {}),
-<<<<<<< HEAD
         ...(addressChanged ? { latitude: coords.lat, longitude: coords.lng } : {}),
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
         ...(payload.isDefault !== undefined ? { isDefault: payload.isDefault } : {}),
       },
     });

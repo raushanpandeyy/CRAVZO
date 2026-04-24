@@ -13,19 +13,13 @@
     "@reduxjs/toolkit": "^2.8.2",
     "@tailwindcss/vite": "^4.1.11",
     "framer-motion": "^12.23.12",
-<<<<<<< HEAD
     "leaflet": "^1.9.4",
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     "lucide-react": "^0.526.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-easy-crop": "^5.5.0",
     "react-icons": "^5.5.0",
-<<<<<<< HEAD
     "react-leaflet": "^5.0.0",
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.8.0",
     "recharts": "^3.8.1",

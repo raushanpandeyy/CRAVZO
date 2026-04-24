@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiMapPin, FiMenu, FiX, FiChevronDown } from "react-icons/fi";
-<<<<<<< HEAD
 import { ShoppingCart, User as UserIcon } from "lucide-react";
-=======
-import { User as UserIcon } from "lucide-react";
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 import cravzologo from "../../assets/logos/cravzologo.png";
 import { useAuth } from "../../hooks/useAuth";
@@ -15,15 +11,11 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [address, setAddress] = useState("");
-<<<<<<< HEAD
   const [cartCount, setCartCount] = useState(0);
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
-<<<<<<< HEAD
   const syncCartCount = () => {
     try {
       const cart = JSON.parse(localStorage.getItem("cravzoCart") || "[]");
@@ -50,8 +42,6 @@ const Navbar = () => {
     };
   }, []);
 
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   useEffect(() => {
     const syncAddress = async () => {
       if (!user?.isLoggedIn || user.accountType !== "customer") {
@@ -127,7 +117,6 @@ const Navbar = () => {
     navigate("/");
   };
 
-<<<<<<< HEAD
   const handleCartClick = () => {
     navigate("/checkout");
     setMobileMenuOpen(false);
@@ -152,8 +141,6 @@ const Navbar = () => {
     </button>
   );
 
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-indigo-900 text-white shadow-md font-sans">
       <div className="max-w-[1200px] mx-auto px-4 py-3 flex flex-col md:flex-row md:justify-between items-center gap-3">
@@ -176,11 +163,8 @@ const Navbar = () => {
         </button>
 
         <div className="hidden md:flex items-center gap-4">
-<<<<<<< HEAD
           {user?.accountType === "customer" || !user ? <CartButton /> : null}
 
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
           {!user && (
             <div className="relative">
               <button
@@ -241,13 +225,10 @@ const Navbar = () => {
           )}
         </div>
 
-<<<<<<< HEAD
         <div className="absolute right-14 top-4 md:hidden">
           {user?.accountType === "customer" || !user ? <CartButton compact /> : null}
         </div>
 
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
         <div className="absolute right-4 top-4 md:hidden">
           <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
             {mobileMenuOpen ? <FiX size={28} /> : <FiMenu size={28} />}
@@ -271,7 +252,6 @@ const Navbar = () => {
 
           {user ? (
             <>
-<<<<<<< HEAD
               {user.accountType === "customer" ? (
                 <button onClick={handleCartClick} className="flex items-center justify-center gap-2 rounded-xl bg-white p-3 font-bold text-indigo-900">
                   <ShoppingCart className="h-5 w-5" />
@@ -279,8 +259,6 @@ const Navbar = () => {
                 </button>
               ) : null}
 
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
               <div onClick={navigateToUserHome} className="flex items-center gap-3 cursor-pointer">
                 <UserIcon />
                 <span className="font-bold">
@@ -293,7 +271,6 @@ const Navbar = () => {
               </button>
             </>
           ) : (
-<<<<<<< HEAD
             <>
               <button onClick={handleCartClick} className="flex items-center justify-center gap-2 rounded-xl bg-white p-3 font-bold text-indigo-900">
                 <ShoppingCart className="h-5 w-5" />
@@ -303,11 +280,6 @@ const Navbar = () => {
                 Sign In
               </button>
             </>
-=======
-            <button onClick={() => navigate("/signin")} className="bg-black p-3 rounded-xl">
-              Sign In
-            </button>
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
           )}
         </div>
       )}

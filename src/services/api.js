@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import { API_BASE_URL, API_ENDPOINTS } from "../constants/apiEndpoints.js";
-=======
-import { API_BASE_URL, API_ENDPOINTS } from "../constants/apiEndpoints";
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const getStoredToken = () => localStorage.getItem("cravzoAuthToken");
 

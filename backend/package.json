@@ -17,16 +17,10 @@
   },
   "dependencies": {
     "@prisma/client": "^6.6.0",
-<<<<<<< HEAD
     "axios": "^1.15.2",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
-=======
-    "bcryptjs": "^2.4.3",
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.1.0",

@@ -1,11 +1,7 @@
 import React, { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
-<<<<<<< HEAD
 import VendorSidebar from './VendorSidebar.jsx'
-=======
-import VendorSidebar from './VendorSidebar'
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 const VendorAccount = () => {
   const [sidebar, setSidebar] = useState(false);
 

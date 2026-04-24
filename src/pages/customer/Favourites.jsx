@@ -2,11 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 
-<<<<<<< HEAD
 import { getFavorites, removeFavorite } from "../../services/favoriteService.js";
-=======
-import { getFavorites, removeFavorite } from "../../services/favoriteService";
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 export default function Favorites() {
   const [favorites, setFavorites] = useState([]);

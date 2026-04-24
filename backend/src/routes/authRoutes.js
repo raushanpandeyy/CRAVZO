@@ -4,11 +4,8 @@ import {
   login,
   logout,
   me,
-<<<<<<< HEAD
   requestPasswordReset,
   resetPassword,
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   sendOtpController,
   signUp,
   verifyOtpController,
@@ -24,10 +21,7 @@ authRouter.get("/me", authenticate, asyncHandler(me));
 authRouter.post("/logout", authenticate, asyncHandler(logout));
 authRouter.post("/send-otp", asyncHandler(sendOtpController));
 authRouter.post("/verify-otp", asyncHandler(verifyOtpController));
-<<<<<<< HEAD
 authRouter.post("/forgot-password", asyncHandler(requestPasswordReset));
 authRouter.post("/reset-password", asyncHandler(resetPassword));
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 export { authRouter };

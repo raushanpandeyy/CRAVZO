@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-<<<<<<< HEAD
 import { listRestaurants } from "../../services/foodService.js";
-=======
-import { listRestaurants } from "../../services/foodService";
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const DishPage = () => {
   const { dishName } = useParams();

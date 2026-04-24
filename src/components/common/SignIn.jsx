@@ -1,13 +1,7 @@
-<<<<<<< HEAD
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import ForgotPasswordForm from "./ForgotPasswordForm.jsx";
-=======
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 import OtpInput from "./OtpInput.jsx";
 import { clearSession, login, sendOtp, signup, verifyOtp } from "../../services/authService.js";
 
@@ -24,18 +18,11 @@ const LoginPage = () => {
   const [showOtp, setShowOtp] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-<<<<<<< HEAD
   const [isForgotPassword, setIsForgotPassword] = useState(false);
 
   const navigate = useNavigate();
 
   const redirectForAccountType = useCallback((accountType) => {
-=======
-
-  const navigate = useNavigate();
-
-  const redirectForAccountType = (accountType) => {
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     if (accountType === "admin") {
       navigate("/admin");
       return;
@@ -52,11 +39,7 @@ const LoginPage = () => {
     }
 
     navigate("/");
-<<<<<<< HEAD
   }, [navigate]);
-=======
-  };
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("cravzoCurrentUser"));
@@ -65,11 +48,7 @@ const LoginPage = () => {
       setIsLoggedIn(true);
       redirectForAccountType(user.accountType);
     }
-<<<<<<< HEAD
   }, [redirectForAccountType]);
-=======
-  }, []);
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
   const handleVerifyOtp = async () => {
     setMessage("");
@@ -147,7 +126,6 @@ const LoginPage = () => {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-100 via-white to-indigo-200 pt-20">
       <div className="w-96 space-y-4 rounded-2xl bg-white p-8 shadow-xl">
-<<<<<<< HEAD
         <h2 className="text-center text-2xl font-bold text-indigo-800">
           {isForgotPassword ? "Reset Password" : isSignup ? "Sign Up" : "Login"}
         </h2>
@@ -163,13 +141,6 @@ const LoginPage = () => {
             }}
           />
         ) : isLoggedIn ? (
-=======
-        <h2 className="text-center text-2xl font-bold text-indigo-800">{isSignup ? "Sign Up" : "Login"}</h2>
-
-        {message ? <p className="text-center text-indigo-700">{message}</p> : null}
-
-        {isLoggedIn ? (
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
           <button onClick={handleLogout} className="w-full rounded bg-red-500 py-2 text-white">
             Logout
           </button>
@@ -243,7 +214,6 @@ const LoginPage = () => {
             >
               {isSignup ? "Create Account" : "Login"}
             </button>
-<<<<<<< HEAD
 
             {!isSignup ? (
               <button
@@ -257,17 +227,12 @@ const LoginPage = () => {
                 Forgot password?
               </button>
             ) : null}
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
           </form>
         )}
 
         <p onClick={() => {
           setIsSignup((current) => !current);
-<<<<<<< HEAD
           setIsForgotPassword(false);
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
           setMessage("");
           setShowOtp(false);
           setOtp(emptyOtp);

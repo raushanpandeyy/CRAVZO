@@ -1,12 +1,6 @@
-<<<<<<< HEAD
 import { API_ENDPOINTS } from "../constants/apiEndpoints.js";
 import { persistSession } from "./authService.js";
 import { apiRequest } from "./api.js";
-=======
-import { API_ENDPOINTS } from "../constants/apiEndpoints";
-import { persistSession } from "./authService";
-import { apiRequest } from "./api";
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const MAX_UPLOAD_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 1600;

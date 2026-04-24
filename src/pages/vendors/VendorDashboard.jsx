@@ -1,13 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Clock, IndianRupee, ShoppingBag, Store } from "lucide-react";
 
-<<<<<<< HEAD
 import { getVendorOrders } from "../../services/orderService.js";
 import { getMyRestaurant, updateRestaurantAvailability } from "../../services/vendorService.js";
-=======
-import { getVendorOrders } from "../../services/orderService";
-import { getMyRestaurant } from "../../services/vendorService";
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const formatCurrency = (amount) => `Rs ${Number(amount || 0).toFixed(0)}`;
 
@@ -15,18 +10,12 @@ const VendorDashboard = () => {
   const [restaurant, setRestaurant] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-<<<<<<< HEAD
   const [message, setMessage] = useState("");
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const [error, setError] = useState("");
 
   const loadDashboard = async () => {
     setLoading(true);
-<<<<<<< HEAD
     setMessage("");
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     setError("");
 
     try {
@@ -44,7 +33,6 @@ const VendorDashboard = () => {
     loadDashboard();
   }, []);
 
-<<<<<<< HEAD
   const handleToggleRestaurant = async () => {
     if (!restaurant) {
       return;
@@ -65,8 +53,6 @@ const VendorDashboard = () => {
     }
   };
 
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const stats = useMemo(() => {
     const activeOrders = orders.filter((order) => ["PENDING", "ACCEPTED", "PREPARING"].includes(order.status));
     const completedOrders = orders.filter((order) => order.status === "DELIVERED");
@@ -104,12 +90,9 @@ const VendorDashboard = () => {
       {error ? (
         <div className="mb-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       ) : null}
-<<<<<<< HEAD
       {message ? (
         <div className="mb-6 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div>
       ) : null}
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
       {!restaurant && !loading ? (
         <div className="mb-8 rounded-3xl border border-amber-200 bg-amber-50 p-6 text-amber-900">
@@ -131,7 +114,6 @@ const VendorDashboard = () => {
             <div>
               <p className="text-sm font-medium text-gray-500">Restaurant Status</p>
               <p className="mt-2 text-2xl font-bold text-slate-900">{restaurant?.status || "Not set"}</p>
-<<<<<<< HEAD
               {restaurant ? (
                 <button
                   onClick={handleToggleRestaurant}
@@ -142,8 +124,6 @@ const VendorDashboard = () => {
                   Go {restaurant.isOpen ? "Offline" : "Online"}
                 </button>
               ) : null}
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
             </div>
             <div className="rounded-2xl bg-slate-100 p-3">
               <Store className="h-6 w-6 text-slate-700" />

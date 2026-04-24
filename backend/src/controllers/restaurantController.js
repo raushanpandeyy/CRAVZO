@@ -1,15 +1,11 @@
 import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
-<<<<<<< HEAD
 import { getLatLngFromAddress } from "../utils/geocode.js";
 import { getNearbyRestaurantsService } from "../../../src/services/locationService.js";
 
 
 // ================= SERIALIZER =================
-=======
-
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 const serializeRestaurant = (restaurant) => ({
   id: restaurant.id,
   vendorId: restaurant.vendorId,
@@ -27,15 +23,12 @@ const serializeRestaurant = (restaurant) => ({
   imageUrl: restaurant.imageUrl,
   status: restaurant.status,
   isOpen: restaurant.isOpen,
-<<<<<<< HEAD
   openingTime: restaurant.openingTime,
   closingTime: restaurant.closingTime,
   openDays: Array.isArray(restaurant.openDays) ? restaurant.openDays : [],
   bankDetails: restaurant.bankDetails,
   latitude: restaurant.latitude,
 longitude: restaurant.longitude,
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   createdAt: restaurant.createdAt,
   updatedAt: restaurant.updatedAt,
   menuPreview: restaurant.menuItems?.map((item) => ({
@@ -46,10 +39,7 @@ longitude: restaurant.longitude,
   })),
 });
 
-<<<<<<< HEAD
 // ================= LIST =================
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 const listRestaurants = async (req, res) => {
   const search = req.query.search?.trim();
   const city = req.query.city?.trim();
@@ -58,10 +48,7 @@ const listRestaurants = async (req, res) => {
   const restaurants = await prisma.restaurant.findMany({
     where: {
       status: "ACTIVE",
-<<<<<<< HEAD
       isOpen: true,
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       ...(city ? { city: { contains: city, mode: "insensitive" } } : {}),
       ...(search || dish
         ? {
@@ -94,27 +81,17 @@ const listRestaurants = async (req, res) => {
     apiResponse({
       message: "Restaurants fetched successfully",
       data: restaurants.map(serializeRestaurant),
-<<<<<<< HEAD
     })
   );
 };
 
 // ================= GET BY ID =================
-=======
-    }),
-  );
-};
-
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 const getRestaurantById = async (req, res) => {
   const restaurant = await prisma.restaurant.findFirst({
     where: {
       id: req.params.restaurantId,
       status: "ACTIVE",
-<<<<<<< HEAD
       isOpen: true,
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     },
     include: {
       menuItems: {
@@ -145,18 +122,11 @@ const getRestaurantById = async (req, res) => {
           status: item.status,
         })),
       },
-<<<<<<< HEAD
     })
   );
 };
 
 // ================= MY RESTAURANT =================
-=======
-    }),
-  );
-};
-
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 const getMyRestaurant = async (req, res) => {
   const restaurant = await prisma.restaurant.findFirst({
     where: {
@@ -191,7 +161,6 @@ const getMyRestaurant = async (req, res) => {
             })),
           }
         : null,
-<<<<<<< HEAD
     })
   );
 };
@@ -237,12 +206,6 @@ const getNearbyRestaurants = async (req, res) => {
 };
 
 // ================= SLUG =================
-=======
-    }),
-  );
-};
-
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 const slugify = (value) =>
   value
     .toLowerCase()
@@ -250,20 +213,11 @@ const slugify = (value) =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-<<<<<<< HEAD
 // ================= CREATE =================
 const createRestaurant = async (req, res) => {
   if (req.user.role === "VENDOR") {
     const existingRestaurant = await prisma.restaurant.findFirst({
       where: { vendorId: req.user.sub },
-=======
-const createRestaurant = async (req, res) => {
-  if (req.user.role === "VENDOR") {
-    const existingRestaurant = await prisma.restaurant.findFirst({
-      where: {
-        vendorId: req.user.sub,
-      },
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     });
 
     if (existingRestaurant) {
@@ -271,7 +225,6 @@ const createRestaurant = async (req, res) => {
     }
   }
 
-<<<<<<< HEAD
   const { addressLine1, addressLine2, city, state, postalCode } = req.body;
 
   if (!addressLine1 || !city || !state) {
@@ -282,8 +235,6 @@ const createRestaurant = async (req, res) => {
 
   const { lat, lng } = await getLatLngFromAddress(fullAddress);
 
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const restaurant = await prisma.restaurant.create({
     data: {
       vendorId: req.user.sub,
@@ -292,7 +243,6 @@ const createRestaurant = async (req, res) => {
       description: req.body.description || null,
       cuisine: req.body.cuisine || null,
       phone: req.body.phone || null,
-<<<<<<< HEAD
       addressLine1,
       addressLine2: addressLine2 || null,
       city,
@@ -307,16 +257,6 @@ const createRestaurant = async (req, res) => {
       closingTime: req.body.closingTime || null,
       openDays: Array.isArray(req.body.openDays) ? req.body.openDays : [],
       bankDetails: req.body.bankDetails || null,
-=======
-      addressLine1: req.body.addressLine1 || null,
-      addressLine2: req.body.addressLine2 || null,
-      city: req.body.city || null,
-      state: req.body.state || null,
-      postalCode: req.body.postalCode || null,
-      imageUrl: req.body.imageUrl || null,
-      status: req.body.status || "DRAFT",
-      isOpen: Boolean(req.body.isOpen),
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     },
   });
 
@@ -324,18 +264,11 @@ const createRestaurant = async (req, res) => {
     apiResponse({
       message: "Restaurant created successfully",
       data: serializeRestaurant(restaurant),
-<<<<<<< HEAD
     })
   );
 };
 
 // ================= UPDATE =================
-=======
-    }),
-  );
-};
-
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 const updateRestaurant = async (req, res) => {
   const existingRestaurant = await prisma.restaurant.findUnique({
     where: { id: req.params.restaurantId },
@@ -349,7 +282,6 @@ const updateRestaurant = async (req, res) => {
     throw new ApiError(403, "You do not have permission to update this restaurant");
   }
 
-<<<<<<< HEAD
   const newAddressLine1 = req.body.addressLine1 ?? existingRestaurant.addressLine1;
   const newAddressLine2 = req.body.addressLine2 ?? existingRestaurant.addressLine2;
   const newCity = req.body.city ?? existingRestaurant.city;
@@ -373,8 +305,6 @@ const updateRestaurant = async (req, res) => {
     lng = coords.lng;
   }
 
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const updatedRestaurant = await prisma.restaurant.update({
     where: { id: req.params.restaurantId },
     data: {
@@ -383,7 +313,6 @@ const updateRestaurant = async (req, res) => {
       description: req.body.description ?? existingRestaurant.description,
       cuisine: req.body.cuisine ?? existingRestaurant.cuisine,
       phone: req.body.phone ?? existingRestaurant.phone,
-<<<<<<< HEAD
       addressLine1: newAddressLine1,
       addressLine2: newAddressLine2,
       city: newCity,
@@ -401,16 +330,6 @@ const updateRestaurant = async (req, res) => {
       closingTime: req.body.closingTime ?? existingRestaurant.closingTime,
       openDays: Array.isArray(req.body.openDays) ? req.body.openDays : existingRestaurant.openDays,
       bankDetails: req.body.bankDetails !== undefined ? req.body.bankDetails : existingRestaurant.bankDetails,
-=======
-      addressLine1: req.body.addressLine1 ?? existingRestaurant.addressLine1,
-      addressLine2: req.body.addressLine2 ?? existingRestaurant.addressLine2,
-      city: req.body.city ?? existingRestaurant.city,
-      state: req.body.state ?? existingRestaurant.state,
-      postalCode: req.body.postalCode ?? existingRestaurant.postalCode,
-      imageUrl: req.body.imageUrl ?? existingRestaurant.imageUrl,
-      status: req.body.status ?? existingRestaurant.status,
-      isOpen: typeof req.body.isOpen === "boolean" ? req.body.isOpen : existingRestaurant.isOpen,
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     },
   });
 
@@ -418,7 +337,6 @@ const updateRestaurant = async (req, res) => {
     apiResponse({
       message: "Restaurant updated successfully",
       data: serializeRestaurant(updatedRestaurant),
-<<<<<<< HEAD
     })
   );
 };
@@ -431,10 +349,3 @@ export {
   listRestaurants,
   getNearbyRestaurants,
 };
-=======
-    }),
-  );
-};
-
-export { createRestaurant, getMyRestaurant, getRestaurantById, listRestaurants, updateRestaurant };
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594

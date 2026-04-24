@@ -2,11 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Star, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
-<<<<<<< HEAD
 import { deleteReview, getMyReviews } from "../../services/reviewService.js";
-=======
-import { deleteReview, getMyReviews } from "../../services/reviewService";
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const Stars = ({ rating }) => (
   <div className="flex items-center gap-1 text-amber-500">
