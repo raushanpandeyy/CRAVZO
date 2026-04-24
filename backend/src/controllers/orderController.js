@@ -112,7 +112,6 @@ const getVendorOrders = async (req, res) => {
 };
 
 const getRiderOrders = async (req, res) => {
-<<<<<<< HEAD
   const rider = await prisma.user.findUnique({
     where: { id: req.user.sub },
     select: {
@@ -127,13 +126,10 @@ const getRiderOrders = async (req, res) => {
   }
 
   const riderCity = rider.riderOnboarding?.city?.trim();
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const orders = await prisma.order.findMany({
     where: {
       OR: [
         { riderId: req.user.sub },
-<<<<<<< HEAD
         {
           riderId: null,
           status: {
@@ -150,9 +146,6 @@ const getRiderOrders = async (req, res) => {
               }
             : {}),
         },
-=======
-        { riderId: null, status: "READY_FOR_PICKUP" },
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       ],
     },
     include: {
@@ -177,7 +170,6 @@ const getRiderOrders = async (req, res) => {
     },
   });
 
-<<<<<<< HEAD
   const engagedRiderIds = new Set(
     (
       await prisma.order.findMany({
@@ -260,15 +252,12 @@ const getRiderOrders = async (req, res) => {
     }
   });
 
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   res.status(200).json(
     apiResponse({
       message: "Rider orders fetched successfully",
       data: orders.map((order) => ({
         ...serializeOrder(order),
         customer: order.customer,
-<<<<<<< HEAD
         isAvailable:
           rider.isOnline &&
           !order.riderId &&
@@ -276,9 +265,6 @@ const getRiderOrders = async (req, res) => {
           !(order.rejectedRiderIds || []).includes(rider.id) &&
           (!nearestRiderByOrderId.has(order.id) || nearestRiderByOrderId.get(order.id) === rider.id),
         suggestedRiderId: nearestRiderByOrderId.get(order.id) || null,
-=======
-        isAvailable: !order.riderId && order.status === "READY_FOR_PICKUP",
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       })),
     }),
   );
@@ -329,7 +315,6 @@ const updateOrderStatus = async (req, res) => {
     throw new ApiError(403, "You do not have permission to update this order");
   }
 
-<<<<<<< HEAD
   if (req.user.role === "CUSTOMER") {
     if (order.customerId !== req.user.sub) {
       throw new ApiError(403, "You do not have permission to update this order");
@@ -434,31 +419,18 @@ const updateOrderStatus = async (req, res) => {
     if (status === "DELIVERED" && order.status !== "OUT_FOR_DELIVERY") {
       throw new ApiError(400, "Deliver the order only after pickup");
     }
-=======
-  if (req.user.role === "RIDER") {
-    const canClaimReadyOrder = !order.riderId && status === "OUT_FOR_DELIVERY" && order.status === "READY_FOR_PICKUP";
-    const ownsOrder = order.riderId === req.user.sub;
-
-    if (!canClaimReadyOrder && !ownsOrder) {
-      throw new ApiError(403, "You do not have permission to update this order");
-    }
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   }
 
   const updatedOrder = await prisma.order.update({
     where: { id: req.params.orderId },
     data: {
       status,
-<<<<<<< HEAD
       ...(req.user.role === "RIDER" && (status === order.status || status === "OUT_FOR_DELIVERY")
         ? { riderId: req.user.sub }
         : {}),
       ...(req.user.role === "RIDER" && status === order.status
         ? { rejectedRiderIds: [] }
         : {}),
-=======
-      ...(req.user.role === "RIDER" && status === "OUT_FOR_DELIVERY" ? { riderId: req.user.sub } : {}),
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       ...(status === "DELIVERED" ? { paymentStatus: "PAID" } : {}),
     },
     include: {

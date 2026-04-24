@@ -42,7 +42,6 @@ const Sidebar = ({ sidebar, setSidebar }) => {
         </div>
       </div>
 
-<<<<<<< HEAD
       {sidebar ? (
         <button
           type="button"
@@ -80,8 +79,6 @@ const Sidebar = ({ sidebar, setSidebar }) => {
         </div>
       </div>
 
-=======
->>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       {/* Mobile Bottom Navbar */}
       <div className="sm:hidden fixed bottom-0 left-0 w-full bg-indigo-900 flex justify-between px-2 py-2 z-50">
         {navItems.map((item) => {
