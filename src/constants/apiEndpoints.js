@@ -19,17 +19,23 @@ const withQuery = (path, params = {}) => {
   return queryString ? `${path}?${queryString}` : path;
 };
 
+<<<<<<< HEAD
 
 
 
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 export const API_ENDPOINTS = {
   auth: {
     login: `${BASE}/auth/login`,
     signup: `${BASE}/auth/signup`,
     sendOtp: `${BASE}/auth/send-otp`,
     verifyOtp: `${BASE}/auth/verify-otp`,
+<<<<<<< HEAD
     forgotPassword: `${BASE}/auth/forgot-password`,
     resetPassword: `${BASE}/auth/reset-password`,
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     me: `${BASE}/auth/me`,
     logout: `${BASE}/auth/logout`,
   },
@@ -41,6 +47,7 @@ export const API_ENDPOINTS = {
     addressById: (id) => `${BASE}/users/addresses/${id}`,
   },
 
+<<<<<<< HEAD
   payments: {
     razorpayConfig: `${BASE}/payments/razorpay/config`,
     razorpayOrder: `${BASE}/payments/razorpay/order`,
@@ -48,6 +55,8 @@ export const API_ENDPOINTS = {
     codOrder: `${BASE}/payments/cod/order`,
   },
 
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   favorites: {
     list: `${BASE}/favorites`,
     create: `${BASE}/favorites`,
@@ -74,6 +83,7 @@ export const API_ENDPOINTS = {
     pendingRiders: `${BASE}/admin/riders/pending`,
     approveRider: (id) => `${BASE}/admin/riders/${id}/approve`,
   },
+<<<<<<< HEAD
 
  restaurant: {
   list: `${BASE}/restaurants`,
@@ -83,4 +93,6 @@ export const API_ENDPOINTS = {
 },
 
 
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 };

@@ -17,8 +17,17 @@ const Sidebar = ({ sidebar, setSidebar }) => {
     <>
       {/* Desktop/Tablet Sidebar */}
       <div
+<<<<<<< HEAD
         className="fixed left-0 top-28 z-20 hidden h-[calc(100vh-7rem)] w-80 flex-col items-start overflow-y-auto bg-indigo-900 pt-4 sm:flex"
       >
+=======
+        className={`w-80 pt-20 h-screen bg-indigo-900 flex-col items-start fixed top-0 left-0
+          max-sm:hidden
+          ${sidebar ? 'translate-x-0' : 'max-sm:-translate-x-full'}
+          transition-transform duration-200 ease-in-out`}
+      >
+        <div className="my-7 w-full" />
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
         <div className="px-2 text-sm text-white flex flex-col gap-2 w-full">
           {navItems.map((item) => {
             const NavIcon = item.Icon;
@@ -42,6 +51,7 @@ const Sidebar = ({ sidebar, setSidebar }) => {
         </div>
       </div>
 
+<<<<<<< HEAD
       {sidebar ? (
         <button
           type="button"
@@ -79,6 +89,8 @@ const Sidebar = ({ sidebar, setSidebar }) => {
         </div>
       </div>
 
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       {/* Mobile Bottom Navbar */}
       <div className="sm:hidden fixed bottom-0 left-0 w-full bg-indigo-900 flex justify-between px-2 py-2 z-50">
         {navItems.map((item) => {

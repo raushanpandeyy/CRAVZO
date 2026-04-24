@@ -3,9 +3,15 @@ import { Heart, Star } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "../../hooks/useAuth";
+<<<<<<< HEAD
 import { addFavorite, getFavorites, removeFavorite } from "../../services/favoriteService.js";
 import { getRestaurantById } from "../../services/foodService.js";
 import { getRestaurantReviews, saveReview } from "../../services/reviewService.js";
+=======
+import { addFavorite, getFavorites, removeFavorite } from "../../services/favoriteService";
+import { getRestaurantById } from "../../services/foodService";
+import { getRestaurantReviews, saveReview } from "../../services/reviewService";
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(0)}`;
 
@@ -85,7 +91,10 @@ const RestaurantPage = () => {
   const updateCart = (newCart) => {
     setCart(newCart);
     localStorage.setItem("cravzoCart", JSON.stringify(newCart));
+<<<<<<< HEAD
     window.dispatchEvent(new Event("cartChange"));
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   };
 
   const getPrice = (price) => {
@@ -220,6 +229,7 @@ const RestaurantPage = () => {
             </span>
             {averageRating ? <span>{averageRating} / 5 from {reviews.length} reviews</span> : <span>No reviews yet</span>}
           </div>
+<<<<<<< HEAD
           {(restaurant.openingTime || restaurant.closingTime || restaurant.openDays?.length) ? (
             <div className="mt-3 text-sm text-slate-600">
               {(restaurant.openingTime || restaurant.closingTime) ? (
@@ -228,6 +238,8 @@ const RestaurantPage = () => {
               {restaurant.openDays?.length ? <p>Open on: {restaurant.openDays.join(", ")}</p> : null}
             </div>
           ) : null}
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
         </div>
 
         <img src={restaurant.imageUrl} alt={restaurant.name} className="w-full md:w-1/2 h-64 object-cover rounded-xl" />

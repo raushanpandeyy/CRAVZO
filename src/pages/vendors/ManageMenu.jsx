@@ -6,8 +6,13 @@ import {
   deleteVendorMenuItem,
   getMyRestaurant,
   updateVendorMenuItem,
+<<<<<<< HEAD
 } from "../../services/vendorService.js";
 import { uploadImage } from "../../services/userService.js";
+=======
+} from "../../services/vendorService";
+import { uploadImage } from "../../services/userService";
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const categories = ["Main Course", "Starters", "Thali", "Beverages", "Desserts", "Biryani", "Sides"];
 

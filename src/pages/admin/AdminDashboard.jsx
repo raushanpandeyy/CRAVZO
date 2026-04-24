@@ -2,7 +2,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { CalendarRange, PackageCheck, Search, Store, UserCheck, Users, X } from "lucide-react";
 
+<<<<<<< HEAD
 import { API_ENDPOINTS } from "../../constants/apiEndpoints.js";
+=======
+import { API_ENDPOINTS } from "../../constants/apiEndpoints";
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 import { apiRequest } from "../../services/api.js";
 
 function MetricCard({ title, value, subtitle, icon: Icon, color }) {
@@ -328,11 +332,19 @@ const AdminDashboard = () => {
   };
 
   const exportUsers = () => {
+<<<<<<< HEAD
     downloadCsv("admin-users.csv", usersPageData.map((user) => ({ userId: user.id, name: user.name, email: user.email, phone: user.phone || "", role: user.role, status: user.status, isOnline: user.isOnline ? "Online" : "Offline", createdAt: user.createdAt })));
   };
 
   const exportRestaurants = () => {
     downloadCsv("admin-restaurants.csv", restaurantsPageData.map((restaurant) => ({ restaurantId: restaurant.id, name: restaurant.name, status: restaurant.status, liveStatus: restaurant.isOpen ? "Open" : "Closed", openingTime: restaurant.openingTime || "", closingTime: restaurant.closingTime || "", openDays: (restaurant.openDays || []).join(", "), city: restaurant.city || "", state: restaurant.state || "", vendor: restaurant.vendor?.name || "", vendorPhone: restaurant.vendor?.phone || "", vendorEmail: restaurant.vendor?.email || "" })));
+=======
+    downloadCsv("admin-users.csv", usersPageData.map((user) => ({ userId: user.id, name: user.name, email: user.email, phone: user.phone || "", role: user.role, status: user.status, createdAt: user.createdAt })));
+  };
+
+  const exportRestaurants = () => {
+    downloadCsv("admin-restaurants.csv", restaurantsPageData.map((restaurant) => ({ restaurantId: restaurant.id, name: restaurant.name, status: restaurant.status, city: restaurant.city || "", state: restaurant.state || "", vendor: restaurant.vendor?.name || "", vendorPhone: restaurant.vendor?.phone || "", vendorEmail: restaurant.vendor?.email || "" })));
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   };
   const renderOrderCard = (order, accent = "bg-slate-100") => (
     <button key={order.id} onClick={() => setSelectedOrder(order)} className="w-full rounded-2xl border border-slate-200 p-4 text-left hover:border-indigo-300">
@@ -413,7 +425,11 @@ const AdminDashboard = () => {
                     <p className="font-semibold text-slate-900">{supportResult.user.name}</p>
                     <p className="text-sm text-slate-600">{supportResult.user.email}</p>
                     <p className="text-sm text-slate-600">{supportResult.user.phone || "No phone"}</p>
+<<<<<<< HEAD
                     <p className="mt-2 text-xs text-slate-500">Role: {supportResult.user.role} • Status: {supportResult.user.status}{supportResult.user.role === "RIDER" ? ` • ${supportResult.user.isOnline ? "Online" : "Offline"}` : ""}</p>
+=======
+                    <p className="mt-2 text-xs text-slate-500">Role: {supportResult.user.role} • Status: {supportResult.user.status}</p>
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
                   </div>
                   {supportResult.user.role !== "ADMIN" ? <button onClick={() => updateUserStatus(supportResult.user.id, supportResult.user.status === "BLOCKED" ? "ACTIVE" : "BLOCKED")} className={`rounded-full px-4 py-2 text-sm font-semibold text-white ${supportResult.user.status === "BLOCKED" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"}`}>{supportResult.user.status === "BLOCKED" ? "Unblock User" : "Block User"}</button> : null}
                 </div>
@@ -455,7 +471,11 @@ const AdminDashboard = () => {
                 <div>
                   <p className="font-semibold text-slate-900">{user.name}</p>
                   <p className="text-slate-600">{user.email}</p>
+<<<<<<< HEAD
                   <p className="text-xs text-slate-500">{user.phone || "No phone"} • {user.role} • {user.status}{user.role === "RIDER" ? ` • ${user.isOnline ? "Online" : "Offline"}` : ""}</p>
+=======
+                  <p className="text-xs text-slate-500">{user.phone || "No phone"} • {user.role} • {user.status}</p>
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => { setSupportQuery(user.phone || user.email); setSupportResult(null); }} className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700">Lookup</button>
@@ -488,6 +508,7 @@ const AdminDashboard = () => {
                     <p className="font-semibold text-slate-900">{restaurant.name}</p>
                     <p className="text-slate-600">{[restaurant.addressLine1, restaurant.city, restaurant.state].filter(Boolean).join(", ") || "Address not set"}</p>
                     <p className="mt-1 text-xs text-slate-500">Vendor: {restaurant.vendor?.name || "NA"} • {restaurant.vendor?.phone || restaurant.vendor?.email || "No contact"}</p>
+<<<<<<< HEAD
                     <p className="mt-1 text-xs text-slate-500">
                       Live: {restaurant.isOpen ? "Open" : "Closed"}
                       {(restaurant.openingTime || restaurant.closingTime) ? ` • ${restaurant.openingTime || "--:--"} - ${restaurant.closingTime || "--:--"}` : ""}
@@ -501,6 +522,11 @@ const AdminDashboard = () => {
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${restaurant.isOpen ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"}`}>
                       {restaurant.isOpen ? "Open" : "Closed"}
                     </span>
+=======
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{restaurant.status}</span>
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
                     <button onClick={() => updateRestaurantStatus(restaurant.id, restaurant.status === "ACTIVE" ? "INACTIVE" : "ACTIVE")} className={`rounded-full px-4 py-2 text-xs font-semibold text-white ${restaurant.status === "ACTIVE" ? "bg-rose-600" : "bg-emerald-600"}`}>{restaurant.status === "ACTIVE" ? "Suspend" : "Activate"}</button>
                   </div>
                 </div>

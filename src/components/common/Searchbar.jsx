@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+<<<<<<< HEAD
 import { listRestaurants } from "../../services/foodService.js";
+=======
+import { listRestaurants } from "../../services/foodService";
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const SearchBar = ({ placeholder = "Search for restaurants or dishes...", value, onChange }) => {
   const [internalQuery, setInternalQuery] = useState("");

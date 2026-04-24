@@ -1,6 +1,7 @@
 import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
+<<<<<<< HEAD
 import { createPersistedOrder, serializeOrder } from "../services/orderCheckoutService.js";
 
 const ACTIVE_DELIVERY_STATUSES = ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
@@ -34,6 +35,151 @@ const createOrder = async (req, res) => {
     paymentMethod,
     paymentStatus: paymentMethod === "COD" ? "PENDING" : "PAID",
     notes,
+=======
+
+const serializeOrder = (order) => ({
+  id: order.id,
+  status: order.status,
+  paymentMethod: order.paymentMethod,
+  paymentStatus: order.paymentStatus,
+  subtotal: Number(order.subtotal),
+  deliveryFee: Number(order.deliveryFee),
+  packagingFee: Number(order.packagingFee),
+  taxAmount: Number(order.taxAmount),
+  totalAmount: Number(order.totalAmount),
+  notes: order.notes,
+  createdAt: order.createdAt,
+  updatedAt: order.updatedAt,
+  restaurant: order.restaurant
+    ? {
+        id: order.restaurant.id,
+        name: order.restaurant.name,
+        imageUrl: order.restaurant.imageUrl,
+        city: order.restaurant.city,
+      }
+    : null,
+  address: order.address,
+  items: order.items?.map((item) => ({
+    id: item.id,
+    quantity: item.quantity,
+    unitPrice: Number(item.unitPrice),
+    totalPrice: Number(item.totalPrice),
+    menuItem: item.menuItem
+      ? {
+          id: item.menuItem.id,
+          name: item.menuItem.name,
+          imageUrl: item.menuItem.imageUrl,
+        }
+      : null,
+  })),
+});
+
+const createOrder = async (req, res) => {
+  const { restaurantId, items = [], address = null, addressId = null, paymentMethod = "COD", notes = null } = req.body;
+
+  if (!restaurantId || items.length === 0) {
+    throw new ApiError(400, "Restaurant and at least one item are required");
+  }
+
+  const restaurant = await prisma.restaurant.findFirst({
+    where: { id: restaurantId, status: "ACTIVE" },
+  });
+
+  if (!restaurant) {
+    throw new ApiError(404, "Restaurant not found");
+  }
+
+  const menuItems = await prisma.menuItem.findMany({
+    where: {
+      id: { in: items.map((item) => item.menuItemId) },
+      restaurantId,
+      status: "ACTIVE",
+    },
+  });
+
+  if (menuItems.length !== items.length) {
+    throw new ApiError(400, "Some cart items are no longer available");
+  }
+
+  const subtotal = items.reduce((sum, item) => {
+    const menuItem = menuItems.find((entry) => entry.id === item.menuItemId);
+    return sum + Number(menuItem.price) * item.quantity;
+  }, 0);
+
+  const deliveryFee = subtotal > 500 ? 0 : 40;
+  const packagingFee = Number((subtotal * 0.03).toFixed(2));
+  const taxAmount = Number((subtotal * 0.18).toFixed(2));
+  const totalAmount = subtotal + deliveryFee + packagingFee + taxAmount;
+
+  let resolvedAddressId = null;
+
+  if (addressId) {
+    const existingAddress = await prisma.address.findFirst({
+      where: {
+        id: addressId,
+        userId: req.user.sub,
+      },
+    });
+
+    if (!existingAddress) {
+      throw new ApiError(404, "Saved address not found");
+    }
+
+    resolvedAddressId = existingAddress.id;
+  } else if (address && address.fullName && address.phone && address.line1 && address.city && address.state && address.postalCode) {
+    const createdAddress = await prisma.address.create({
+      data: {
+        userId: req.user.sub,
+        label: address.label || "Delivery Address",
+        fullName: address.fullName,
+        phone: address.phone,
+        line1: address.line1,
+        line2: address.line2 || null,
+        city: address.city,
+        state: address.state,
+        postalCode: address.postalCode,
+        isDefault: false,
+      },
+    });
+
+    resolvedAddressId = createdAddress.id;
+  }
+
+  const order = await prisma.order.create({
+    data: {
+      customerId: req.user.sub,
+      restaurantId,
+      addressId: resolvedAddressId,
+      paymentMethod,
+      paymentStatus: paymentMethod === "COD" ? "PENDING" : "PAID",
+      subtotal,
+      deliveryFee,
+      packagingFee,
+      taxAmount,
+      totalAmount,
+      notes,
+      items: {
+        create: items.map((item) => {
+          const menuItem = menuItems.find((entry) => entry.id === item.menuItemId);
+          return {
+            menuItemId: item.menuItemId,
+            quantity: item.quantity,
+            unitPrice: menuItem.price,
+            totalPrice: Number(menuItem.price) * item.quantity,
+          };
+        }),
+      },
+    },
+    include: {
+      restaurant: true,
+      address: true,
+      items: {
+        include: {
+          menuItem: true,
+        },
+      },
+    },
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   });
 
   res.status(201).json(
@@ -112,6 +258,7 @@ const getVendorOrders = async (req, res) => {
 };
 
 const getRiderOrders = async (req, res) => {
+<<<<<<< HEAD
   const rider = await prisma.user.findUnique({
     where: { id: req.user.sub },
     select: {
@@ -126,10 +273,13 @@ const getRiderOrders = async (req, res) => {
   }
 
   const riderCity = rider.riderOnboarding?.city?.trim();
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const orders = await prisma.order.findMany({
     where: {
       OR: [
         { riderId: req.user.sub },
+<<<<<<< HEAD
         {
           riderId: null,
           status: {
@@ -146,6 +296,9 @@ const getRiderOrders = async (req, res) => {
               }
             : {}),
         },
+=======
+        { riderId: null, status: "READY_FOR_PICKUP" },
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       ],
     },
     include: {
@@ -170,6 +323,7 @@ const getRiderOrders = async (req, res) => {
     },
   });
 
+<<<<<<< HEAD
   const engagedRiderIds = new Set(
     (
       await prisma.order.findMany({
@@ -252,12 +406,15 @@ const getRiderOrders = async (req, res) => {
     }
   });
 
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   res.status(200).json(
     apiResponse({
       message: "Rider orders fetched successfully",
       data: orders.map((order) => ({
         ...serializeOrder(order),
         customer: order.customer,
+<<<<<<< HEAD
         isAvailable:
           rider.isOnline &&
           !order.riderId &&
@@ -265,6 +422,9 @@ const getRiderOrders = async (req, res) => {
           !(order.rejectedRiderIds || []).includes(rider.id) &&
           (!nearestRiderByOrderId.has(order.id) || nearestRiderByOrderId.get(order.id) === rider.id),
         suggestedRiderId: nearestRiderByOrderId.get(order.id) || null,
+=======
+        isAvailable: !order.riderId && order.status === "READY_FOR_PICKUP",
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       })),
     }),
   );
@@ -315,6 +475,7 @@ const updateOrderStatus = async (req, res) => {
     throw new ApiError(403, "You do not have permission to update this order");
   }
 
+<<<<<<< HEAD
   if (req.user.role === "CUSTOMER") {
     if (order.customerId !== req.user.sub) {
       throw new ApiError(403, "You do not have permission to update this order");
@@ -419,18 +580,31 @@ const updateOrderStatus = async (req, res) => {
     if (status === "DELIVERED" && order.status !== "OUT_FOR_DELIVERY") {
       throw new ApiError(400, "Deliver the order only after pickup");
     }
+=======
+  if (req.user.role === "RIDER") {
+    const canClaimReadyOrder = !order.riderId && status === "OUT_FOR_DELIVERY" && order.status === "READY_FOR_PICKUP";
+    const ownsOrder = order.riderId === req.user.sub;
+
+    if (!canClaimReadyOrder && !ownsOrder) {
+      throw new ApiError(403, "You do not have permission to update this order");
+    }
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   }
 
   const updatedOrder = await prisma.order.update({
     where: { id: req.params.orderId },
     data: {
       status,
+<<<<<<< HEAD
       ...(req.user.role === "RIDER" && (status === order.status || status === "OUT_FOR_DELIVERY")
         ? { riderId: req.user.sub }
         : {}),
       ...(req.user.role === "RIDER" && status === order.status
         ? { rejectedRiderIds: [] }
         : {}),
+=======
+      ...(req.user.role === "RIDER" && status === "OUT_FOR_DELIVERY" ? { riderId: req.user.sub } : {}),
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       ...(status === "DELIVERED" ? { paymentStatus: "PAID" } : {}),
     },
     include: {

@@ -55,9 +55,12 @@ const updateProfile = async (req, res) => {
       ...(email ? { email } : {}),
       ...(phone !== undefined ? { phone } : {}),
       ...(payload.avatarUrl !== undefined ? { avatarUrl: payload.avatarUrl } : {}),
+<<<<<<< HEAD
       ...(payload.bankDetails !== undefined ? { bankDetails: payload.bankDetails } : {}),
       ...(payload.vehicleDetails !== undefined ? { vehicleDetails: payload.vehicleDetails } : {}),
       ...(payload.paymentMethods !== undefined ? { paymentMethods: payload.paymentMethods } : {}),
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     },
   });
 

@@ -18,9 +18,12 @@ const authenticate = asyncHandler(async (req, _res, next) => {
       id: true,
       email: true,
       role: true,
+<<<<<<< HEAD
       isOnline: true,
       latitude: true,
       longitude: true,
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       status: true,
       name: true,
     },
@@ -38,9 +41,12 @@ const authenticate = asyncHandler(async (req, _res, next) => {
     sub: user.id,
     email: user.email,
     role: user.role,
+<<<<<<< HEAD
     isOnline: user.isOnline,
     latitude: user.latitude,
     longitude: user.longitude,
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     status: user.status,
     name: user.name,
   };

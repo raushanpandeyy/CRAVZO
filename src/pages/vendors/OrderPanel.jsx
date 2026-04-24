@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { CheckCircle, Clock, Eye, ShoppingBag } from "lucide-react";
 
+<<<<<<< HEAD
 import { getVendorOrders, updateOrderStatus } from "../../services/orderService.js";
+=======
+import { getVendorOrders, updateOrderStatus } from "../../services/orderService";
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const vendorStatusFlow = {
   PENDING: "ACCEPTED",

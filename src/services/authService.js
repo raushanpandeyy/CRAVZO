@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 import { API_ENDPOINTS } from "../constants/apiEndpoints.js";
 import { roleToAccountType } from "../constants/roles.js";
 import { apiRequest } from "./api.js";
+=======
+import { API_ENDPOINTS } from "../constants/apiEndpoints";
+import { roleToAccountType } from "../constants/roles";
+import { apiRequest } from "./api";
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const AUTH_STORAGE_KEY = "cravzoCurrentUser";
 const TOKEN_STORAGE_KEY = "cravzoAuthToken";
@@ -113,6 +119,7 @@ const verifyOtp = async (payload) => {
   return persistSession(response.data);
 };
 
+<<<<<<< HEAD
 const requestPasswordReset = async (payload) => {
   const response = await apiRequest(API_ENDPOINTS.auth.forgotPassword, {
     method: "POST",
@@ -131,6 +138,8 @@ const resetPassword = async (payload) => {
   return response.data;
 };
 
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 const logout = async () => {
   try {
     await apiRequest(API_ENDPOINTS.auth.logout, {
@@ -163,8 +172,11 @@ export {
   login,
   logout,
   persistSession,
+<<<<<<< HEAD
   requestPasswordReset,
   resetPassword,
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   sendOtp,
   signup,
   verifyOtp,

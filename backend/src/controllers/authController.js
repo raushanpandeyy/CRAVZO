@@ -3,23 +3,32 @@ import crypto from "crypto";
 
 import { prisma } from "../config/database.js";
 import { ROLES } from "../constants/roles.js";
+<<<<<<< HEAD
 import { generateOTP } from "../../../src/services/otpService.js";
+=======
+import { generateOTP } from "../services/otpService.js";
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { signToken } from "../utils/jwt.js";
 import { sendOTP } from "../utils/sendOtp.js";
 import { sanitizeUser } from "../utils/userResponse.js";
+<<<<<<< HEAD
 import {
   loginSchema,
   requestPasswordResetSchema,
   resetPasswordSchema,
   signUpSchema,
 } from "../validators/authValidators.js";
+=======
+import { loginSchema, signUpSchema } from "../validators/authValidators.js";
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const AUTH_COOKIE_NAME = "token";
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 
 const getUserStatusForRole = (role) => {
+<<<<<<< HEAD
   return role === ROLES.CUSTOMER ? "ACTIVE" : "PENDING";
 };
 
@@ -28,6 +37,12 @@ const getOtpPurposeForRole = (role) => {
     return "CUSTOMER_SIGNUP";
   }
 
+=======
+  return "PENDING";
+};
+
+const getOtpPurposeForRole = (role) => {
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   if (role === ROLES.RIDER) {
     return "RIDER_ONBOARDING";
   }
@@ -59,7 +74,11 @@ const clearAuthCookie = (res) => {
   });
 };
 
+<<<<<<< HEAD
 const createOtpRecord = async ({ email, role, purpose = getOtpPurposeForRole(role), pendingSignupData = null }) => {
+=======
+const createOtpRecord = async ({ email, role }) => {
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const otp = generateOTP();
   const codeHash = await bcrypt.hash(otp, 10);
 
@@ -67,9 +86,14 @@ const createOtpRecord = async ({ email, role, purpose = getOtpPurposeForRole(rol
     data: {
       id: crypto.randomUUID(),
       email,
+<<<<<<< HEAD
       purpose,
       codeHash,
       pendingSignupData,
+=======
+      purpose: getOtpPurposeForRole(role),
+      codeHash,
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
       updatedAt: new Date(),
       lastSentAt: new Date(),
@@ -87,7 +111,10 @@ const createOtpRecord = async ({ email, role, purpose = getOtpPurposeForRole(rol
 export const sendOtpController = async (req, res) => {
   const email = req.body.email?.trim().toLowerCase();
   const role = req.body.role || ROLES.CUSTOMER;
+<<<<<<< HEAD
   const purpose = getOtpPurposeForRole(role);
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
   if (!email) {
     throw new ApiError(400, "Email is required");
@@ -97,6 +124,7 @@ export const sendOtpController = async (req, res) => {
     where: { email },
   });
 
+<<<<<<< HEAD
   const pendingSignup = await prisma.otpVerification.findFirst({
     where: {
       email,
@@ -120,6 +148,17 @@ export const sendOtpController = async (req, res) => {
     purpose,
     pendingSignupData: pendingSignup?.pendingSignupData || null,
   });
+=======
+  if (!user) {
+    throw new ApiError(404, "Create the account first, then request OTP");
+  }
+
+  if (user.role !== role) {
+    throw new ApiError(400, "OTP role does not match the registered account");
+  }
+
+  await createOtpRecord({ email, role });
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
   res.status(200).json(
     apiResponse({
@@ -179,6 +218,7 @@ export const verifyOtpController = async (req, res) => {
     where: { email },
   });
 
+<<<<<<< HEAD
   if (existingUser && existingUser.role !== role) {
     throw new ApiError(400, "OTP role does not match the registered account");
   }
@@ -227,6 +267,20 @@ export const verifyOtpController = async (req, res) => {
       },
     });
   }
+=======
+  if (!existingUser) {
+    throw new ApiError(404, "User not found");
+  }
+
+  const nextStatus = existingUser.role === ROLES.CUSTOMER ? "ACTIVE" : existingUser.status;
+
+  const user = await prisma.user.update({
+    where: { email },
+    data: {
+      status: nextStatus,
+    },
+  });
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
   await prisma.otpVerification.update({
     where: { id: record.id },
@@ -272,6 +326,7 @@ export const signUp = async (req, res) => {
 
   const passwordHash = await bcrypt.hash(payload.password, 12);
 
+<<<<<<< HEAD
   const pendingSignupData = {
     name: payload.name.trim(),
     email,
@@ -289,11 +344,36 @@ export const signUp = async (req, res) => {
       data: {
         email,
         role,
+=======
+  const user = await prisma.user.create({
+    data: {
+      name: payload.name.trim(),
+      email,
+      phone,
+      passwordHash,
+      role,
+      status: getUserStatusForRole(role),
+      vendorOnboarding: role === ROLES.VENDOR ? payload.onboardingData || null : undefined,
+      riderOnboarding: role === ROLES.RIDER ? payload.onboardingData || null : undefined,
+    },
+  });
+
+  await createOtpRecord({ email, role });
+
+  res.status(201).json(
+    apiResponse({
+      message: "Signup successful. OTP sent to email.",
+      data: {
+        email,
+        role,
+        user: sanitizeUser(user),
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       },
     })
   );
 };
 
+<<<<<<< HEAD
 export const requestPasswordReset = async (req, res) => {
   const payload = requestPasswordResetSchema.parse(req.body);
   const email = payload.email.toLowerCase();
@@ -394,6 +474,8 @@ export const resetPassword = async (req, res) => {
   );
 };
 
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 export const login = async (req, res) => {
   const payload = loginSchema.parse(req.body);
   const email = payload.email.toLowerCase();

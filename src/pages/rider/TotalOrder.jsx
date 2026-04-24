@@ -2,7 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import RiderNavbar from "./RiderNav";
+<<<<<<< HEAD
 import { getRiderOrders } from "../../services/orderService.js";
+=======
+import { getRiderOrders } from "../../services/orderService";
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const RiderAnalytics = () => {
   const [orders, setOrders] = useState([]);

@@ -1,8 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Building, Home, MapPin, Plus, Save, Trash2 } from "lucide-react";
 
+<<<<<<< HEAD
 import { createAddress, deleteAddress, getAddresses, updateAddress } from "../../services/addressService.js";
 import { getStoredUser } from "../../services/authService.js";
+=======
+import { createAddress, deleteAddress, getAddresses, updateAddress } from "../../services/addressService";
+import { getStoredUser } from "../../services/authService";
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const emptyForm = {
   label: "HOME",
@@ -14,8 +19,11 @@ const emptyForm = {
   state: "",
   postalCode: "",
   isDefault: false,
+<<<<<<< HEAD
   lat: null,
   lng: null,
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 };
 
 const categories = [
@@ -91,6 +99,7 @@ export default function SavedAddresses() {
     }));
   };
 
+<<<<<<< HEAD
   const handleUseCurrentLocation = () => {
     setError("");
 
@@ -133,6 +142,8 @@ export default function SavedAddresses() {
     );
   };
 
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const handleEdit = (address) => {
     setEditingId(address.id);
     setSelected(labelToCategory(address.label));
@@ -150,6 +161,7 @@ export default function SavedAddresses() {
   };
 
   const handleSubmit = async () => {
+<<<<<<< HEAD
     if (
       !form.fullName ||
       !form.phone ||
@@ -159,6 +171,10 @@ export default function SavedAddresses() {
       !form.postalCode
     ) {
       setError("Complete address fill karo (House, Area, City, State, Pincode)");
+=======
+    if (!form.fullName || !form.phone || !form.line1 || !form.city || !form.state || !form.postalCode) {
+      setError("Please fill in all required address fields.");
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
       return;
     }
 
@@ -176,8 +192,11 @@ export default function SavedAddresses() {
       state: form.state,
       postalCode: form.postalCode,
       isDefault: form.isDefault,
+<<<<<<< HEAD
       lat: form.lat,
       lng: form.lng,
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
     };
 
     try {
@@ -238,10 +257,18 @@ export default function SavedAddresses() {
                       setSelected(category.id);
                       setForm((prev) => ({ ...prev, label: category.id }));
                     }}
+<<<<<<< HEAD
                     className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition ${selected === category.id
                         ? "bg-indigo-600 text-white"
                         : "bg-slate-50 text-slate-700 hover:bg-slate-100"
                       }`}
+=======
+                    className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition ${
+                      selected === category.id
+                        ? "bg-indigo-600 text-white"
+                        : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                    }`}
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
                   >
                     <span className="flex items-center gap-3">
                       <CategoryIcon className="h-5 w-5" />
@@ -337,12 +364,16 @@ export default function SavedAddresses() {
                   New Form
                 </button>
               </div>
+<<<<<<< HEAD
               <button
                 onClick={handleUseCurrentLocation}
                 className="mb-4 bg-blue-600 text-white px-4 py-2 rounded"
               >
                 📍 Use Current Location
               </button>
+=======
+
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
               <div className="grid gap-4 md:grid-cols-2">
                 <input
                   value={form.fullName}

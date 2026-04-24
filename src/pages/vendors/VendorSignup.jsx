@@ -4,9 +4,14 @@ import { useNavigate } from "react-router-dom";
 
 import VendorImage from "../../assets/images/VendorImage.webp";
 import faqs from "../../assets/data/VendorFAQs.json";
+<<<<<<< HEAD
 import ForgotPasswordForm from "../../components/common/ForgotPasswordForm.jsx";
 import OtpInput from "../../components/common/OtpInput";
 import { login, sendOtp, signup, verifyOtp } from "../../services/authService.js";
+=======
+import OtpInput from "../../components/common/OtpInput";
+import { login, sendOtp, signup, verifyOtp } from "../../services/authService";
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const steps = ["Basic Info", "OTP Verification", "Location", "Business", "Account"];
 const emptyOtp = ["", "", "", "", "", ""];
@@ -38,7 +43,10 @@ export default function VendorSignup() {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isOtpVerified, setIsOtpVerified] = useState(false);
+<<<<<<< HEAD
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
   const [form, setForm] = useState({
     restaurantName: "",
@@ -190,7 +198,10 @@ export default function VendorSignup() {
     setPhone("");
     setMessage("");
     setIsOtpVerified(false);
+<<<<<<< HEAD
     setIsForgotPassword(false);
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   };
 
   return (
@@ -219,6 +230,7 @@ export default function VendorSignup() {
               </button>
             </div>
 
+<<<<<<< HEAD
             <h2 className="mb-4 text-xl font-bold">
               {isForgotPassword ? "Reset Vendor Password" : isLogin ? "Vendor Login" : steps[step - 1]}
             </h2>
@@ -234,6 +246,12 @@ export default function VendorSignup() {
                 buttonClassName="w-full rounded-xl bg-indigo-600 py-3 text-white disabled:opacity-70"
               />
             ) : isLogin ? (
+=======
+            <h2 className="mb-4 text-xl font-bold">{isLogin ? "Vendor Login" : steps[step - 1]}</h2>
+            {message ? <p className="mb-4 text-sm text-indigo-700">{message}</p> : null}
+
+            {isLogin ? (
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
               <div className="space-y-4">
                 <FormInput
                   label="Email"
@@ -255,6 +273,7 @@ export default function VendorSignup() {
                 >
                   {isSubmitting ? "Please wait..." : "Login"}
                 </button>
+<<<<<<< HEAD
                 <button
                   type="button"
                   onClick={() => setIsForgotPassword(true)}
@@ -262,6 +281,8 @@ export default function VendorSignup() {
                 >
                   Forgot password?
                 </button>
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
               </div>
             ) : (
               <div className="space-y-4">

@@ -22,6 +22,7 @@ const saveVendorRestaurant = async (payload, restaurantId = null) => {
   return response.data;
 };
 
+<<<<<<< HEAD
 const updateRestaurantAvailability = async (restaurantId, isOpen) => {
   const response = await apiRequest(`${BASE}/restaurants/${restaurantId}`, {
     method: "PUT",
@@ -31,6 +32,8 @@ const updateRestaurantAvailability = async (restaurantId, isOpen) => {
   return response.data;
 };
 
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 const createVendorMenuItem = async (payload) => {
   const response = await apiRequest(`${BASE}/menu-items`, {
     method: "POST",
@@ -62,6 +65,9 @@ export {
   deleteVendorMenuItem,
   getMyRestaurant,
   saveVendorRestaurant,
+<<<<<<< HEAD
   updateRestaurantAvailability,
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   updateVendorMenuItem,
 };

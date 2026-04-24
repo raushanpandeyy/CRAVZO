@@ -3,7 +3,10 @@ import { useNavigate } from "react-router-dom";
 
 import Rider from "../../assets/images/Rider.webp";
 import faqs from "../../assets/data/RiderFAQs.json";
+<<<<<<< HEAD
 import ForgotPasswordForm from "../../components/common/ForgotPasswordForm.jsx";
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 import OtpInput from "../../components/common/OtpInput.jsx";
 import { login, sendOtp, signup, verifyOtp } from "../../services/authService.js";
 
@@ -21,7 +24,10 @@ const RiderSignup = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLogin, setIsLogin] = useState(false);
   const [isOtpVerified, setIsOtpVerified] = useState(false);
+<<<<<<< HEAD
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
   const [form, setForm] = useState({
     name: "",
@@ -47,7 +53,10 @@ const RiderSignup = () => {
     setOtp(emptyOtp);
     setMessage("");
     setIsOtpVerified(false);
+<<<<<<< HEAD
     setIsForgotPassword(false);
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   };
 
   const handleRequestOtp = async () => {
@@ -159,6 +168,7 @@ const RiderSignup = () => {
     if (isLogin) {
       return (
         <div className="space-y-4">
+<<<<<<< HEAD
           {isForgotPassword ? (
             <ForgotPasswordForm
               role="RIDER"
@@ -170,6 +180,8 @@ const RiderSignup = () => {
             />
           ) : (
             <>
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
           <input
             placeholder="Email"
             type="email"
@@ -191,6 +203,7 @@ const RiderSignup = () => {
           >
             {isSubmitting ? "Please wait..." : "Login"}
           </button>
+<<<<<<< HEAD
           <button
             type="button"
             onClick={() => setIsForgotPassword(true)}
@@ -200,6 +213,8 @@ const RiderSignup = () => {
           </button>
           </>
           )}
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
         </div>
       );
     }
@@ -383,7 +398,11 @@ const RiderSignup = () => {
         <div className="absolute top-10 right-6 hidden md:block lg:right-20">
           <div className="w-[380px] rounded-2xl bg-white p-8 shadow-2xl">
             <h2 className="mb-6 text-center text-xl font-bold">
+<<<<<<< HEAD
               {isForgotPassword ? "Reset Rider Password" : isLogin ? "Rider Login" : "Register as Cravzo Partner"}
+=======
+              {isLogin ? "Rider Login" : "Register as Cravzo Partner"}
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
             </h2>
             <div className="mb-4 text-center">
               <button
@@ -396,7 +415,11 @@ const RiderSignup = () => {
                 {isLogin ? "Need a new rider account? Sign up" : "Already registered? Login"}
               </button>
             </div>
+<<<<<<< HEAD
             {!isForgotPassword && message ? <p className="mb-4 text-sm text-indigo-700">{message}</p> : null}
+=======
+            {message ? <p className="mb-4 text-sm text-indigo-700">{message}</p> : null}
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
             {renderFormContent()}
           </div>
         </div>
@@ -405,7 +428,11 @@ const RiderSignup = () => {
       <div className="relative z-30 -mt-10 px-4 md:hidden">
         <div className="rounded-2xl border bg-white p-6 shadow-xl">
           <h2 className="mb-4 text-center text-xl font-bold">
+<<<<<<< HEAD
             {isForgotPassword ? "Reset Rider Password" : isLogin ? "Rider Login" : "Register as Cravzo Partner"}
+=======
+            {isLogin ? "Rider Login" : "Register as Cravzo Partner"}
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
           </h2>
           <div className="mb-4 text-center">
             <button
@@ -418,7 +445,11 @@ const RiderSignup = () => {
               {isLogin ? "Need a new rider account? Sign up" : "Already registered? Login"}
             </button>
           </div>
+<<<<<<< HEAD
           {!isForgotPassword && message ? <p className="mb-4 text-sm text-indigo-700">{message}</p> : null}
+=======
+          {message ? <p className="mb-4 text-sm text-indigo-700">{message}</p> : null}
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
           {renderFormContent()}
         </div>
       </div>

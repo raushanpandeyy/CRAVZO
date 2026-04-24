@@ -14,18 +14,24 @@ model User {
   phone                 String?      @unique
   passwordHash          String
   role                  UserRole
+<<<<<<< HEAD
   isOnline              Boolean      @default(false)
   latitude              Float?
   longitude             Float?
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   status                UserStatus   @default(PENDING)
   avatarUrl             String?
   createdAt             DateTime     @default(now())
   updatedAt             DateTime     @updatedAt
   vendorOnboarding      Json?
   riderOnboarding       Json?
+<<<<<<< HEAD
   bankDetails           Json?
   vehicleDetails        Json?
   paymentMethods        Json?
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   onboardingSubmittedAt DateTime?
   addresses             Address[]
   favorites             Favorite[]
@@ -46,8 +52,11 @@ model Address {
   city       String
   state      String
   postalCode String
+<<<<<<< HEAD
   latitude   Float?
   longitude  Float?
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   isDefault  Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -68,6 +77,7 @@ model Restaurant {
   city         String?
   state        String?
   postalCode   String?
+<<<<<<< HEAD
   latitude     Float?
   longitude    Float?
   imageUrl     String?
@@ -77,6 +87,11 @@ model Restaurant {
   closingTime  String?
   openDays     Json?
   bankDetails  Json?
+=======
+  imageUrl     String?
+  status       RestaurantStatus @default(DRAFT)
+  isOpen       Boolean          @default(false)
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
   favorites    Favorite[]
@@ -108,11 +123,14 @@ model Order {
   restaurantId  String
   addressId     String?
   riderId       String?
+<<<<<<< HEAD
   rejectedRiderIds String[]   @default([])
   gatewayProvider String?
   gatewayOrderId  String?
   gatewayPaymentId String?
   gatewaySignature String?
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   status        OrderStatus   @default(PENDING)
   paymentMethod PaymentMethod @default(COD)
   paymentStatus PaymentStatus @default(PENDING)
@@ -169,7 +187,10 @@ model OtpVerification {
   email        String
   purpose      OtpPurpose
   codeHash     String
+<<<<<<< HEAD
   pendingSignupData Json?
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   expiresAt    DateTime
   verifiedAt   DateTime?
   usedAt       DateTime?
@@ -233,8 +254,13 @@ enum PaymentStatus {
 }
 
 enum OtpPurpose {
+<<<<<<< HEAD
   CUSTOMER_SIGNUP
   VENDOR_ONBOARDING
   RIDER_ONBOARDING
   PASSWORD_RESET
+=======
+  VENDOR_ONBOARDING
+  RIDER_ONBOARDING
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 }

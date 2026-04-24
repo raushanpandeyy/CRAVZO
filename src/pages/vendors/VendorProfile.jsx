@@ -1,10 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { CheckCircle, CreditCard, Edit, ImagePlus, MapPin, Store } from "lucide-react";
 
+<<<<<<< HEAD
 import { getMyRestaurant, saveVendorRestaurant } from "../../services/vendorService.js";
 import { uploadImage } from "../../services/userService.js";
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+=======
+import { getMyRestaurant, saveVendorRestaurant } from "../../services/vendorService";
+import { uploadImage } from "../../services/userService";
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const emptyProfile = {
   name: "",
@@ -18,6 +23,7 @@ const emptyProfile = {
   state: "",
   postalCode: "",
   isOpen: true,
+<<<<<<< HEAD
   openingTime: "09:00",
   closingTime: "22:00",
   openDays: [...DAYS_OF_WEEK],
@@ -27,6 +33,8 @@ const emptyProfile = {
     accountNumber: "",
     ifsc: "",
   },
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 };
 
 const VendorProfile = () => {
@@ -58,6 +66,7 @@ const VendorProfile = () => {
               state: data.state || "",
               postalCode: data.postalCode || "",
               isOpen: data.isOpen ?? true,
+<<<<<<< HEAD
               openingTime: data.openingTime || "09:00",
               closingTime: data.closingTime || "22:00",
               openDays: data.openDays?.length ? data.openDays : [...DAYS_OF_WEEK],
@@ -67,6 +76,8 @@ const VendorProfile = () => {
                 accountNumber: data.bankDetails?.accountNumber || "",
                 ifsc: data.bankDetails?.ifsc || "",
               },
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
             }
           : emptyProfile,
       );
@@ -110,12 +121,15 @@ const VendorProfile = () => {
           postalCode: form.postalCode,
           status: "ACTIVE",
           isOpen: form.isOpen,
+<<<<<<< HEAD
           openingTime: form.openingTime,
           closingTime: form.closingTime,
           openDays: form.openDays,
           bankDetails: form.bankDetails.accountHolderName || form.bankDetails.bankName || form.bankDetails.accountNumber || form.bankDetails.ifsc
             ? form.bankDetails
             : null,
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
         },
         restaurant?.id,
       );
@@ -127,6 +141,7 @@ const VendorProfile = () => {
     }
   };
 
+<<<<<<< HEAD
   const toggleOpenDay = (day) => {
     setForm((prev) => ({
       ...prev,
@@ -144,6 +159,8 @@ const VendorProfile = () => {
     }));
   };
 
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
   const handleRestaurantImageChange = async (event) => {
     const file = event.target.files?.[0];
 
@@ -280,6 +297,7 @@ const VendorProfile = () => {
             Mark restaurant as open for orders
           </label>
 
+<<<<<<< HEAD
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Opening Time</label>
@@ -309,17 +327,23 @@ const VendorProfile = () => {
             </div>
           </div>
 
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
           {restaurant ? (
             <div className="mt-6 rounded-2xl bg-slate-50 border border-slate-200 p-4 text-sm text-slate-600">
               <p><strong>Status:</strong> {restaurant.status}</p>
               <p><strong>Address:</strong> {addressLine || "Not set"}</p>
+<<<<<<< HEAD
               <p><strong>Hours:</strong> {form.openingTime || "--:--"} - {form.closingTime || "--:--"}</p>
               <p><strong>Days:</strong> {form.openDays.length ? form.openDays.join(", ") : "Not set"}</p>
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
             </div>
           ) : null}
         </div>
 
         <div className="bg-white rounded-xl p-6 shadow-lg">
+<<<<<<< HEAD
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <CreditCard size={20} />
             Bank Account
@@ -345,6 +369,8 @@ const VendorProfile = () => {
         </div>
 
         <div className="bg-white rounded-xl p-6 shadow-lg">
+=======
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
           <button onClick={handleSaveProfile} className="w-full bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 font-semibold">
             {restaurant ? "Save Restaurant Profile" : "Create Restaurant"}
           </button>

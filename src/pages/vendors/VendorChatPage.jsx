@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
+<<<<<<< HEAD
 import Chat from '../../components/Chat.jsx';
+=======
+import Chat from '../../components/Chat';
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
 
 const VendorChatPage = () => {
   const [isChatOpen, setIsChatOpen] = useState(true);

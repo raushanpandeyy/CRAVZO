@@ -14,6 +14,7 @@ const loginSchema = z.object({
   password: z.string().min(8),
 });
 
+<<<<<<< HEAD
 const requestPasswordResetSchema = z.object({
   email: z.string().trim().email(),
   role: z.enum(["CUSTOMER", "VENDOR", "RIDER"]).optional(),
@@ -27,3 +28,6 @@ const resetPasswordSchema = z.object({
 });
 
 export { loginSchema, requestPasswordResetSchema, resetPasswordSchema, signUpSchema };
+=======
+export { loginSchema, signUpSchema };
+>>>>>>> 33b5dab1833a5ae4b042ad9531206515cfafc594
