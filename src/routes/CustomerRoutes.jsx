@@ -16,6 +16,8 @@ import VendorSignup from '../pages/vendors/VendorSignup.jsx';
 // Customer Pages
 import Home from '../pages/customer/Home.jsx';
 import DishPage from "../pages/customer/DishPage.jsx";
+import DishesListingPage from '../pages/customer/DishesListingPage.jsx';
+import RestaurantListingPage from '../pages/customer/RestaurantListingPage.jsx';
 import Citywise from '../pages/customer/Citywise.jsx';
 import RestaurantPage from '../pages/customer/RestaurantPage.jsx';
 import CheckoutPage from '../pages/customer/CheckoutPage.jsx';
@@ -46,6 +48,8 @@ function CustomerRoutes() {
           <Route path="/" element={<Home />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/verify-otp" element={<VerifyOtp />} />
+          <Route path="/dishes" element={<DishesListingPage />} />
+          <Route path="/restaurants" element={<RestaurantListingPage />} />
           <Route path="/dish/:dishName" element={<DishPage />} />
           <Route path="/city/:cityName" element={<Citywise />} />
           <Route path="/restaurant/:id" element={<RestaurantPage />} />
@@ -75,5 +79,4 @@ function CustomerRoutes() {
 }
 
 export default CustomerRoutes;
-
 

@@ -1,5 +1,6 @@
 // src/components/DishCarousel.jsx
 import React from 'react';
+import { useNavigate } from "react-router-dom";
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay } from 'swiper/modules';
 import 'swiper/css';
@@ -12,6 +13,9 @@ import foodItems1 from '../../assets/data/FoodData1.js';
 
 
 const DishCarousel = () => {
+  const navigate = useNavigate();
+  const openDish = (dishName) => navigate(`/dish/${encodeURIComponent(dishName)}`);
+
   return (
     <div className="w-full max-w-[1200px] mx-auto py-6 px-4 bg-gray-100">
       <h2 className="text-2xl font-bold mb-4 text-center text-indigo-800">Popular Dishes</h2>
@@ -29,10 +33,14 @@ const DishCarousel = () => {
       >
         {foodItems.map((dish, index) => (
   <SwiperSlide key={index}>
-    <div className="bg-gray-100  p-2 flex flex-col items-center transition-transform hover:scale-105 duration-300">
+    <button
+      type="button"
+      onClick={() => openDish(dish.name)}
+      className="bg-gray-100 p-2 flex w-full flex-col items-center transition-transform hover:scale-105 duration-300"
+    >
       <img src={dish.img} alt={dish.name} className="w-[100px] h-[100px] object-cover rounded-full" />
       <p className="mt-2 text-md font-medium text-indigo-800">{dish.name}</p>
-    </div>
+    </button>
   </SwiperSlide>
 ))}
       </Swiper>
@@ -50,10 +58,14 @@ const DishCarousel = () => {
       >
         {foodItems1.map((dish, index) => (
   <SwiperSlide key={index}>
-    <div className="bg-gray-100  p-2 flex flex-col items-center transition-transform hover:scale-105 duration-300">
+    <button
+      type="button"
+      onClick={() => openDish(dish.name)}
+      className="bg-gray-100 p-2 flex w-full flex-col items-center transition-transform hover:scale-105 duration-300"
+    >
       <img src={dish.img} alt={dish.name} className="w-[100px] h-[100px] object-cover rounded-full" />
       <p className="mt-2 text-md font-medium text-indigo-800">{dish.name}</p>
-    </div>
+    </button>
   </SwiperSlide>
 ))}
       </Swiper>
@@ -62,5 +74,4 @@ const DishCarousel = () => {
 };
 
 export default DishCarousel;
-
 

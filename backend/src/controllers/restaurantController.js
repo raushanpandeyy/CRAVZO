@@ -44,6 +44,15 @@ const listRestaurants = async (req, res) => {
   const search = req.query.search?.trim();
   const city = req.query.city?.trim();
   const dish = req.query.dish?.trim();
+  const menuItemMatch = dish
+    ? {
+        OR: [
+          { name: { contains: dish, mode: "insensitive" } },
+          { category: { contains: dish, mode: "insensitive" } },
+          { description: { contains: dish, mode: "insensitive" } },
+        ],
+      }
+    : null;
 
   const restaurants = await prisma.restaurant.findMany({
     where: {
@@ -61,7 +70,10 @@ const listRestaurants = async (req, res) => {
                   ]
                 : []),
               ...(dish
-                ? [{ menuItems: { some: { name: { contains: dish, mode: "insensitive" }, status: "ACTIVE" } } }]
+                ? [
+                    { cuisine: { contains: dish, mode: "insensitive" } },
+                    { menuItems: { some: { status: "ACTIVE", ...menuItemMatch } } },
+                  ]
                 : []),
             ],
           }
@@ -69,9 +81,12 @@ const listRestaurants = async (req, res) => {
     },
     include: {
       menuItems: {
-        where: { status: "ACTIVE" },
+        where: {
+          status: "ACTIVE",
+          ...(menuItemMatch || {}),
+        },
         orderBy: { createdAt: "asc" },
-        take: 4,
+        take: dish ? 8 : 4,
       },
     },
     orderBy: { createdAt: "desc" },
