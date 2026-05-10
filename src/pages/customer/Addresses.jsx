@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Building, Home, MapPin, Plus, Save, Trash2 } from "lucide-react";
+import { Building, Home, LocateFixed, MapPin, Plus, Save, Trash2 } from "lucide-react";
 
 import { createAddress, deleteAddress, getAddresses, updateAddress } from "../../services/addressService.js";
 import { getStoredUser } from "../../services/authService.js";
@@ -214,20 +214,21 @@ export default function SavedAddresses() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] px-4 py-4 sm:px-8 sm:py-8">
+    <div className="min-h-screen bg-[#F4F7FB] px-3 py-3 sm:px-8 sm:py-8">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-8">
-          <h1 className="text-2xl font-black text-slate-950 sm:text-3xl">Saved Addresses</h1>
-          <p className="mt-2 text-sm text-slate-500">Manage delivery locations for faster checkout and smoother repeat orders.</p>
+        <div className="rounded-[28px] bg-indigo-950 p-5 text-white shadow-xl shadow-indigo-950/15 sm:rounded-3xl sm:bg-white sm:p-8 sm:text-slate-950 sm:shadow-sm">
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-indigo-200 sm:hidden">Delivery</p>
+          <h1 className="text-2xl font-black sm:text-3xl">Saved Addresses</h1>
+          <p className="mt-2 text-sm leading-6 text-indigo-100 sm:text-slate-500">Manage delivery locations for faster checkout and smoother repeat orders.</p>
         </div>
 
         {message ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
         {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
         <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
-          <div className="rounded-3xl bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-semibold text-slate-900">Address Categories</h2>
-            <div className="mt-5 space-y-3">
+          <div className="rounded-[28px] bg-white p-5 shadow-sm sm:rounded-3xl sm:p-6">
+            <h2 className="text-lg font-black text-slate-900 sm:text-xl sm:font-semibold">Address Categories</h2>
+            <div className="mt-4 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mt-5 lg:block lg:space-y-3 lg:overflow-visible lg:pb-0">
               {categories.map((category) => {
                 const CategoryIcon = category.icon;
 
@@ -238,7 +239,7 @@ export default function SavedAddresses() {
                       setSelected(category.id);
                       setForm((prev) => ({ ...prev, label: category.id }));
                     }}
-                    className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition ${selected === category.id
+                    className={`flex min-w-[118px] flex-col items-start gap-2 rounded-2xl px-4 py-3 text-left transition lg:w-full lg:min-w-0 lg:flex-row lg:items-center lg:justify-between ${selected === category.id
                         ? "bg-indigo-600 text-white"
                         : "bg-slate-50 text-slate-700 hover:bg-slate-100"
                       }`}
@@ -253,14 +254,14 @@ export default function SavedAddresses() {
               })}
             </div>
 
-            <div className="mt-8 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
+            <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600 sm:mt-8">
               <p className="font-semibold text-slate-900">Quick note</p>
               <p className="mt-1">The default address automatically becomes the first choice during future checkout improvements.</p>
             </div>
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
+            <div className="rounded-[28px] bg-white p-5 shadow-sm sm:rounded-3xl sm:p-6">
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-semibold text-slate-900">
@@ -275,7 +276,7 @@ export default function SavedAddresses() {
               ) : groupedAddresses[selected].length ? (
                 <div className="space-y-4">
                   {groupedAddresses[selected].map((address) => (
-                    <div key={address.id} className="rounded-3xl bg-indigo-900 p-4 text-white shadow-sm sm:p-5">
+                    <div key={address.id} className="rounded-[24px] bg-indigo-900 p-4 text-white shadow-sm sm:rounded-3xl sm:p-5">
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="text-lg font-semibold">{address.label || "Saved Address"}</p>
@@ -321,7 +322,7 @@ export default function SavedAddresses() {
               )}
             </div>
 
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
+            <div className="rounded-[28px] bg-white p-5 shadow-sm sm:rounded-3xl sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-xl font-semibold text-slate-900">
@@ -339,9 +340,10 @@ export default function SavedAddresses() {
               </div>
               <button
                 onClick={handleUseCurrentLocation}
-                className="mb-4 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-all duration-200 active:scale-95"
+                className="mb-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-all duration-200 active:scale-95 sm:w-auto"
               >
-                📍 Use Current Location
+                <LocateFixed className="h-4 w-4" />
+                Use Current Location
               </button>
               <div className="grid gap-4 md:grid-cols-2">
                 <input
@@ -409,7 +411,7 @@ export default function SavedAddresses() {
               <button
                 onClick={handleSubmit}
                 disabled={saving}
-                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white transition active:scale-95 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:rounded-xl sm:font-semibold"
               >
                 <Save className="h-4 w-4" />
                 {saving ? "Saving..." : editingId ? "Update Address" : "Save Address"}

@@ -1,6 +1,7 @@
 import React from "react";
 
 import AccessPending from "./components/common/AccessPending";
+import AppLoader from "./components/common/AppLoader";
 import AdminRoutes from "./routes/AdminRoutes";
 import CustomerRoutes from "./routes/CustomerRoutes";
 import RiderRoutes from "./routes/RiderRoutes";
@@ -11,11 +12,7 @@ const App = () => {
   const { user, isHydrating } = useAuth();
 
   if (isHydrating) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-600">
-        Loading...
-      </div>
-    );
+    return <AppLoader />;
   }
 
   if (user && user.isLoggedIn) {

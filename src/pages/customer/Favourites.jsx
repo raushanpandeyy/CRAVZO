@@ -41,11 +41,12 @@ export default function Favorites() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] px-4 py-4 sm:px-8 sm:py-8">
+    <div className="min-h-screen bg-[#F4F7FB] px-3 py-3 sm:px-8 sm:py-8">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-8">
-          <h1 className="text-2xl font-black text-slate-950 sm:text-3xl">Your Favorite Restaurants</h1>
-          <p className="mt-2 text-sm text-slate-500">Quickly jump back to the restaurants you liked most.</p>
+        <div className="rounded-[28px] bg-indigo-950 p-5 text-white shadow-xl shadow-indigo-950/15 sm:rounded-3xl sm:bg-white sm:p-8 sm:text-slate-950 sm:shadow-sm">
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-indigo-200 sm:hidden">Saved places</p>
+          <h1 className="text-2xl font-black sm:text-3xl">Your Favorite Restaurants</h1>
+          <p className="mt-2 text-sm leading-6 text-indigo-100 sm:text-slate-500">Quickly jump back to the restaurants you liked most.</p>
         </div>
 
         {message ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
@@ -56,12 +57,12 @@ export default function Favorites() {
         ) : favorites.length ? (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {favorites.map((favorite) => (
-              <div key={favorite.id} className="overflow-hidden rounded-3xl bg-white shadow-sm transition-all duration-200 hover:shadow-md">
+              <div key={favorite.id} className="overflow-hidden rounded-[28px] bg-white shadow-sm transition-all duration-200 hover:shadow-md sm:rounded-3xl">
                 <div className="relative">
                   <img
                     src={favorite.restaurant.imageUrl}
                     alt={favorite.restaurant.name}
-                    className="h-40 w-full object-cover sm:h-52"
+                    className="h-36 w-full object-cover sm:h-52"
                   />
                   <button
                     onClick={() => handleRemove(favorite.restaurantId)}

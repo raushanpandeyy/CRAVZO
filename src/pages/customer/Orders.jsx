@@ -66,8 +66,8 @@ export default function Orders() {
     order.items?.reduce((total, item) => total + Number(item.unitPrice || item.price || 0) * Number(item.quantity || 1), 0) || 0;
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] px-4 py-4 sm:px-8 sm:py-8">
-      <div className="mx-auto mb-5 w-full max-w-3xl">
+    <div className="min-h-screen bg-[#F4F7FB] px-3 py-3 sm:px-8 sm:py-8">
+      <div className="mx-auto mb-4 w-full max-w-3xl sm:mb-5">
         <SearchBar
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -79,12 +79,13 @@ export default function Orders() {
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
         {message ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
         {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
-        <div className="flex flex-col gap-3 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 rounded-[28px] border border-indigo-900 bg-indigo-950 p-5 text-white shadow-xl shadow-indigo-950/15 sm:rounded-3xl sm:border-slate-100 sm:bg-white sm:text-slate-950 sm:shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-black text-slate-950 sm:text-3xl">My Orders</h1>
-            <p className="mt-1 text-sm text-slate-500">Tap any order card to see the full bill.</p>
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-indigo-200 sm:hidden">Order history</p>
+            <h1 className="text-2xl font-black sm:text-3xl sm:text-slate-950">My Orders</h1>
+            <p className="mt-1 text-sm text-indigo-100 sm:text-slate-500">Tap any order card to see the full bill.</p>
           </div>
-          <div className="inline-flex items-center gap-2 text-sm font-bold text-indigo-700">
+          <div className="inline-flex items-center gap-2 text-sm font-bold text-indigo-100 sm:text-indigo-700">
             <Clock3 className="w-5 h-5" />
             Recent Orders
           </div>
@@ -102,9 +103,9 @@ export default function Orders() {
                   type="button"
                   onClick={() => setSelectedOrder(order)}
                   key={order.id}
-                  className="group overflow-hidden rounded-3xl border border-slate-100 bg-white text-left shadow-sm transition-all duration-200 active:scale-[0.99] hover:shadow-md"
+                  className="group overflow-hidden rounded-[28px] border border-slate-100 bg-white text-left shadow-sm transition-all duration-200 active:scale-[0.99] hover:shadow-md sm:rounded-3xl"
                 >
-                  <div className="relative h-36 overflow-hidden sm:h-40">
+                  <div className="relative h-32 overflow-hidden sm:h-40">
                     <img
                       src={order.restaurant?.imageUrl || cart}
                       alt={order.restaurant?.name || "Order"}
