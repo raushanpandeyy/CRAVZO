@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Bike, Camera, Mail, Phone, Save, User } from "lucide-react";
 
-import RiderNavbar from "./RiderNav";
 import { getStoredUser } from "../../services/authService.js";
 import { getProfile, updateProfile, uploadImage } from "../../services/userService.js";
 
@@ -126,7 +125,7 @@ const RiderProfile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-10 pt-24">
+    <div className="min-h-screen bg-gray-50 pb-24 pt-4 md:pb-10 md:pt-24">
       <div className="mx-auto max-w-7xl px-6">
         <div className="rounded-3xl border border-indigo-300 bg-indigo-700 p-8 text-white shadow-xl">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -237,7 +236,6 @@ const RiderProfile = () => {
           </div>
         </div>
       </div>
-      <RiderNavbar />
     </div>
   );
 };

@@ -23,9 +23,12 @@
     "cors": "^2.8.6",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-rate-limit": "^8.4.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "rate-limit-redis": "^4.3.1",
+    "redis": "^5.12.1",
     "resend": "^6.11.0",
     "zod": "^3.24.2"
   },

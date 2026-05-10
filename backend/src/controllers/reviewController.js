@@ -1,6 +1,7 @@
 import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import { upsertReviewSchema } from "../validators/reviewValidators.js";
 
 const serializeReview = (review) => ({
   id: review.id,
@@ -73,15 +74,7 @@ const listRestaurantReviews = async (req, res) => {
 };
 
 const upsertReview = async (req, res) => {
-  const { restaurantId, rating, comment = null } = req.body;
-
-  if (!restaurantId || !rating) {
-    throw new ApiError(400, "Restaurant and rating are required");
-  }
-
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-    throw new ApiError(400, "Rating must be an integer between 1 and 5");
-  }
+  const { restaurantId, rating, comment = null } = upsertReviewSchema.parse(req.body);
 
   const restaurant = await prisma.restaurant.findFirst({
     where: {

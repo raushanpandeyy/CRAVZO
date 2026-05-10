@@ -214,10 +214,10 @@ export default function SavedAddresses() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] px-4 py-6 sm:px-8 sm:py-8">
+    <div className="min-h-screen bg-[#F4F7FB] px-4 py-4 sm:px-8 sm:py-8">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
-          <h1 className="text-3xl font-bold text-slate-900">Saved Addresses</h1>
+        <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-8">
+          <h1 className="text-2xl font-black text-slate-950 sm:text-3xl">Saved Addresses</h1>
           <p className="mt-2 text-sm text-slate-500">Manage delivery locations for faster checkout and smoother repeat orders.</p>
         </div>
 
@@ -275,8 +275,8 @@ export default function SavedAddresses() {
               ) : groupedAddresses[selected].length ? (
                 <div className="space-y-4">
                   {groupedAddresses[selected].map((address) => (
-                    <div key={address.id} className="rounded-3xl bg-indigo-900 p-5 text-white shadow-sm">
-                      <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div key={address.id} className="rounded-3xl bg-indigo-900 p-4 text-white shadow-sm sm:p-5">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                           <p className="text-lg font-semibold">{address.label || "Saved Address"}</p>
                           <p className="mt-1 text-sm text-indigo-100">
@@ -289,7 +289,7 @@ export default function SavedAddresses() {
                           </p>
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <button
                             onClick={() => handleEdit(address)}
                             className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-50"
@@ -339,7 +339,7 @@ export default function SavedAddresses() {
               </div>
               <button
                 onClick={handleUseCurrentLocation}
-                className="mb-4 bg-blue-600 text-white px-4 py-2 rounded"
+                className="mb-4 rounded-2xl bg-blue-600 px-4 py-3 text-sm font-bold text-white transition-all duration-200 active:scale-95"
               >
                 📍 Use Current Location
               </button>

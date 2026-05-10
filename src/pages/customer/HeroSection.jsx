@@ -35,7 +35,7 @@ const HeroSection = () => {
       </div>
 
       {/* Search */}
-      <div className="relative z-10 flex flex-col items-center mb-8 w-full max-w-md">
+      <div className="relative z-40 flex flex-col items-center mb-8 w-full max-w-md">
         <SearchBar
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
@@ -89,5 +89,4 @@ const HeroSection = () => {
 };
 
 export default HeroSection;
-
 

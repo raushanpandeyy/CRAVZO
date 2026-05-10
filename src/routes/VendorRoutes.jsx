@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route } from "react-router-dom";
-import Navbar from '../components/common/Navbar.jsx';
+import Navbar from "../components/common/Navbar.jsx";
+import PartnerMobileNav from "../components/common/PartnerMobileNav.jsx";
 
 // Vendor Pages
 import VendorAccount from '../pages/vendors/VendorAccount.jsx';
@@ -13,8 +14,11 @@ import VendorChatPage from '../pages/vendors/VendorChatPage.jsx';
 const VendorRoutes = () => {
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar />
-      <main className="flex-1">
+      <div className="hidden md:block">
+        <Navbar />
+      </div>
+      <PartnerMobileNav role="vendor" />
+      <main className="flex-1 pt-16 pb-24 md:p-0">
         <Routes>
   <Route path="/vendor-dashboard" element={<VendorAccount />}>
     <Route index element={<VendorDashboard />} />

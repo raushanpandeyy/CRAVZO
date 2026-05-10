@@ -4,6 +4,7 @@ import { env } from "../config/env.js";
 import { createPersistedOrder, prepareOrderDraft, serializeOrder } from "../services/orderCheckoutService.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import { createCheckoutOrderSchema, createOrderSchema, verifyPaymentOrderSchema } from "../validators/orderValidators.js";
 
 const razorpayBaseUrl = "https://api.razorpay.com/v1";
 
@@ -54,7 +55,10 @@ const getRazorpayConfig = async (_req, res) => {
 
 
 const createCODOrder = async (req, res) => {
-  const { restaurantId, items, address, addressId, notes } = req.body;
+  const { restaurantId, items, address = null, addressId = null, notes = null } = createOrderSchema.parse({
+    ...req.body,
+    paymentMethod: "COD",
+  });
 
   const order = await createPersistedOrder({
     customerId: req.user.sub,
@@ -76,8 +80,8 @@ const createCODOrder = async (req, res) => {
 
 
 const createCheckoutOrder = async (req, res) => {
-  const { restaurantId, items = [], address = null, addressId = null, notes = null } = req.body;
-const { paymentMethod } = req.body;
+  const { restaurantId, items, address = null, addressId = null, paymentMethod, notes = null } =
+    createCheckoutOrderSchema.parse(req.body);
   const draft = await prepareOrderDraft({
     customerId: req.user.sub,
     restaurantId,
@@ -114,18 +118,14 @@ const verifyAndCreatePaidOrder = async (req, res) => {
 
   const {
     restaurantId,
-    items = [],
+    items,
     address = null,
     addressId = null,
     notes = null,
     razorpayOrderId,
     razorpayPaymentId,
     razorpaySignature,
-  } = req.body;
-
-  if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
-    throw new ApiError(400, "Razorpay payment verification data is required");
-  }
+  } = verifyPaymentOrderSchema.parse(req.body);
 
   const generatedSignature = crypto
     .createHmac("sha256", env.RAZORPAY_KEY_SECRET)

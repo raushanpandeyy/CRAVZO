@@ -5,7 +5,10 @@ import { requestPasswordReset, resetPassword } from "../../services/authService.
 
 const emptyOtp = ["", "", "", "", "", ""];
 
-const ForgotPasswordForm = ({ role = "CUSTOMER", onBack, buttonClassName = "w-full rounded bg-indigo-600 py-2 text-white disabled:opacity-70" }) => {
+const fieldClassName =
+  "w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100";
+
+const ForgotPasswordForm = ({ role = "CUSTOMER", onBack, buttonClassName = "w-full rounded-2xl bg-indigo-600 py-3 font-bold text-white disabled:opacity-70" }) => {
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState(emptyOtp);
   const [password, setPassword] = useState("");
@@ -68,7 +71,7 @@ const ForgotPasswordForm = ({ role = "CUSTOMER", onBack, buttonClassName = "w-fu
       <input
         type="email"
         placeholder="Email"
-        className="w-full rounded border p-2"
+        className={fieldClassName}
         value={email}
         onChange={(event) => setEmail(event.target.value)}
         disabled={otpSent}
@@ -81,7 +84,7 @@ const ForgotPasswordForm = ({ role = "CUSTOMER", onBack, buttonClassName = "w-fu
           <input
             type="password"
             placeholder="New Password"
-            className="w-full rounded border p-2"
+            className={fieldClassName}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
@@ -89,7 +92,7 @@ const ForgotPasswordForm = ({ role = "CUSTOMER", onBack, buttonClassName = "w-fu
           <input
             type="password"
             placeholder="Confirm New Password"
-            className="w-full rounded border p-2"
+            className={fieldClassName}
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
             required
@@ -101,7 +104,7 @@ const ForgotPasswordForm = ({ role = "CUSTOMER", onBack, buttonClassName = "w-fu
         {isSubmitting ? "Please wait..." : otpSent ? "Reset Password" : "Send Reset OTP"}
       </button>
 
-      <button type="button" onClick={onBack} className="w-full rounded border border-slate-300 py-2 text-slate-700">
+      <button type="button" onClick={onBack} className="w-full rounded-2xl border border-slate-300 py-3 font-bold text-slate-700">
         Back to Login
       </button>
     </form>

@@ -13,7 +13,9 @@ import {
   loginSchema,
   requestPasswordResetSchema,
   resetPasswordSchema,
+  sendOtpSchema,
   signUpSchema,
+  verifyOtpSchema,
 } from "../validators/authValidators.js";
 
 const AUTH_COOKIE_NAME = "token";
@@ -85,13 +87,10 @@ const createOtpRecord = async ({ email, role, purpose = getOtpPurposeForRole(rol
 };
 
 export const sendOtpController = async (req, res) => {
-  const email = req.body.email?.trim().toLowerCase();
-  const role = req.body.role || ROLES.CUSTOMER;
+  const payload = sendOtpSchema.parse(req.body);
+  const email = payload.email.toLowerCase();
+  const role = payload.role;
   const purpose = getOtpPurposeForRole(role);
-
-  if (!email) {
-    throw new ApiError(400, "Email is required");
-  }
 
   const user = await prisma.user.findUnique({
     where: { email },
@@ -133,14 +132,11 @@ export const sendOtpController = async (req, res) => {
 };
 
 export const verifyOtpController = async (req, res) => {
-  const email = req.body.email?.trim().toLowerCase();
-  const otp = req.body.otp?.trim();
-  const role = req.body.role || ROLES.CUSTOMER;
+  const payload = verifyOtpSchema.parse(req.body);
+  const email = payload.email.toLowerCase();
+  const otp = payload.otp;
+  const role = payload.role;
   const purpose = getOtpPurposeForRole(role);
-
-  if (!email || !otp) {
-    throw new ApiError(400, "Email and OTP are required");
-  }
 
   const record = await prisma.otpVerification.findFirst({
     where: {

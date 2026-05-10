@@ -14,6 +14,17 @@ const loginSchema = z.object({
   password: z.string().min(8),
 });
 
+const sendOtpSchema = z.object({
+  email: z.string().trim().email(),
+  role: z.enum(["CUSTOMER", "VENDOR", "RIDER"]).default("CUSTOMER"),
+});
+
+const verifyOtpSchema = z.object({
+  email: z.string().trim().email(),
+  otp: z.string().trim().length(6),
+  role: z.enum(["CUSTOMER", "VENDOR", "RIDER"]).default("CUSTOMER"),
+});
+
 const requestPasswordResetSchema = z.object({
   email: z.string().trim().email(),
   role: z.enum(["CUSTOMER", "VENDOR", "RIDER"]).optional(),
@@ -26,4 +37,11 @@ const resetPasswordSchema = z.object({
   role: z.enum(["CUSTOMER", "VENDOR", "RIDER"]).optional(),
 });
 
-export { loginSchema, requestPasswordResetSchema, resetPasswordSchema, signUpSchema };
+export {
+  loginSchema,
+  requestPasswordResetSchema,
+  resetPasswordSchema,
+  sendOtpSchema,
+  signUpSchema,
+  verifyOtpSchema,
+};

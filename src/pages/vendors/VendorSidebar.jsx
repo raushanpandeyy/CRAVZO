@@ -16,7 +16,7 @@ const navItems = [
   { to: 'chat', label: 'Support Chat', Icon: MessageCircle },
 ];
 
-const VendorSidebar = ({ sidebar, setSidebar }) => {
+const VendorSidebar = ({ sidebar = false, setSidebar = () => {} }) => {
   return (
     <>
       {/* Desktop Sidebar */}
@@ -51,28 +51,6 @@ const VendorSidebar = ({ sidebar, setSidebar }) => {
 
         {/* Logout Button */}
         
-      </div>
-
-      {/* Mobile Bottom Navbar */}
-      <div className="sm:hidden fixed bottom-0 left-0 w-full bg-indigo-900 flex justify-between px-2 py-2 z-50">
-        {navItems.slice(0, 5).map((item) => {
-          const NavIcon = item.Icon;
-
-          return (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={() => setSidebar(false)}
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center px-1 py-1 text-xs
-              ${isActive ? 'text-indigo-300' : 'text-white'}`
-            }
-          >
-            <NavIcon className="w-6 h-6 mb-1" />
-            <span className="text-[10px]">{item.label}</span>
-          </NavLink>
-          );
-        })}
       </div>
     </>
   );

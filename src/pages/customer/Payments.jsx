@@ -78,10 +78,10 @@ export default function PaymentMethods() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 px-6 py-10 sm:pl-80">
+    <div className="min-h-screen bg-[#F4F7FB] px-4 py-4 sm:px-8 sm:py-8">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-3xl border border-indigo-200 bg-white p-6 shadow-md">
-          <h1 className="text-3xl font-bold text-indigo-900">UPI Payment Methods</h1>
+        <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
+          <h1 className="text-2xl font-black text-slate-950 sm:text-3xl">UPI Payment Methods</h1>
           <p className="mt-2 text-sm text-slate-600">
             Save your preferred UPI IDs here. Checkout uses Razorpay UPI with your saved payment preference.
           </p>
@@ -91,7 +91,7 @@ export default function PaymentMethods() {
         {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-3xl border border-indigo-200 bg-white p-6 shadow-md">
+          <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
             <div className="mb-6 flex items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-semibold text-indigo-900">Saved UPI IDs</h2>
@@ -107,7 +107,7 @@ export default function PaymentMethods() {
             ) : savedUPI.length ? (
               <div className="space-y-3">
                 {savedUPI.map((upiId, index) => (
-                  <div key={upiId} className="flex items-center justify-between rounded-2xl bg-indigo-900 px-4 py-4 text-white">
+                  <div key={upiId} className="flex flex-col gap-3 rounded-2xl bg-indigo-900 px-4 py-4 text-white sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-3">
                       <Smartphone className="h-5 w-5" />
                       <div>
@@ -133,7 +133,7 @@ export default function PaymentMethods() {
             )}
           </div>
 
-          <div className="rounded-3xl border border-indigo-200 bg-white p-6 shadow-md">
+          <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-6">
             <h2 className="text-xl font-semibold text-indigo-900">Add UPI ID</h2>
             <p className="mt-1 text-sm text-slate-500">Only UPI is managed here. Cards, banks, and COD have been removed.</p>
 

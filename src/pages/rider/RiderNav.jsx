@@ -1,45 +1,35 @@
 import React from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { BarChart3, Home, User } from "lucide-react";
+
+const navItems = [
+  { label: "Home", path: "/rider-dashboard", icon: Home },
+  { label: "History", path: "/rider-analytics", icon: BarChart3 },
+  { label: "Profile", path: "/rider-profile", icon: User },
+];
 
 const RiderNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isActive = (path) => location.pathname === path;
-
   return (
-    <div className="fixed bottom-0 w-full bg-white border-t border-gray-200 py-3 flex justify-around items-center z-50 shadow-md">
-      
-      <button
-        onClick={() => navigate("/rider-dashboard")}
-        className={`flex flex-col items-center ${
-          isActive("/rider-dashboard") ? "text-indigo-700" : "text-gray-500"
-        }`}
-      >
-        <span className="text-2xl">🏠</span>
-        <span className="text-[10px] font-bold">Home</span>
-      </button>
+    <div className="fixed bottom-0 left-0 z-50 flex w-full items-center justify-around border-t border-gray-200 bg-white py-3 shadow-md">
+      {navItems.map(({ label, path, icon }) => {
+        const NavIcon = icon;
+        const isActive = location.pathname === path;
 
-      <button
-        onClick={() => navigate("/rider-analytics")}
-        className={`flex flex-col items-center ${
-          isActive("/rider-analytics") ? "text-indigo-700" : "text-gray-500"
-        }`}
-      >
-        <span className="text-2xl">📈</span>
-        <span className="text-[10px] font-bold">History</span>
-      </button>
-
-      <button
-        onClick={() => navigate("/rider-profile")}
-        className={`flex flex-col items-center ${
-          isActive("/rider-profile") ? "text-indigo-700" : "text-gray-500"
-        }`}
-      >
-        <span className="text-2xl">⚙️</span>
-        <span className="text-[10px] font-bold">Profile</span>
-      </button>
-
+        return (
+          <button
+            key={path}
+            type="button"
+            onClick={() => navigate(path)}
+            className={`flex flex-col items-center gap-1 ${isActive ? "text-indigo-700" : "text-gray-500"}`}
+          >
+            <NavIcon className="h-6 w-6" />
+            <span className="text-[10px] font-bold">{label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 };

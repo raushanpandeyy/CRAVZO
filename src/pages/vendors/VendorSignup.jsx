@@ -10,18 +10,22 @@ import { login, sendOtp, signup, verifyOtp } from "../../services/authService.js
 
 const steps = ["Basic Info", "OTP Verification", "Location", "Business", "Account"];
 const emptyOtp = ["", "", "", "", "", ""];
+const vendorPrimaryButtonClassName =
+  "rounded-2xl bg-indigo-950 py-3.5 font-extrabold text-white shadow-lg shadow-indigo-950/20 transition active:scale-[0.99] disabled:opacity-70";
 
 function FormInput({ label, icon: Icon, value, onChange, type = "text" }) {
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium text-gray-600">{label}</label>
+      <label className="text-sm font-bold text-slate-600">{label}</label>
       <div className="relative">
-        {Icon ? <Icon className="absolute top-3 left-3 text-gray-400" size={18} /> : null}
+        {Icon ? <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} /> : null}
         <input
           type={type}
           value={value}
           onChange={onChange}
-          className={`w-full rounded-xl border bg-gray-50 py-3 ${Icon ? "pl-10" : "pl-4"} focus:bg-white`}
+          className={`w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pr-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100 ${
+            Icon ? "pl-12" : "pl-4"
+          }`}
         />
       </div>
     </div>
@@ -194,35 +198,50 @@ export default function VendorSignup() {
   };
 
   return (
-    <div className="relative min-h-screen">
-      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${VendorImage})` }} />
-      <div className="absolute inset-0 bg-black/60" />
+    <div className="relative min-h-screen bg-[#F4F7FB] md:bg-transparent">
+      <div className="absolute inset-x-0 top-0 h-[360px] bg-cover bg-center md:inset-0 md:h-auto" style={{ backgroundImage: `url(${VendorImage})` }} />
+      <div className="absolute inset-x-0 top-0 h-[360px] bg-gradient-to-t from-black/80 via-black/45 to-black/20 md:inset-0 md:h-auto md:bg-black/60" />
 
       <div className="relative z-10 flex min-h-screen flex-col md:flex-row">
+        <div className="px-5 pb-24 pt-28 text-white md:hidden">
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wide">
+            Business Partner
+          </span>
+          <h1 className="mt-3 text-3xl font-extrabold leading-tight">
+            Grow your restaurant with <span className="text-indigo-300">Cravzo</span>
+          </h1>
+          <p className="mt-3 text-sm font-semibold leading-6 text-white/90">
+            Manage orders, menu, payouts, and support from one dashboard.
+          </p>
+        </div>
+
         <div className="hidden w-2/3 items-center px-16 text-white md:flex">
           <h1 className="text-5xl font-extrabold">
             Join India&apos;s <span className="text-indigo-400">fastest growing</span> platform!
           </h1>
         </div>
 
-        <div className="w-full p-4 pt-24 md:w-1/3">
-          <div className="mx-auto w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="w-full px-4 pb-8 md:w-1/3 md:p-4 md:pt-24">
+          <div className="mx-auto -mt-20 w-full max-w-md rounded-[28px] border border-white/80 bg-white p-5 shadow-2xl shadow-slate-900/15 md:mt-0 md:p-6">
             <div className="mb-4 text-center">
               <button
                 onClick={() => {
                   setIsLogin((current) => !current);
                   resetSignupState();
                 }}
-                className="text-sm text-indigo-600"
+                className="rounded-full bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-800"
               >
                 {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Login"}
               </button>
             </div>
 
-            <h2 className="mb-4 text-xl font-bold">
+            <h2 className="mb-2 text-center text-2xl font-extrabold text-slate-950">
               {isForgotPassword ? "Reset Vendor Password" : isLogin ? "Vendor Login" : steps[step - 1]}
             </h2>
-            {!isForgotPassword && message ? <p className="mb-4 text-sm text-indigo-700">{message}</p> : null}
+            <p className="mb-4 text-center text-sm font-medium leading-6 text-slate-500">
+              {isLogin ? "Access orders, menu, and restaurant settings." : "Verify your account and complete onboarding."}
+            </p>
+            {!isForgotPassword && message ? <p className="mb-4 rounded-2xl bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-800">{message}</p> : null}
 
             {isForgotPassword ? (
               <ForgotPasswordForm
@@ -251,7 +270,7 @@ export default function VendorSignup() {
                 <button
                   onClick={handleVendorLogin}
                   disabled={isSubmitting}
-                  className="w-full rounded-xl bg-indigo-600 py-3 text-white disabled:opacity-70"
+                  className={`w-full ${vendorPrimaryButtonClassName}`}
                 >
                   {isSubmitting ? "Please wait..." : "Login"}
                 </button>
@@ -283,7 +302,7 @@ export default function VendorSignup() {
                       placeholder="Phone"
                       value={phone}
                       onChange={handlePhoneChange}
-                      className="w-full rounded-xl border p-3"
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-semibold text-slate-950 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
                     />
                     <FormInput
                       label="Email"
@@ -339,7 +358,7 @@ export default function VendorSignup() {
                 ) : null}
 
                 {step === 5 ? (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
                     OTP verified. Finalize signup to enter the vendor dashboard while admin approval is pending.
                   </div>
                 ) : null}
@@ -349,14 +368,14 @@ export default function VendorSignup() {
             {!isLogin ? (
               <div className="mt-6 flex gap-3">
                 {step > 1 ? (
-                  <button onClick={back} className="flex-1 rounded-xl border py-3">
+                  <button onClick={back} className="flex-1 rounded-2xl border border-slate-200 py-3 font-bold text-slate-700">
                     Back
                   </button>
                 ) : null}
                 <button
                   onClick={handleContinue}
                   disabled={isSubmitting}
-                  className="flex-[2] rounded-xl bg-indigo-600 py-3 text-white disabled:opacity-70"
+                  className={`flex-[2] ${vendorPrimaryButtonClassName}`}
                 >
                   {isSubmitting ? "Please wait..." : step === 2 ? "Verify OTP" : step === 5 ? "Finish Signup" : "Continue"}
                 </button>
@@ -369,7 +388,7 @@ export default function VendorSignup() {
       {!isLogin ? (
         <button
           onClick={() => setShowFAQ(true)}
-          className="fixed right-5 bottom-5 z-50 rounded-full bg-indigo-700 px-5 py-3 font-bold text-white shadow-lg hover:bg-indigo-800"
+          className="fixed right-5 bottom-5 z-50 rounded-full bg-indigo-950 px-5 py-3 font-bold text-white shadow-lg hover:bg-indigo-800"
         >
           FAQs
         </button>

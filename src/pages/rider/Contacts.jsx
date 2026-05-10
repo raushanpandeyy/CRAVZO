@@ -32,7 +32,7 @@ export default function Contacts() {
   };
 
   return (
-    <div className="flex h-screen bg-indigo-950 text-white">
+    <div className="flex h-[calc(100vh-10rem)] bg-indigo-950 text-white md:h-screen">
       {/* Left Sidebar (Desktop Only) */}
       <div className="hidden md:flex w-1/3 bg-indigo-900 flex-col border-r border-indigo-800">
         <div className="p-4 font-semibold text-lg">Chats</div>

@@ -1,9 +1,36 @@
 import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import { buildCacheKey, getCache, setCache } from "../utils/cache.js";
 import { getLatLngFromAddress } from "../utils/geocode.js";
+import {
+  NEARBY_RESTAURANTS_CACHE_TTL_SECONDS,
+  RESTAURANT_DETAIL_CACHE_TTL_SECONDS,
+  RESTAURANT_LIST_CACHE_TTL_SECONDS,
+  invalidatePublicRestaurantCache,
+} from "../utils/publicCache.js";
+import { createRestaurantSchema, updateRestaurantSchema } from "../validators/restaurantValidators.js";
 import { getNearbyRestaurantsService } from "../services/locationService.js";
 
+const DEFAULT_RESTAURANT_PAGE = 1;
+const DEFAULT_RESTAURANT_LIMIT = 12;
+const MAX_RESTAURANT_LIMIT = 25;
+const DEFAULT_MENU_PREVIEW_LIMIT = 4;
+const DISH_MENU_PREVIEW_LIMIT = 8;
+
+const parseRestaurantPagination = (query) => {
+  const page = Math.max(Number.parseInt(query.page, 10) || DEFAULT_RESTAURANT_PAGE, 1);
+  const limit = Math.min(
+    Math.max(Number.parseInt(query.limit, 10) || DEFAULT_RESTAURANT_LIMIT, 1),
+    MAX_RESTAURANT_LIMIT,
+  );
+
+  return {
+    page,
+    limit,
+    skip: (page - 1) * limit,
+  };
+};
 
 // ================= SERIALIZER =================
 const serializeRestaurant = (restaurant) => ({
@@ -41,9 +68,23 @@ longitude: restaurant.longitude,
 
 // ================= LIST =================
 const listRestaurants = async (req, res) => {
+  const { page, limit, skip } = parseRestaurantPagination(req.query);
   const search = req.query.search?.trim();
   const city = req.query.city?.trim();
   const dish = req.query.dish?.trim();
+  const cacheKey = buildCacheKey("restaurants:list", {
+    city,
+    dish,
+    limit,
+    page,
+    search,
+  });
+  const cachedResponse = await getCache(cacheKey);
+
+  if (cachedResponse) {
+    return res.status(200).json(cachedResponse);
+  }
+
   const menuItemMatch = dish
     ? {
         OR: [
@@ -54,64 +95,151 @@ const listRestaurants = async (req, res) => {
       }
     : null;
 
-  const restaurants = await prisma.restaurant.findMany({
-    where: {
-      status: "ACTIVE",
-      isOpen: true,
-      ...(city ? { city: { contains: city, mode: "insensitive" } } : {}),
-      ...(search || dish
-        ? {
-            OR: [
-              ...(search
-                ? [
-                    { name: { contains: search, mode: "insensitive" } },
-                    { cuisine: { contains: search, mode: "insensitive" } },
-                    { city: { contains: search, mode: "insensitive" } },
-                  ]
-                : []),
-              ...(dish
-                ? [
-                    { cuisine: { contains: dish, mode: "insensitive" } },
-                    { menuItems: { some: { status: "ACTIVE", ...menuItemMatch } } },
-                  ]
-                : []),
-            ],
-          }
-        : {}),
-    },
-    include: {
-      menuItems: {
-        where: {
-          status: "ACTIVE",
-          ...(menuItemMatch || {}),
+  const where = {
+    status: "ACTIVE",
+    isOpen: true,
+    ...(city ? { city: { contains: city, mode: "insensitive" } } : {}),
+    ...(search || dish
+      ? {
+          OR: [
+            ...(search
+              ? [
+                  { name: { contains: search, mode: "insensitive" } },
+                  { cuisine: { contains: search, mode: "insensitive" } },
+                  { city: { contains: search, mode: "insensitive" } },
+                ]
+              : []),
+            ...(dish
+              ? [
+                  { cuisine: { contains: dish, mode: "insensitive" } },
+                  { menuItems: { some: { status: "ACTIVE", ...menuItemMatch } } },
+                ]
+              : []),
+          ],
+        }
+      : {}),
+  };
+
+  const [restaurants, total] = await Promise.all([
+    prisma.restaurant.findMany({
+      where,
+      select: {
+        id: true,
+        vendorId: true,
+        name: true,
+        slug: true,
+        description: true,
+        cuisine: true,
+        phone: true,
+        addressLine1: true,
+        addressLine2: true,
+        city: true,
+        state: true,
+        postalCode: true,
+        imageUrl: true,
+        status: true,
+        isOpen: true,
+        openingTime: true,
+        closingTime: true,
+        openDays: true,
+        latitude: true,
+        longitude: true,
+        createdAt: true,
+        updatedAt: true,
+        menuItems: {
+          where: {
+            status: "ACTIVE",
+            ...(menuItemMatch || {}),
+          },
+          orderBy: { createdAt: "asc" },
+          take: dish ? DISH_MENU_PREVIEW_LIMIT : DEFAULT_MENU_PREVIEW_LIMIT,
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            imageUrl: true,
+          },
         },
-        orderBy: { createdAt: "asc" },
-        take: dish ? 8 : 4,
       },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.restaurant.count({ where }),
+  ]);
+
+  const response = apiResponse({
+    message: "Restaurants fetched successfully",
+    data: restaurants.map(serializeRestaurant),
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
     },
-    orderBy: { createdAt: "desc" },
   });
 
-  res.status(200).json(
-    apiResponse({
-      message: "Restaurants fetched successfully",
-      data: restaurants.map(serializeRestaurant),
-    })
-  );
+  await setCache(cacheKey, response, RESTAURANT_LIST_CACHE_TTL_SECONDS);
+
+  return res.status(200).json(response);
 };
 
 // ================= GET BY ID =================
 const getRestaurantById = async (req, res) => {
+  const cacheKey = `restaurants:detail:${req.params.restaurantId}`;
+  const cachedResponse = await getCache(cacheKey);
+
+  if (cachedResponse) {
+    return res.status(200).json(cachedResponse);
+  }
+
   const restaurant = await prisma.restaurant.findFirst({
     where: {
       id: req.params.restaurantId,
       status: "ACTIVE",
       isOpen: true,
     },
-    include: {
+    select: {
+      id: true,
+      vendorId: true,
+      name: true,
+      slug: true,
+      description: true,
+      cuisine: true,
+      phone: true,
+      addressLine1: true,
+      addressLine2: true,
+      city: true,
+      state: true,
+      postalCode: true,
+      imageUrl: true,
+      status: true,
+      isOpen: true,
+      openingTime: true,
+      closingTime: true,
+      openDays: true,
+      latitude: true,
+      longitude: true,
+      createdAt: true,
+      updatedAt: true,
       menuItems: {
-        where: { status: "ACTIVE" },
-        orderBy: { createdAt: "asc" },
+        where: {
+          status: "ACTIVE",
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+        select: {
+          id: true,
+          restaurantId: true,
+          name: true,
+          description: true,
+          category: true,
+          imageUrl: true,
+          price: true,
+          isVeg: true,
+          status: true,
+        },
       },
     },
   });
@@ -120,25 +248,27 @@ const getRestaurantById = async (req, res) => {
     throw new ApiError(404, "Restaurant not found");
   }
 
-  res.status(200).json(
-    apiResponse({
-      message: "Restaurant fetched successfully",
-      data: {
-        ...serializeRestaurant(restaurant),
-        menuItems: restaurant.menuItems.map((item) => ({
-          id: item.id,
-          restaurantId: item.restaurantId,
-          name: item.name,
-          description: item.description,
-          category: item.category,
-          imageUrl: item.imageUrl,
-          price: Number(item.price),
-          isVeg: item.isVeg,
-          status: item.status,
-        })),
-      },
-    })
-  );
+  const response = apiResponse({
+    message: "Restaurant fetched successfully",
+    data: {
+      ...serializeRestaurant(restaurant),
+      menuItems: restaurant.menuItems.map((item) => ({
+        id: item.id,
+        restaurantId: item.restaurantId,
+        name: item.name,
+        description: item.description,
+        category: item.category,
+        imageUrl: item.imageUrl,
+        price: Number(item.price),
+        isVeg: item.isVeg,
+        status: item.status,
+      })),
+    },
+  });
+
+  await setCache(cacheKey, response, RESTAURANT_DETAIL_CACHE_TTL_SECONDS);
+
+  return res.status(200).json(response);
 };
 
 // ================= MY RESTAURANT =================
@@ -190,6 +320,15 @@ const getNearbyRestaurants = async (req, res) => {
 
   const userLat = parseFloat(lat);
   const userLng = parseFloat(lng);
+  const cacheKey = buildCacheKey("restaurants:nearby", {
+    lat,
+    lng,
+  });
+  const cachedResponse = await getCache(cacheKey);
+
+  if (cachedResponse) {
+    return res.status(200).json(cachedResponse);
+  }
 
   const restaurants = await prisma.restaurant.findMany({
     where: {
@@ -198,10 +337,38 @@ const getNearbyRestaurants = async (req, res) => {
       latitude: { not: null },
       longitude: { not: null },
     },
-    include: {
+    select: {
+      id: true,
+      vendorId: true,
+      name: true,
+      slug: true,
+      description: true,
+      cuisine: true,
+      phone: true,
+      addressLine1: true,
+      addressLine2: true,
+      city: true,
+      state: true,
+      postalCode: true,
+      imageUrl: true,
+      status: true,
+      isOpen: true,
+      openingTime: true,
+      closingTime: true,
+      openDays: true,
+      latitude: true,
+      longitude: true,
+      createdAt: true,
+      updatedAt: true,
       menuItems: {
         where: { status: "ACTIVE" },
         take: 4,
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          imageUrl: true,
+        },
       },
     },
   });
@@ -212,12 +379,14 @@ const getNearbyRestaurants = async (req, res) => {
     userLng
   );
 
-  res.status(200).json(
-    apiResponse({
-      message: "Nearby restaurants fetched",
-      data: nearby,
-    })
-  );
+  const response = apiResponse({
+    message: "Nearby restaurants fetched",
+    data: nearby,
+  });
+
+  await setCache(cacheKey, response, NEARBY_RESTAURANTS_CACHE_TTL_SECONDS);
+
+  return res.status(200).json(response);
 };
 
 // ================= SLUG =================
@@ -230,6 +399,8 @@ const slugify = (value) =>
 
 // ================= CREATE =================
 const createRestaurant = async (req, res) => {
+  const payload = createRestaurantSchema.parse(req.body);
+
   if (req.user.role === "VENDOR") {
     const existingRestaurant = await prisma.restaurant.findFirst({
       where: { vendorId: req.user.sub },
@@ -240,11 +411,7 @@ const createRestaurant = async (req, res) => {
     }
   }
 
-  const { addressLine1, addressLine2, city, state, postalCode } = req.body;
-
-  if (!addressLine1 || !city || !state) {
-    throw new ApiError(400, "Complete address is required");
-  }
+  const { addressLine1, addressLine2, city, state, postalCode } = payload;
 
   const fullAddress = `${addressLine1}, ${city}, ${state}, ${postalCode || ""}, India`;
 
@@ -253,11 +420,11 @@ const createRestaurant = async (req, res) => {
   const restaurant = await prisma.restaurant.create({
     data: {
       vendorId: req.user.sub,
-      name: req.body.name,
-      slug: req.body.slug || slugify(req.body.name),
-      description: req.body.description || null,
-      cuisine: req.body.cuisine || null,
-      phone: req.body.phone || null,
+      name: payload.name,
+      slug: payload.slug || slugify(payload.name),
+      description: payload.description || null,
+      cuisine: payload.cuisine || null,
+      phone: payload.phone || null,
       addressLine1,
       addressLine2: addressLine2 || null,
       city,
@@ -265,15 +432,16 @@ const createRestaurant = async (req, res) => {
       postalCode,
       latitude: lat || null,
       longitude: lng || null,
-      imageUrl: req.body.imageUrl || null,
-      status: req.body.status || "DRAFT",
-      isOpen: Boolean(req.body.isOpen),
-      openingTime: req.body.openingTime || null,
-      closingTime: req.body.closingTime || null,
-      openDays: Array.isArray(req.body.openDays) ? req.body.openDays : [],
-      bankDetails: req.body.bankDetails || null,
+      imageUrl: payload.imageUrl || null,
+      status: payload.status || "DRAFT",
+      isOpen: Boolean(payload.isOpen),
+      openingTime: payload.openingTime || null,
+      closingTime: payload.closingTime || null,
+      openDays: payload.openDays || [],
+      bankDetails: payload.bankDetails || null,
     },
   });
+  await invalidatePublicRestaurantCache(restaurant.id);
 
   res.status(201).json(
     apiResponse({
@@ -285,6 +453,8 @@ const createRestaurant = async (req, res) => {
 
 // ================= UPDATE =================
 const updateRestaurant = async (req, res) => {
+  const payload = updateRestaurantSchema.parse(req.body);
+
   const existingRestaurant = await prisma.restaurant.findUnique({
     where: { id: req.params.restaurantId },
   });
@@ -297,11 +467,11 @@ const updateRestaurant = async (req, res) => {
     throw new ApiError(403, "You do not have permission to update this restaurant");
   }
 
-  const newAddressLine1 = req.body.addressLine1 ?? existingRestaurant.addressLine1;
-  const newAddressLine2 = req.body.addressLine2 ?? existingRestaurant.addressLine2;
-  const newCity = req.body.city ?? existingRestaurant.city;
-  const newState = req.body.state ?? existingRestaurant.state;
-  const newPostalCode = req.body.postalCode ?? existingRestaurant.postalCode;
+  const newAddressLine1 = payload.addressLine1 ?? existingRestaurant.addressLine1;
+  const newAddressLine2 = payload.addressLine2 ?? existingRestaurant.addressLine2;
+  const newCity = payload.city ?? existingRestaurant.city;
+  const newState = payload.state ?? existingRestaurant.state;
+  const newPostalCode = payload.postalCode ?? existingRestaurant.postalCode;
 
   const addressChanged =
     newAddressLine1 !== existingRestaurant.addressLine1 ||
@@ -323,11 +493,11 @@ const updateRestaurant = async (req, res) => {
   const updatedRestaurant = await prisma.restaurant.update({
     where: { id: req.params.restaurantId },
     data: {
-      name: req.body.name ?? existingRestaurant.name,
-      slug: req.body.slug ?? existingRestaurant.slug,
-      description: req.body.description ?? existingRestaurant.description,
-      cuisine: req.body.cuisine ?? existingRestaurant.cuisine,
-      phone: req.body.phone ?? existingRestaurant.phone,
+      name: payload.name ?? existingRestaurant.name,
+      slug: payload.slug ?? existingRestaurant.slug,
+      description: payload.description ?? existingRestaurant.description,
+      cuisine: payload.cuisine ?? existingRestaurant.cuisine,
+      phone: payload.phone ?? existingRestaurant.phone,
       addressLine1: newAddressLine1,
       addressLine2: newAddressLine2,
       city: newCity,
@@ -335,18 +505,19 @@ const updateRestaurant = async (req, res) => {
       postalCode: newPostalCode,
       latitude: lat || null,
       longitude: lng || null,
-      imageUrl: req.body.imageUrl ?? existingRestaurant.imageUrl,
-      status: req.body.status ?? existingRestaurant.status,
+      imageUrl: payload.imageUrl ?? existingRestaurant.imageUrl,
+      status: payload.status ?? existingRestaurant.status,
       isOpen:
-        typeof req.body.isOpen === "boolean"
-          ? req.body.isOpen
+        typeof payload.isOpen === "boolean"
+          ? payload.isOpen
           : existingRestaurant.isOpen,
-      openingTime: req.body.openingTime ?? existingRestaurant.openingTime,
-      closingTime: req.body.closingTime ?? existingRestaurant.closingTime,
-      openDays: Array.isArray(req.body.openDays) ? req.body.openDays : existingRestaurant.openDays,
-      bankDetails: req.body.bankDetails !== undefined ? req.body.bankDetails : existingRestaurant.bankDetails,
+      openingTime: payload.openingTime ?? existingRestaurant.openingTime,
+      closingTime: payload.closingTime ?? existingRestaurant.closingTime,
+      openDays: payload.openDays ?? existingRestaurant.openDays,
+      bankDetails: payload.bankDetails !== undefined ? payload.bankDetails : existingRestaurant.bankDetails,
     },
   });
+  await invalidatePublicRestaurantCache(updatedRestaurant.id);
 
   res.status(200).json(
     apiResponse({

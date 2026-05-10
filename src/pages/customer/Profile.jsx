@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Camera, Mail, Phone, Save, User } from "lucide-react";
+import { Bookmark, Camera, CreditCard, LogOut, Mail, MapPin, MessageCircle, Phone, Save, ShoppingBag, Star, User } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
 import { getStoredUser } from "../../services/authService.js";
+import { useAuth } from "../../hooks/useAuth.js";
 import { getProfile, updateProfile, uploadImage } from "../../services/userService.js";
 
 const fallbackAvatar =
@@ -14,7 +16,18 @@ const buildInitialForm = (user) => ({
   avatarUrl: user?.avatarUrl || "",
 });
 
+const accountActions = [
+  { to: "/account/orders", label: "Orders", icon: ShoppingBag },
+  { to: "/account/payments", label: "Payments", icon: CreditCard },
+  { to: "/account/addresses", label: "Addresses", icon: MapPin },
+  { to: "/account/favourites", label: "Favourites", icon: Bookmark },
+  { to: "/account/reviews", label: "Reviews", icon: Star },
+  { to: "/account/chat", label: "Support", icon: MessageCircle },
+];
+
 const Profile = () => {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const [profile, setProfile] = useState(getStoredUser());
   const [form, setForm] = useState(buildInitialForm(getStoredUser()));
   const [loading, setLoading] = useState(true);
@@ -99,8 +112,13 @@ const Profile = () => {
     }
   };
 
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
+
   return (
-    <div className="min-h-screen bg-[#F4F7FB] px-4 py-6 sm:px-8 sm:py-8">
+    <div className="min-h-screen bg-[#F4F7FB] px-4 py-4 sm:px-8 sm:py-8">
       <div className="mx-auto max-w-5xl space-y-6">
         <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -111,19 +129,46 @@ const Profile = () => {
               </p>
             </div>
 
-            <button
-              onClick={handleSave}
-              disabled={saving || loading}
-              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Save className="h-4 w-4" />
-              {saving ? "Saving..." : "Save Profile"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={handleSave}
+                disabled={saving || loading}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? "Saving..." : "Save Profile"}
+              </button>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-2 rounded-xl bg-rose-50 px-5 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+            </div>
           </div>
         </div>
 
         {message ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
         {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+
+        <div className="grid grid-cols-3 gap-3 sm:hidden">
+          {accountActions.map(({ to, label, icon }) => {
+            const ActionIcon = icon;
+            return (
+              <Link
+                key={to}
+                to={to}
+                className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-3xl bg-white px-2 py-3 text-center text-xs font-black text-slate-700 shadow-sm transition-all duration-200 active:scale-95"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700">
+                  <ActionIcon className="h-5 w-5" />
+                </span>
+                {label}
+              </Link>
+            );
+          })}
+        </div>
 
         <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">

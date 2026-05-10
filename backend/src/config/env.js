@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { z } from "zod";
 
 // Browser check: Kya hum frontend (browser) mein hain?
@@ -20,6 +21,8 @@ const envSchema = z.object({
   CLOUDINARY_FOLDER: z.string().default("cravzo"),
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
+  REDIS_URL: z.string().optional(),
+
 });
 
 // Helper function jo sahi jagah se data uthayega

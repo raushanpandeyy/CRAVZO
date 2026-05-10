@@ -4,6 +4,7 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 // Common
 import Navbar from '../components/common/Navbar.jsx';
 import Footer from '../components/common/Footer.jsx';
+import MobileBottomNav from '../components/common/MobileBottomNav.jsx';
 import SignIn from '../components/common/SignIn.jsx';
 import VerifyOtp from '../components/common/VerifyOtp.jsx';
 
@@ -37,12 +38,13 @@ function CustomerRoutes() {
 
   // Hide footer on account pages
   const hideFooter = location.pathname.startsWith('/account');
+  const hideMobileBottomNav = ['/signin', '/verify-otp', '/checkout'].includes(location.pathname);
 
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
 
-      <main className="flex-1 min-h-0">
+      <main className="flex-1 min-h-0 pb-20 md:pb-0">
         <Routes>
           {/* ================= CUSTOMER ROUTES ================= */}
           <Route path="/" element={<Home />} />
@@ -73,10 +75,15 @@ function CustomerRoutes() {
         </Routes>
       </main>
 
-      {!hideFooter && <Footer />}
+      {!hideFooter && (
+        <div className="hidden md:block">
+          <Footer />
+        </div>
+      )}
+
+      {!hideMobileBottomNav && <MobileBottomNav />}
     </div>
   );
 }
 
 export default CustomerRoutes;
-

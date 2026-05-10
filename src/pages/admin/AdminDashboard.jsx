@@ -5,7 +5,9 @@ import { CalendarRange, PackageCheck, Search, Store, UserCheck, Users, X } from 
 import { API_ENDPOINTS } from "../../constants/apiEndpoints.js";
 import { apiRequest } from "../../services/api.js";
 
-function MetricCard({ title, value, subtitle, icon: Icon, color }) {
+function MetricCard({ title, value, subtitle, icon, color }) {
+  const MetricIcon = icon;
+
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-4">
@@ -15,7 +17,7 @@ function MetricCard({ title, value, subtitle, icon: Icon, color }) {
           <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
         </div>
         <div className={`rounded-2xl p-3 ${color}`}>
-          <Icon className="h-6 w-6 text-white" />
+          <MetricIcon className="h-6 w-6 text-white" />
         </div>
       </div>
     </div>

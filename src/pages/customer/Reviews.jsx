@@ -49,10 +49,10 @@ export default function Reviews() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] px-4 py-6 sm:px-8 sm:py-8">
+    <div className="min-h-screen bg-[#F4F7FB] px-4 py-4 sm:px-8 sm:py-8">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
-          <h1 className="text-3xl font-bold text-slate-900">Your Reviews</h1>
+        <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-8">
+          <h1 className="text-2xl font-black text-slate-950 sm:text-3xl">Your Reviews</h1>
           <p className="mt-2 text-sm text-slate-500">Track the feedback you have shared across restaurants.</p>
         </div>
 
@@ -64,7 +64,7 @@ export default function Reviews() {
         ) : reviews.length ? (
           <div className="space-y-4">
             {reviews.map((review) => (
-              <div key={review.id} className="rounded-3xl bg-white p-6 shadow-sm">
+              <div key={review.id} className="rounded-3xl bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <Link to={`/restaurant/${review.restaurant?.id}`} className="text-xl font-semibold text-indigo-900 hover:underline">

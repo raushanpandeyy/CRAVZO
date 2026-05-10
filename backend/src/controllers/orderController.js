@@ -2,6 +2,7 @@ import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { createPersistedOrder, serializeOrder } from "../services/orderCheckoutService.js";
+import { createOrderSchema } from "../validators/orderValidators.js";
 
 const ACTIVE_DELIVERY_STATUSES = ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
 
@@ -24,7 +25,7 @@ const getDistanceKm = (startLat, startLng, endLat, endLng) => {
 const normalizeCity = (value) => value?.trim().toLowerCase() || "";
 
 const createOrder = async (req, res) => {
-  const { restaurantId, items = [], address = null, addressId = null, paymentMethod = "UPI", notes = null } = req.body;
+  const { restaurantId, items, address = null, addressId = null, paymentMethod, notes = null } = createOrderSchema.parse(req.body);
   const order = await createPersistedOrder({
     customerId: req.user.sub,
     restaurantId,

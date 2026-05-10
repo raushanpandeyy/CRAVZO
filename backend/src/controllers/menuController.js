@@ -1,6 +1,9 @@
 import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import { getCache, setCache } from "../utils/cache.js";
+import { MENU_ITEMS_CACHE_TTL_SECONDS, invalidatePublicRestaurantCache } from "../utils/publicCache.js";
+import { createMenuItemSchema, updateMenuItemSchema } from "../validators/menuValidators.js";
 
 const serializeMenuItem = (item) => ({
   id: item.id,
@@ -17,28 +20,52 @@ const serializeMenuItem = (item) => ({
 });
 
 const listMenuItems = async (req, res) => {
+  const cacheKey = `menu-items:restaurant:${req.params.restaurantId}`;
+  const cachedResponse = await getCache(cacheKey);
+
+  if (cachedResponse) {
+    return res.status(200).json(cachedResponse);
+  }
+
   const items = await prisma.menuItem.findMany({
     where: {
       restaurantId: req.params.restaurantId,
       status: "ACTIVE",
     },
+    select: {
+      id: true,
+      restaurantId: true,
+      name: true,
+      description: true,
+      category: true,
+      imageUrl: true,
+      price: true,
+      isVeg: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+    },
     orderBy: { createdAt: "asc" },
   });
 
-  res.status(200).json(
-    apiResponse({
-      message: "Menu items fetched successfully",
-      data: {
-        restaurantId: req.params.restaurantId ?? null,
-        items: items.map(serializeMenuItem),
-      },
-    }),
-  );
+  const response = apiResponse({
+    message: "Menu items fetched successfully",
+    data: {
+      restaurantId: req.params.restaurantId ?? null,
+      items: items.map(serializeMenuItem),
+    },
+  });
+
+  await setCache(cacheKey, response, MENU_ITEMS_CACHE_TTL_SECONDS);
+
+  return res.status(200).json(response);
 };
 
 const createMenuItem = async (req, res) => {
+  const payload = createMenuItemSchema.parse(req.body);
+
   const restaurant = await prisma.restaurant.findUnique({
-    where: { id: req.body.restaurantId },
+    where: { id: payload.restaurantId },
   });
 
   if (!restaurant) {
@@ -51,16 +78,17 @@ const createMenuItem = async (req, res) => {
 
   const item = await prisma.menuItem.create({
     data: {
-      restaurantId: req.body.restaurantId,
-      name: req.body.name,
-      description: req.body.description || null,
-      category: req.body.category,
-      imageUrl: req.body.imageUrl || null,
-      price: req.body.price,
-      isVeg: Boolean(req.body.isVeg),
-      status: req.body.status || "ACTIVE",
+      restaurantId: payload.restaurantId,
+      name: payload.name,
+      description: payload.description || null,
+      category: payload.category,
+      imageUrl: payload.imageUrl || null,
+      price: payload.price,
+      isVeg: Boolean(payload.isVeg),
+      status: payload.status || "ACTIVE",
     },
   });
+  await invalidatePublicRestaurantCache(item.restaurantId);
 
   res.status(201).json(
     apiResponse({
@@ -71,6 +99,8 @@ const createMenuItem = async (req, res) => {
 };
 
 const updateMenuItem = async (req, res) => {
+  const payload = updateMenuItemSchema.parse(req.body);
+
   const existingItem = await prisma.menuItem.findUnique({
     where: { id: req.params.menuItemId },
     include: {
@@ -89,15 +119,16 @@ const updateMenuItem = async (req, res) => {
   const item = await prisma.menuItem.update({
     where: { id: req.params.menuItemId },
     data: {
-      name: req.body.name ?? existingItem.name,
-      description: req.body.description ?? existingItem.description,
-      category: req.body.category ?? existingItem.category,
-      imageUrl: req.body.imageUrl ?? existingItem.imageUrl,
-      price: req.body.price ?? existingItem.price,
-      isVeg: typeof req.body.isVeg === "boolean" ? req.body.isVeg : existingItem.isVeg,
-      status: req.body.status ?? existingItem.status,
+      name: payload.name ?? existingItem.name,
+      description: payload.description ?? existingItem.description,
+      category: payload.category ?? existingItem.category,
+      imageUrl: payload.imageUrl ?? existingItem.imageUrl,
+      price: payload.price ?? existingItem.price,
+      isVeg: typeof payload.isVeg === "boolean" ? payload.isVeg : existingItem.isVeg,
+      status: payload.status ?? existingItem.status,
     },
   });
+  await invalidatePublicRestaurantCache(item.restaurantId);
 
   res.status(200).json(
     apiResponse({
@@ -126,6 +157,7 @@ const deleteMenuItem = async (req, res) => {
   await prisma.menuItem.delete({
     where: { id: req.params.menuItemId },
   });
+  await invalidatePublicRestaurantCache(existingItem.restaurantId);
 
   res.status(200).json(
     apiResponse({

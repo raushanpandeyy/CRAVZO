@@ -57,7 +57,7 @@ export default function OtpInput({ otp, setOtp }) {
           type="tel"
           inputMode="numeric"
           autoComplete="one-time-code"
-          className="w-12 h-12 rounded-full border-2 border-indigo-500 text-center text-lg font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+          className="h-11 w-11 rounded-2xl border-2 border-indigo-200 bg-slate-50 text-center text-lg font-bold text-indigo-950 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100 sm:h-12 sm:w-12"
           onChange={(e) => handleOtpChange(e, index)}
           onKeyDown={(e) => handleKeyDown(e, index)}
           onPaste={handlePaste}

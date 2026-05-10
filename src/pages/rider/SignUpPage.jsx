@@ -8,6 +8,12 @@ import OtpInput from "../../components/common/OtpInput.jsx";
 import { login, sendOtp, signup, verifyOtp } from "../../services/authService.js";
 
 const emptyOtp = ["", "", "", "", "", ""];
+const riderFieldClassName =
+  "w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-semibold text-slate-950 outline-none transition focus:border-purple-500 focus:bg-white focus:ring-4 focus:ring-purple-100";
+const riderPrimaryButtonClassName =
+  "w-full rounded-2xl bg-purple-700 py-3.5 font-extrabold text-white shadow-lg shadow-purple-700/20 transition active:scale-[0.99] disabled:opacity-70";
+const riderSecondaryButtonClassName =
+  "w-full rounded-2xl border border-purple-200 bg-white py-3.5 font-extrabold text-purple-800 transition active:scale-[0.99] disabled:opacity-70";
 
 const RiderSignup = () => {
   const navigate = useNavigate();
@@ -173,21 +179,21 @@ const RiderSignup = () => {
           <input
             placeholder="Email"
             type="email"
-            className="w-full rounded-xl border p-3"
+            className={riderFieldClassName}
             value={form.email}
             onChange={(event) => updateForm("email", event.target.value)}
           />
           <input
             placeholder="Password"
             type="password"
-            className="w-full rounded-xl border p-3"
+            className={riderFieldClassName}
             value={form.password}
             onChange={(event) => updateForm("password", event.target.value)}
           />
           <button
             onClick={handleLogin}
             disabled={isSubmitting}
-            className="w-full rounded-xl bg-purple-700 py-3 font-bold text-white disabled:opacity-70"
+            className={riderPrimaryButtonClassName}
           >
             {isSubmitting ? "Please wait..." : "Login"}
           </button>
@@ -210,13 +216,13 @@ const RiderSignup = () => {
           <div className="space-y-4">
             <input
               placeholder="Enter Name"
-              className="w-full rounded-xl border p-3"
+              className={riderFieldClassName}
               value={form.name}
               onChange={(event) => updateForm("name", event.target.value)}
             />
 
             <select
-              className="w-full rounded-xl border p-3"
+              className={riderFieldClassName}
               value={form.city}
               onChange={(event) => updateForm("city", event.target.value)}
             >
@@ -228,7 +234,7 @@ const RiderSignup = () => {
 
             <input
               placeholder="Mobile Number"
-              className="w-full rounded-xl border p-3"
+              className={riderFieldClassName}
               value={phone}
               onChange={(event) => setPhone(event.target.value.replace(/\D/g, "").slice(0, 10))}
             />
@@ -236,7 +242,7 @@ const RiderSignup = () => {
             <input
               placeholder="Email"
               type="email"
-              className="w-full rounded-xl border p-3"
+              className={riderFieldClassName}
               value={form.email}
               onChange={(event) => updateForm("email", event.target.value)}
             />
@@ -244,7 +250,7 @@ const RiderSignup = () => {
             <input
               placeholder="Password"
               type="password"
-              className="w-full rounded-xl border p-3"
+              className={riderFieldClassName}
               value={form.password}
               onChange={(event) => updateForm("password", event.target.value)}
             />
@@ -252,7 +258,7 @@ const RiderSignup = () => {
             <button
               onClick={handleRequestOtp}
               disabled={isSubmitting}
-              className="w-full rounded-xl bg-gray-200 py-3 font-bold disabled:opacity-70"
+              className="w-full rounded-2xl bg-slate-100 py-3.5 font-extrabold text-slate-900 disabled:opacity-70"
             >
               {isSubmitting ? "Please wait..." : "Get OTP"}
             </button>
@@ -263,14 +269,14 @@ const RiderSignup = () => {
               <button
                 onClick={handleVerifyOtp}
                 disabled={isSubmitting}
-                className="w-full rounded-xl bg-purple-700 py-3 font-bold text-white disabled:opacity-70"
+                className={riderPrimaryButtonClassName}
               >
                 Verify OTP
               </button>
               <button
                 onClick={handleResendOtp}
                 disabled={isSubmitting}
-                className="w-full rounded-xl border border-purple-200 py-3 font-bold text-purple-700 disabled:opacity-70"
+                className={riderSecondaryButtonClassName}
               >
                 Resend OTP
               </button>
@@ -281,7 +287,7 @@ const RiderSignup = () => {
         {step === 2 ? (
           <div className="space-y-4">
             <select
-              className="w-full rounded-xl border p-3"
+              className={riderFieldClassName}
               value={form.vehicleType}
               onChange={(event) => updateForm("vehicleType", event.target.value)}
             >
@@ -294,13 +300,13 @@ const RiderSignup = () => {
               <>
                 <input
                   placeholder="Vehicle Number"
-                  className="w-full rounded-xl border p-3"
+                  className={riderFieldClassName}
                   value={form.vehicleNumber}
                   onChange={(event) => updateForm("vehicleNumber", event.target.value)}
                 />
                 <input
                   placeholder="Driving License"
-                  className="w-full rounded-xl border p-3"
+                  className={riderFieldClassName}
                   value={form.drivingLicense}
                   onChange={(event) => updateForm("drivingLicense", event.target.value)}
                 />
@@ -308,10 +314,10 @@ const RiderSignup = () => {
             ) : null}
 
             <div className="flex gap-2">
-              <button onClick={() => setStep(1)} className="w-1/2 rounded-xl bg-gray-300 py-3">
+              <button onClick={() => setStep(1)} className="w-1/2 rounded-2xl bg-slate-200 py-3 font-bold text-slate-800">
                 Back
               </button>
-              <button onClick={() => setStep(3)} className="w-1/2 rounded-xl bg-purple-700 py-3 text-white">
+              <button onClick={() => setStep(3)} className="w-1/2 rounded-2xl bg-purple-700 py-3 font-bold text-white">
                 Next
               </button>
             </div>
@@ -322,13 +328,13 @@ const RiderSignup = () => {
           <div className="space-y-4">
             <textarea
               placeholder="Address"
-              className="w-full rounded-xl border p-3"
+              className={`${riderFieldClassName} min-h-24 resize-none`}
               value={form.address}
               onChange={(event) => updateForm("address", event.target.value)}
             />
 
             <select
-              className="w-full rounded-xl border p-3"
+              className={riderFieldClassName}
               value={form.shirtSize}
               onChange={(event) => updateForm("shirtSize", event.target.value)}
             >
@@ -340,10 +346,10 @@ const RiderSignup = () => {
             </select>
 
             <div className="flex gap-2">
-              <button onClick={() => setStep(2)} className="w-1/2 rounded-xl bg-gray-300 py-3">
+              <button onClick={() => setStep(2)} className="w-1/2 rounded-2xl bg-slate-200 py-3 font-bold text-slate-800">
                 Back
               </button>
-              <button onClick={() => setStep(4)} className="w-1/2 rounded-xl bg-purple-700 py-3 text-white">
+              <button onClick={() => setStep(4)} className="w-1/2 rounded-2xl bg-purple-700 py-3 font-bold text-white">
                 Next
               </button>
             </div>
@@ -352,11 +358,14 @@ const RiderSignup = () => {
 
         {step === 4 ? (
           <div className="space-y-4 text-center">
-            <h3 className="font-bold">Pay 1000</h3>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <h3 className="font-extrabold text-emerald-900">Pay Rs 1000</h3>
+              <p className="mt-1 text-sm font-medium text-emerald-700">Complete onboarding to continue.</p>
+            </div>
             <button
               onClick={handlePayment}
               disabled={isSubmitting}
-              className="w-full rounded-xl bg-green-600 py-3 text-white disabled:opacity-70"
+              className="w-full rounded-2xl bg-green-600 py-3.5 font-extrabold text-white disabled:opacity-70"
             >
               {isSubmitting ? "Please wait..." : "Pay"}
             </button>
@@ -367,16 +376,19 @@ const RiderSignup = () => {
   };
 
   return (
-    <div className="bg-white font-sans">
-      <div className="relative h-screen w-full overflow-hidden">
+    <div className="bg-[#F4F7FB] pb-8 font-sans md:bg-white md:pb-0">
+      <div className="relative h-[360px] w-full overflow-hidden md:h-screen">
         <img src={Rider} className="h-full w-full object-cover" alt="Rider" />
 
-        <div className="absolute inset-0 flex items-center bg-gradient-to-r from-black/60 to-transparent px-6 lg:px-20">
+        <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/80 via-black/35 to-transparent px-5 pb-24 md:items-center md:bg-gradient-to-r md:from-black/60 md:to-transparent md:px-6 md:pb-0 lg:px-20">
           <div className="max-w-2xl">
-            <h1 className="text-4xl font-extrabold text-white lg:text-6xl">
+            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white md:hidden">
+              Rider Partner
+            </span>
+            <h1 className="mt-3 text-3xl font-extrabold leading-tight text-white lg:text-6xl">
               Join India&apos;s <span className="text-orange-500">Largest</span> platform!
             </h1>
-            <p className="mt-4 text-xl text-white">Earn up to 30,000/month with Cravzo</p>
+            <p className="mt-3 text-base font-semibold text-white/90 md:text-xl">Earn up to 30,000/month with Cravzo</p>
           </div>
         </div>
 
@@ -402,29 +414,32 @@ const RiderSignup = () => {
         </div>
       </div>
 
-      <div className="relative z-30 -mt-10 px-4 md:hidden">
-        <div className="rounded-2xl border bg-white p-6 shadow-xl">
-          <h2 className="mb-4 text-center text-xl font-bold">
+      <div className="relative z-30 -mt-20 px-4 md:hidden">
+        <div className="mx-auto max-w-md rounded-[28px] border border-white/80 bg-white p-5 shadow-2xl shadow-slate-900/15">
+          <h2 className="mb-2 text-center text-2xl font-extrabold text-slate-950">
             {isForgotPassword ? "Reset Rider Password" : isLogin ? "Rider Login" : "Register as Cravzo Partner"}
           </h2>
+          <p className="mb-4 text-center text-sm font-medium leading-6 text-slate-500">
+            {isLogin ? "Access deliveries, earnings, and profile." : "Create your rider profile and verify with OTP."}
+          </p>
           <div className="mb-4 text-center">
             <button
               onClick={() => {
                 setIsLogin((current) => !current);
                 resetSignupState();
               }}
-              className="text-sm text-indigo-700"
+              className="rounded-full bg-purple-50 px-4 py-2 text-sm font-bold text-purple-800"
             >
               {isLogin ? "Need a new rider account? Sign up" : "Already registered? Login"}
             </button>
           </div>
-          {!isForgotPassword && message ? <p className="mb-4 text-sm text-indigo-700">{message}</p> : null}
+          {!isForgotPassword && message ? <p className="mb-4 rounded-2xl bg-purple-50 px-4 py-3 text-sm font-semibold text-purple-800">{message}</p> : null}
           {renderFormContent()}
         </div>
       </div>
 
       {!isLogin ? (
-        <div className="fixed right-5 bottom-5 z-50">
+        <div className="fixed right-5 bottom-5 z-50 md:bottom-5">
           <button
             onClick={() => setShowFAQ(true)}
             className="rounded-full bg-indigo-700 px-5 py-3 font-bold text-white shadow-lg hover:bg-indigo-800"

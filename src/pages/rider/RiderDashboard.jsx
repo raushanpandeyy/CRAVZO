@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import RiderNavbar from "./RiderNav.jsx";
 import { getRiderOrders, updateOrderStatus } from "../../services/orderService.js";
 import { updateRiderLocation, updateRiderStatus } from "../../services/riderService.js";
 import { getProfile } from "../../services/userService.js";
@@ -270,7 +269,7 @@ const RiderDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-24 pb-20 font-sans">
+    <div className="min-h-screen bg-gray-50 pt-4 pb-24 font-sans md:pt-24 md:pb-20">
       <div className="rounded-b-[40px] bg-indigo-700 p-6 text-white shadow-lg">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -499,7 +498,6 @@ const RiderDashboard = () => {
         </div>
       ) : null}
 
-      <RiderNavbar />
     </div>
   );
 };

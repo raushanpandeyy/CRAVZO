@@ -33,6 +33,10 @@ model User {
   riderOrders           Order[]      @relation("AssignedRiderOrders")
   restaurants           Restaurant[] @relation("VendorRestaurants")
   reviews               Review[]
+
+  @@index([status])
+  @@index([role, status, createdAt])
+  @@index([role, status, isOnline])
 }
 
 model Address {
@@ -53,6 +57,9 @@ model Address {
   updatedAt  DateTime @updatedAt
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   orders     Order[]
+
+  @@index([userId, isDefault, updatedAt])
+  @@index([userId, updatedAt])
 }
 
 model Restaurant {
@@ -84,6 +91,11 @@ model Restaurant {
   orders       Order[]
   vendor       User             @relation("VendorRestaurants", fields: [vendorId], references: [id], onDelete: Cascade)
   reviews      Review[]
+
+  @@index([vendorId, createdAt])
+  @@index([status, isOpen, createdAt])
+  @@index([status, isOpen, city])
+  @@index([city])
 }
 
 model MenuItem {
@@ -100,35 +112,46 @@ model MenuItem {
   updatedAt    DateTime       @updatedAt
   restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   orderItems   OrderItem[]
+
+  @@index([restaurantId, status, createdAt])
+  @@index([restaurantId, status, category])
 }
 
 model Order {
-  id            String        @id @default(cuid())
-  customerId    String
-  restaurantId  String
-  addressId     String?
-  riderId       String?
-  rejectedRiderIds String[]   @default([])
-  gatewayProvider String?
-  gatewayOrderId  String?
-  gatewayPaymentId String?
+  id               String        @id @default(cuid())
+  customerId       String
+  restaurantId     String
+  addressId        String?
+  riderId          String?
+  rejectedRiderIds String[]      @default([])
+  gatewayProvider  String?
+  gatewayOrderId   String?       @unique
+  gatewayPaymentId String?       @unique
   gatewaySignature String?
-  status        OrderStatus   @default(PENDING)
-  paymentMethod PaymentMethod @default(COD)
-  paymentStatus PaymentStatus @default(PENDING)
-  subtotal      Decimal       @db.Decimal(10, 2)
-  deliveryFee   Decimal       @db.Decimal(10, 2)
-  packagingFee  Decimal       @db.Decimal(10, 2)
-  taxAmount     Decimal       @db.Decimal(10, 2)
-  totalAmount   Decimal       @db.Decimal(10, 2)
-  notes         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  address       Address?      @relation(fields: [addressId], references: [id])
-  customer      User          @relation("CustomerOrders", fields: [customerId], references: [id])
-  restaurant    Restaurant    @relation(fields: [restaurantId], references: [id])
-  rider         User?         @relation("AssignedRiderOrders", fields: [riderId], references: [id])
-  items         OrderItem[]
+  status           OrderStatus   @default(PENDING)
+  paymentMethod    PaymentMethod @default(COD)
+  paymentStatus    PaymentStatus @default(PENDING)
+  subtotal         Decimal       @db.Decimal(10, 2)
+  deliveryFee      Decimal       @db.Decimal(10, 2)
+  packagingFee     Decimal       @db.Decimal(10, 2)
+  taxAmount        Decimal       @db.Decimal(10, 2)
+  totalAmount      Decimal       @db.Decimal(10, 2)
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  address          Address?      @relation(fields: [addressId], references: [id])
+  customer         User          @relation("CustomerOrders", fields: [customerId], references: [id])
+  restaurant       Restaurant    @relation(fields: [restaurantId], references: [id])
+  rider            User?         @relation("AssignedRiderOrders", fields: [riderId], references: [id])
+  items            OrderItem[]
+
+  @@index([customerId, createdAt])
+  @@index([restaurantId, createdAt])
+  @@index([riderId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([paymentMethod, createdAt])
+  @@index([paymentStatus, createdAt])
+  @@index([createdAt])
 }
 
 model OrderItem {
@@ -140,6 +163,9 @@ model OrderItem {
   totalPrice Decimal  @db.Decimal(10, 2)
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
   order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([menuItemId])
 }
 
 model Review {
@@ -151,6 +177,10 @@ model Review {
   createdAt    DateTime   @default(now())
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restaurantId])
+  @@index([userId, createdAt])
+  @@index([restaurantId, createdAt])
 }
 
 model Favorite {
@@ -162,22 +192,24 @@ model Favorite {
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, restaurantId])
+  @@index([userId, createdAt])
+  @@index([restaurantId, createdAt])
 }
 
 model OtpVerification {
-  id           String     @id
-  email        String
-  purpose      OtpPurpose
-  codeHash     String
+  id                String     @id
+  email             String
+  purpose           OtpPurpose
+  codeHash          String
   pendingSignupData Json?
-  expiresAt    DateTime
-  verifiedAt   DateTime?
-  usedAt       DateTime?
-  sentCount    Int        @default(1)
-  attemptCount Int        @default(0)
-  lastSentAt   DateTime   @default(now())
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime
+  expiresAt         DateTime
+  verifiedAt        DateTime?
+  usedAt            DateTime?
+  sentCount         Int        @default(1)
+  attemptCount      Int        @default(0)
+  lastSentAt        DateTime   @default(now())
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime
 
   @@index([email, purpose, createdAt])
 }

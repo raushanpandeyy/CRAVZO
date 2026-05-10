@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Heart, Star } from "lucide-react";
+import { Clock3, Heart, MapPin, Minus, Plus, ShoppingBag, Star } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "../../hooks/useAuth";
@@ -127,6 +127,7 @@ const RestaurantPage = () => {
   const packagingFee = Math.round(itemTotal * 0.03);
   const taxes = Math.round(itemTotal * 0.18);
   const grandTotal = itemTotal + deliveryFee + packagingFee + taxes;
+  const cartItemCount = cart.reduce((total, item) => total + Number(item.quantity || 0), 0);
 
   const goToCheckout = () => {
     window.scrollTo(0, 0);
@@ -198,86 +199,138 @@ const RestaurantPage = () => {
     return <div className="pt-24 text-center">Restaurant not found</div>;
   }
 
+  const menuItems = restaurant.menuItems || [];
+  const restaurantOpen = restaurant.isOpen !== false;
+
   return (
-    <div className="pt-32 max-w-7xl mx-auto p-4">
-      {message ? <div className="mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
-      {error ? <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+    <div className="bg-slate-50 pb-32 md:pb-10">
+      <div className="mx-auto max-w-7xl md:px-4 md:pt-32">
+        {message ? <div className="mx-4 mb-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 md:mx-0">{message}</div> : null}
+        {error ? <div className="mx-4 mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 md:mx-0">{error}</div> : null}
 
-      <div className="flex flex-col md:flex-row gap-8 items-center bg-gray-50 p-6 rounded-2xl shadow-sm mb-10">
-        <div className="flex-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-4xl font-bold">{restaurant.name}</h1>
-            <button onClick={toggleFavorite} className="rounded-full bg-white p-3 shadow-sm">
-              <Heart className={`h-5 w-5 ${isFavorite ? "fill-rose-500 text-rose-500" : "text-slate-500"}`} />
-            </button>
+        <section className="relative md:overflow-hidden md:rounded-3xl">
+          <div className="relative h-56 w-full md:h-80">
+            <img
+              src={restaurant.imageUrl}
+              alt={restaurant.name}
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
           </div>
-          <p className="mt-3 text-slate-600">{restaurant.location}</p>
-          <p className="mt-1 text-indigo-700 font-medium">{restaurant.cuisine}</p>
-          <p className="mt-3 text-sm text-slate-600">{restaurant.description || "Fresh food delivered from this restaurant."}</p>
-          <div className="mt-4 flex items-center gap-3 text-sm text-slate-600">
-            <span className={`rounded-full px-3 py-1 font-semibold ${restaurant.isOpen ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
-              {restaurant.isOpen ? "Open" : "Closed"}
-            </span>
-            {averageRating ? <span>{averageRating} / 5 from {reviews.length} reviews</span> : <span>No reviews yet</span>}
-          </div>
-          {(restaurant.openingTime || restaurant.closingTime || restaurant.openDays?.length) ? (
-            <div className="mt-3 text-sm text-slate-600">
-              {(restaurant.openingTime || restaurant.closingTime) ? (
-                <p>Hours: {restaurant.openingTime || "--:--"} - {restaurant.closingTime || "--:--"}</p>
-              ) : null}
-              {restaurant.openDays?.length ? <p>Open on: {restaurant.openDays.join(", ")}</p> : null}
+
+          <div className="relative z-10 mx-4 -mt-10 rounded-3xl bg-white p-5 shadow-xl shadow-slate-300/60 md:mx-8 md:-mt-16 md:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h1 className="text-3xl font-black tracking-tight text-slate-950 md:text-5xl">{restaurant.name}</h1>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-bold text-slate-700">
+                  <span>{restaurant.cuisine || "Fresh meals"}</span>
+                  <span className="h-1 w-1 rounded-full bg-slate-300" />
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-amber-700">
+                    <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+                    {averageRating || "4.4"}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={toggleFavorite}
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 shadow-sm transition-all duration-200 active:scale-95"
+                aria-label="Toggle favorite"
+              >
+                <Heart className={`h-5 w-5 ${isFavorite ? "fill-rose-500 text-rose-500" : ""}`} />
+              </button>
             </div>
-          ) : null}
-        </div>
 
-        <img src={restaurant.imageUrl} alt={restaurant.name} className="w-full md:w-1/2 h-64 object-cover rounded-xl" />
-      </div>
+            <p className="mt-3 flex items-start gap-2 text-sm font-medium leading-6 text-slate-500">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+              {restaurant.location || restaurant.city || "Near you"}
+            </p>
 
-      <div className="flex flex-col lg:flex-row gap-10">
-        <div className="flex-1">
-          {restaurant.menuItems.map((dish) => {
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span className={`rounded-full px-3 py-1.5 text-xs font-black ${restaurantOpen ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                {restaurantOpen ? "Open" : "Closed"}
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs font-extrabold text-slate-500">
+                <Clock3 className="h-4 w-4 text-indigo-700" />
+                {restaurant.openingTime || "25"} - {restaurant.closingTime || "35 min"}
+              </span>
+              {reviews.length ? <span className="text-xs font-bold text-slate-500">{reviews.length} reviews</span> : null}
+            </div>
+
+            {restaurant.description ? (
+              <p className="mt-4 text-sm leading-6 text-slate-600">{restaurant.description}</p>
+            ) : null}
+          </div>
+        </section>
+
+        <div className="mt-7 flex flex-col gap-8 px-4 lg:flex-row md:px-0">
+          <main className="flex-1 space-y-4">
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-[#ff6b5f]">Menu</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">Recommended for you</h2>
+            </div>
+
+            {menuItems.map((dish) => {
             const cartItem = cart.find((item) => item.id === dish.id);
 
             return (
-              <div key={dish.id} className="flex justify-between mb-6 border-b pb-4 gap-4">
-                <div>
-                  <h3 className="font-bold">{dish.name}</h3>
-                  <p>{formatCurrency(getPrice(dish.price))}</p>
-                  <p>{dish.category}</p>
-                  <p className="text-sm text-slate-500">{dish.description}</p>
+              <article
+                key={dish.id}
+                className="flex gap-4 rounded-3xl bg-white p-4 shadow-sm shadow-slate-200/70 transition-all duration-200 active:scale-[0.99] hover:shadow-md"
+              >
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-black text-slate-950">{dish.name}</h3>
+                  <p className="mt-1 text-sm font-extrabold text-slate-900">{formatCurrency(getPrice(dish.price))}</p>
+                  <p className="mt-1 text-xs font-bold uppercase tracking-wide text-indigo-700">{dish.category || "Special"}</p>
+                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">
+                    {dish.description || "Freshly prepared and packed with care."}
+                  </p>
                 </div>
 
-                <div>
-                  <img src={dish.imageUrl || restaurant.imageUrl} className="w-24 h-24 rounded object-cover" />
+                <div className="relative h-28 w-28 shrink-0">
+                  <img
+                    src={dish.imageUrl || restaurant.imageUrl}
+                    alt={dish.name}
+                    className="h-full w-full rounded-2xl object-cover"
+                  />
 
                   {!cartItem ? (
-                    <button onClick={() => addToCart(dish)} className="bg-indigo-600 text-white px-3 py-1 mt-2 rounded">
+                    <button
+                      onClick={() => addToCart(dish)}
+                      className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-white px-5 py-2 text-xs font-black text-indigo-700 shadow-lg shadow-slate-300 transition-all duration-200 active:scale-95"
+                    >
                       Add
                     </button>
                   ) : (
-                    <div className="flex gap-2 mt-2 items-center">
-                      <button onClick={() => decrease(dish.id)}>-</button>
-                      <span>{cartItem.quantity}</span>
-                      <button onClick={() => increase(dish.id)}>+</button>
+                    <div className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-indigo-700 px-2 py-1.5 text-white shadow-lg">
+                      <button onClick={() => decrease(dish.id)} className="rounded-full p-1 transition-all duration-200 active:scale-95" aria-label="Decrease item">
+                        <Minus className="h-4 w-4" />
+                      </button>
+                      <span className="min-w-5 text-center text-sm font-black">{cartItem.quantity}</span>
+                      <button onClick={() => increase(dish.id)} className="rounded-full p-1 transition-all duration-200 active:scale-95" aria-label="Increase item">
+                        <Plus className="h-4 w-4" />
+                      </button>
                     </div>
                   )}
                 </div>
-              </div>
+              </article>
             );
           })}
 
-          <div className="mt-10 rounded-3xl bg-white p-6 shadow-sm">
+          <section className="rounded-3xl bg-white p-5 shadow-sm shadow-slate-200/70 md:p-6">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">Reviews</h2>
+                <h2 className="text-2xl font-black text-slate-900">Reviews</h2>
                 <p className="mt-1 text-sm text-slate-500">See what customers are saying and leave your own feedback.</p>
               </div>
-              {averageRating ? <span className="rounded-full bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-700">Average {averageRating}/5</span> : null}
+              <span className="rounded-2xl bg-amber-50 px-4 py-2 text-sm font-black text-amber-700">
+                {averageRating || "New"} {averageRating ? "/ 5" : "reviews"}
+              </span>
             </div>
 
             {user?.accountType === "customer" ? (
-              <div className="mt-6 rounded-2xl bg-slate-50 p-4">
-                <p className="font-semibold text-slate-900">Your review</p>
+              <div className="mt-6 rounded-3xl bg-slate-50 p-4">
+                <p className="font-bold text-slate-900">Your review</p>
                 <div className="mt-3">
                   <Stars rating={reviewForm.rating} onSelect={(rating) => setReviewForm((prev) => ({ ...prev, rating }))} />
                 </div>
@@ -285,13 +338,13 @@ const RestaurantPage = () => {
                   value={reviewForm.comment}
                   onChange={(event) => setReviewForm((prev) => ({ ...prev, comment: event.target.value }))}
                   rows="4"
-                  className="mt-4 w-full rounded-2xl border border-slate-200 px-4 py-3"
+                  className="mt-4 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition-all duration-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                   placeholder="Share your experience with this restaurant"
                 />
                 <button
                   onClick={handleSaveReview}
                   disabled={savingReview}
-                  className="mt-4 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+                  className="mt-4 w-full rounded-2xl bg-indigo-700 px-4 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95 hover:bg-indigo-800 disabled:opacity-60"
                 >
                   {savingReview ? "Saving..." : "Save Review"}
                 </button>
@@ -301,10 +354,10 @@ const RestaurantPage = () => {
             <div className="mt-6 space-y-4">
               {reviews.length ? (
                 reviews.map((review) => (
-                  <div key={review.id} className="rounded-2xl border border-slate-200 p-4">
+                  <div key={review.id} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="font-semibold text-slate-900">{review.user?.name || "Customer"}</p>
+                        <p className="font-black text-slate-900">{review.user?.name || "Customer"}</p>
                         <p className="mt-1 text-xs text-slate-500">
                           {new Date(review.createdAt).toLocaleDateString("en-IN", {
                             day: "numeric",
@@ -324,57 +377,60 @@ const RestaurantPage = () => {
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          </section>
+        </main>
 
-        <div className="hidden lg:block lg:w-80">
-          <div className="sticky top-32 bg-white p-4 rounded shadow">
-            <h2 className="font-bold mb-4">Cart ({cart.length})</h2>
+        <aside className="hidden lg:block lg:w-80">
+          <div className="sticky top-32 rounded-3xl bg-white p-5 shadow-xl shadow-slate-200/80">
+            <h2 className="mb-4 flex items-center gap-2 text-xl font-black text-slate-950">
+              <ShoppingBag className="h-5 w-5 text-indigo-700" />
+              Cart ({cartItemCount})
+            </h2>
 
             {cart.map((item) => (
-              <div key={item.id} className="flex justify-between mb-3">
-                <span>{item.name} x {item.quantity}</span>
-                <span>{formatCurrency(getPrice(item.price) * item.quantity)}</span>
+              <div key={item.id} className="mb-3 flex justify-between gap-3 text-sm">
+                <span className="font-semibold text-slate-600">{item.name} x {item.quantity}</span>
+                <span className="font-bold text-slate-950">{formatCurrency(getPrice(item.price) * item.quantity)}</span>
               </div>
             ))}
 
-            <hr className="my-2" />
-            <div className="flex justify-between text-sm"><span>Item Total</span><span>{formatCurrency(itemTotal)}</span></div>
-            <div className="flex justify-between text-sm"><span>Delivery</span><span>{deliveryFee === 0 ? "FREE" : formatCurrency(deliveryFee)}</span></div>
-            <div className="flex justify-between text-sm"><span>Packaging</span><span>{formatCurrency(packagingFee)}</span></div>
-            <div className="flex justify-between text-sm"><span>Taxes</span><span>{formatCurrency(taxes)}</span></div>
-            <hr className="my-2" />
-            <div className="flex justify-between font-bold text-lg"><span>Total</span><span>{formatCurrency(grandTotal)}</span></div>
+            <div className="mt-4 space-y-2 rounded-2xl bg-slate-50 p-4">
+              <div className="flex justify-between text-sm"><span>Item Total</span><span>{formatCurrency(itemTotal)}</span></div>
+              <div className="flex justify-between text-sm"><span>Delivery</span><span>{deliveryFee === 0 ? "FREE" : formatCurrency(deliveryFee)}</span></div>
+              <div className="flex justify-between text-sm"><span>Packaging</span><span>{formatCurrency(packagingFee)}</span></div>
+              <div className="flex justify-between text-sm"><span>Taxes</span><span>{formatCurrency(taxes)}</span></div>
+              <div className="border-t border-slate-200 pt-3 text-lg font-black">
+                <div className="flex justify-between"><span>Total</span><span>{formatCurrency(grandTotal)}</span></div>
+              </div>
+            </div>
 
-            <button onClick={goToCheckout} className="w-full bg-indigo-600 text-white mt-4 py-2 rounded">
+            <button onClick={goToCheckout} className="mt-4 w-full rounded-2xl bg-indigo-700 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95 hover:bg-indigo-800">
               Checkout
             </button>
           </div>
+        </aside>
         </div>
       </div>
 
-      <div className="lg:hidden mt-6 bg-white p-4 rounded shadow">
-        <h2 className="font-bold mb-4">Cart ({cart.length})</h2>
-
-        {cart.map((item) => (
-          <div key={item.id} className="flex justify-between mb-3">
-            <span>{item.name} x {item.quantity}</span>
-            <span>{formatCurrency(getPrice(item.price) * item.quantity)}</span>
+      {cartItemCount > 0 ? (
+        <div className="fixed inset-x-0 bottom-20 z-40 mx-auto w-[calc(100%-1.5rem)] max-w-md rounded-t-3xl rounded-b-2xl bg-white p-4 shadow-xl shadow-slate-900/20 lg:hidden">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">Cart total</p>
+              <p className="text-xl font-black text-slate-950">{formatCurrency(grandTotal)}</p>
+            </div>
+            <p className="text-sm font-bold text-slate-500">{cartItemCount} items</p>
           </div>
-        ))}
-
-        <hr className="my-2" />
-        <div className="flex justify-between text-sm"><span>Item Total</span><span>{formatCurrency(itemTotal)}</span></div>
-        <div className="flex justify-between text-sm"><span>Delivery</span><span>{deliveryFee === 0 ? "FREE" : formatCurrency(deliveryFee)}</span></div>
-        <div className="flex justify-between text-sm"><span>Packaging</span><span>{formatCurrency(packagingFee)}</span></div>
-        <div className="flex justify-between text-sm"><span>Taxes</span><span>{formatCurrency(taxes)}</span></div>
-        <hr className="my-2" />
-        <div className="flex justify-between font-bold text-lg"><span>Total</span><span>{formatCurrency(grandTotal)}</span></div>
-
-        <button onClick={goToCheckout} className="w-full bg-indigo-600 text-white mt-4 py-2 rounded">
-          Checkout
-        </button>
-      </div>
+          <div className="mb-3 grid grid-cols-3 gap-2 text-[11px] font-bold text-slate-500">
+            <span>Items {formatCurrency(itemTotal)}</span>
+            <span>Delivery {deliveryFee === 0 ? "FREE" : formatCurrency(deliveryFee)}</span>
+            <span>Taxes {formatCurrency(taxes)}</span>
+          </div>
+          <button onClick={goToCheckout} className="w-full rounded-2xl bg-indigo-700 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95">
+            Checkout
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 };

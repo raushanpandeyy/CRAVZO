@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16
@@ -19,9 +17,23 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: cravzo-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
-      context: ../backend
+      context: ./backend
       dockerfile: Dockerfile
     container_name: cravzo-backend
     restart: unless-stopped
@@ -35,13 +47,16 @@ services:
       
       JWT_SECRET: cravzo_secure_jwt_secret_2026
       JWT_EXPIRES_IN: 7d
+      REDIS_URL: redis://redis:6379
     ports:
       - "5000:5000"
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      - ../backend:/app
+      - ./backend:/app
       - /app/node_modules
 
   frontend:
@@ -65,3 +80,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

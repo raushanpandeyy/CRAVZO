@@ -5,7 +5,7 @@ const RiderChatPage = () => {
   const [isChatOpen, setIsChatOpen] = useState(true);
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] pt-24 px-4">
+    <div className="min-h-screen bg-[#F4F7FB] px-4 pt-4 pb-24 md:pt-24">
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-xl p-6 shadow-lg">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">Rider Support Chat</h1>

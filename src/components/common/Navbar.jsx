@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiMapPin, FiMenu, FiX, FiChevronDown } from "react-icons/fi";
-import { ShoppingCart, User as UserIcon } from "lucide-react";
+import { FiMapPin, FiChevronDown } from "react-icons/fi";
+import { LogOut, ShoppingCart, User as UserIcon } from "lucide-react";
 
 import cravzologo from "../../assets/logos/cravzologo.png";
 import { useAuth } from "../../hooks/useAuth";
@@ -112,22 +112,25 @@ const Navbar = () => {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate("/");
-  };
-
   const handleCartClick = () => {
     navigate("/checkout");
     setMobileMenuOpen(false);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setMobileMenuOpen(false);
+    navigate("/signin", { replace: true });
   };
 
   const CartButton = ({ compact = false }) => (
     <button
       type="button"
       onClick={handleCartClick}
-      className={`relative flex items-center justify-center gap-2 rounded-full bg-white font-bold text-indigo-900 ${
-        compact ? "h-10 w-10" : "px-5 py-2"
+      className={`relative flex items-center justify-center gap-2 rounded-full font-bold ${
+        compact
+          ? "h-10 w-10 bg-[#ff6b5f] text-white shadow-md shadow-rose-200"
+          : "bg-white px-5 py-2 text-indigo-900"
       }`}
       aria-label={`Cart with ${cartCount} item${cartCount === 1 ? "" : "s"}`}
     >
@@ -142,8 +145,45 @@ const Navbar = () => {
   );
 
   return (
-    <nav className="fixed top-0 left-0 w-full z-50 bg-indigo-900 text-white shadow-md font-sans">
-      <div className="max-w-[1200px] mx-auto px-4 py-3 flex flex-col md:flex-row md:justify-between items-center gap-3">
+    <nav className="fixed top-0 left-0 w-full z-50 bg-white text-slate-950 shadow-sm shadow-slate-200/80 md:bg-indigo-900 md:text-white md:shadow-md font-sans">
+      <div className="mx-auto flex w-full max-w-[1200px] items-center gap-3 px-4 py-2 md:hidden">
+        <button type="button" onClick={navigateToUserHome} className="shrink-0">
+          <img src={cravzologo} alt="Cravzo Logo" className="h-9 w-9 rounded-xl object-cover" />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleAddressClick}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-left"
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-800">
+            <FiMapPin />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Deliver to
+            </span>
+            <span className="block truncate text-sm font-extrabold leading-5 text-slate-950">
+              {displayAddress}
+            </span>
+          </span>
+        </button>
+
+        {user?.accountType === "customer" ? (
+          <CartButton compact />
+        ) : !user ? (
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="shrink-0 rounded-full bg-indigo-950 px-4 py-2.5 text-xs font-extrabold text-white shadow-md"
+            aria-expanded={mobileMenuOpen}
+          >
+            Sign up
+          </button>
+        ) : null}
+      </div>
+
+      <div className="max-w-[1200px] mx-auto px-4 py-3 hidden md:flex md:flex-row md:justify-between items-center gap-3">
         <div onClick={navigateToUserHome} className="flex items-center gap-2 cursor-pointer">
           <img src={cravzologo} alt="Cravzo Logo" className="h-10 md:h-12 rounded-2xl" />
           <span className="hidden md:block text-2xl font-bold uppercase">CRAVZO</span>
@@ -207,11 +247,12 @@ const Navbar = () => {
                   {user.name ? `${user.name.split(" ")[0]} (${user.accountType})` : user.accountType}
                 </span>
               </div>
-
               <button
+                type="button"
                 onClick={handleLogout}
-                className="bg-red-500 px-4 py-2 rounded-full text-xs font-bold"
+                className="flex items-center gap-2 rounded-full bg-white px-4 py-2 font-bold text-indigo-900"
               >
+                <LogOut className="h-4 w-4" />
                 Logout
               </button>
             </div>
@@ -225,62 +266,61 @@ const Navbar = () => {
           )}
         </div>
 
-        <div className="absolute right-14 top-4 md:hidden">
-          {user?.accountType === "customer" || !user ? <CartButton compact /> : null}
-        </div>
-
-        <div className="absolute right-4 top-4 md:hidden">
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            {mobileMenuOpen ? <FiX size={28} /> : <FiMenu size={28} />}
-          </button>
-        </div>
       </div>
 
       {mobileMenuOpen && (
-        <div className="md:hidden bg-indigo-900 p-6 flex flex-col gap-6">
+        <div className="md:hidden border-t border-slate-100 bg-white p-3 text-slate-950 shadow-xl flex flex-col gap-3">
           {!user && (
             <>
-              <p className="text-xs text-indigo-300">Join as Partner</p>
-              <button onClick={() => navigate("/rider-signup")} className="bg-white text-indigo-900 p-3 rounded-xl">
-                Rider
-              </button>
-              <button onClick={() => navigate("/vendor-signup")} className="bg-white text-indigo-900 p-3 rounded-xl">
-                Vendor
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    navigate("/rider-signup");
+                    setMobileMenuOpen(false);
+                  }}
+                  className="rounded-xl bg-indigo-50 px-3 py-2.5 text-sm font-bold text-indigo-950"
+                >
+                  Rider
+                </button>
+                <button
+                  onClick={() => {
+                    navigate("/vendor-signup");
+                    setMobileMenuOpen(false);
+                  }}
+                  className="rounded-xl bg-indigo-50 px-3 py-2.5 text-sm font-bold text-indigo-950"
+                >
+                  Business
+                </button>
+              </div>
+              <button
+                onClick={() => {
+                  navigate("/signin");
+                  setMobileMenuOpen(false);
+                }}
+                className="rounded-xl bg-indigo-950 p-2.5 text-sm font-bold text-white"
+              >
+                Sign In
               </button>
             </>
           )}
 
           {user ? (
             <>
-              {user.accountType === "customer" ? (
-                <button onClick={handleCartClick} className="flex items-center justify-center gap-2 rounded-xl bg-white p-3 font-bold text-indigo-900">
-                  <ShoppingCart className="h-5 w-5" />
-                  Cart {cartCount > 0 ? `(${cartCount})` : ""}
-                </button>
-              ) : null}
-
               <div onClick={navigateToUserHome} className="flex items-center gap-3 cursor-pointer">
                 <UserIcon />
                 <span className="font-bold">
                   {user.name ? `${user.name.split(" ")[0]} (${user.accountType})` : user.accountType}
                 </span>
               </div>
-
-              <button onClick={handleLogout} className="bg-red-600 p-3 rounded-xl">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-xl bg-indigo-950 p-2.5 text-sm font-bold text-white"
+              >
                 Logout
               </button>
             </>
-          ) : (
-            <>
-              <button onClick={handleCartClick} className="flex items-center justify-center gap-2 rounded-xl bg-white p-3 font-bold text-indigo-900">
-                <ShoppingCart className="h-5 w-5" />
-                Cart {cartCount > 0 ? `(${cartCount})` : ""}
-              </button>
-              <button onClick={() => navigate("/signin")} className="bg-black p-3 rounded-xl">
-                Sign In
-              </button>
-            </>
-          )}
+          ) : null}
         </div>
       )}
     </nav>

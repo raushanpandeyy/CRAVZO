@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-import RiderNavbar from "./RiderNav";
 import { getRiderOrders } from "../../services/orderService.js";
 
 const RiderAnalytics = () => {
@@ -56,7 +55,7 @@ const RiderAnalytics = () => {
     : { area: "No zone yet" };
 
   return (
-    <div className="min-h-screen bg-gray-100 pt-24 px-4 md:px-8 pb-24">
+    <div className="min-h-screen bg-gray-100 px-4 pt-4 pb-24 md:px-8 md:pt-24">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-2xl font-bold mb-6">Rider Analytics Dashboard</h1>
 
@@ -119,7 +118,6 @@ const RiderAnalytics = () => {
           <p className="text-gray-500">Highest delivery completions so far</p>
         </div>
       </div>
-      <RiderNavbar />
     </div>
   );
 };

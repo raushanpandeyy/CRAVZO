@@ -41,10 +41,10 @@ export default function Favorites() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] px-4 py-6 sm:px-8 sm:py-8">
+    <div className="min-h-screen bg-[#F4F7FB] px-4 py-4 sm:px-8 sm:py-8">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="rounded-3xl bg-white p-6 shadow-sm sm:p-8">
-          <h1 className="text-3xl font-bold text-slate-900">Your Favorite Restaurants</h1>
+        <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-8">
+          <h1 className="text-2xl font-black text-slate-950 sm:text-3xl">Your Favorite Restaurants</h1>
           <p className="mt-2 text-sm text-slate-500">Quickly jump back to the restaurants you liked most.</p>
         </div>
 
@@ -54,14 +54,14 @@ export default function Favorites() {
         {loading ? (
           <div className="rounded-3xl bg-white px-6 py-16 text-center text-sm text-slate-500 shadow-sm">Loading favorites...</div>
         ) : favorites.length ? (
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {favorites.map((favorite) => (
-              <div key={favorite.id} className="overflow-hidden rounded-3xl bg-white shadow-sm">
+              <div key={favorite.id} className="overflow-hidden rounded-3xl bg-white shadow-sm transition-all duration-200 hover:shadow-md">
                 <div className="relative">
                   <img
                     src={favorite.restaurant.imageUrl}
                     alt={favorite.restaurant.name}
-                    className="h-52 w-full object-cover"
+                    className="h-40 w-full object-cover sm:h-52"
                   />
                   <button
                     onClick={() => handleRemove(favorite.restaurantId)}
@@ -71,7 +71,7 @@ export default function Favorites() {
                   </button>
                 </div>
 
-                <div className="space-y-3 p-5">
+                <div className="space-y-3 p-4 sm:p-5">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold text-slate-900">{favorite.restaurant.name}</h2>
