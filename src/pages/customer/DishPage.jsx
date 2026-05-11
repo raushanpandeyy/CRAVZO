@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, lazy, Suspense } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { listRestaurants } from "../../services/foodService.js";
-import DishCard from "./DishCard.jsx";
+const DishCard = lazy(() =>
+  import("./DishCard.jsx")
+);
+
 
 const DishPage = () => {
   const { dishName } = useParams();
@@ -61,22 +64,13 @@ const DishPage = () => {
 
           <section>
             <h2 className="mb-4 text-xl font-bold text-slate-950">Restaurants serving {decodedDishName}</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-              {restaurants.map((rest) => (
-                <Link
-                  key={rest.id}
-                  to={`/restaurant/${rest.id}`}
-                  className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-                >
-                  <img src={rest.imageUrl} alt={rest.name} className="h-44 w-full object-cover" />
-                  <div className="p-4">
-                    <h3 className="text-lg font-bold text-slate-950">{rest.name}</h3>
-                    <p className="mt-1 text-sm text-slate-600">{rest.location}</p>
-                    <p className="mt-1 text-sm font-semibold text-indigo-700">{rest.cuisine}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
+            <Suspense fallback={<p className="text-slate-600">Loading dishes...</p>}>
+  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    {dishCards.map((dish) => (
+      <DishCard key={dish.id} dish={dish} />
+    ))}
+  </div>
+</Suspense>
           </section>
         </>
       )}

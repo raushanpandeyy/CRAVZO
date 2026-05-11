@@ -1,0 +1,1 @@
+export const restaurant = "https://res.cloudinary.com/dp3l13mm5/image/upload/v1778514673/resturant_mnd3xp.png";

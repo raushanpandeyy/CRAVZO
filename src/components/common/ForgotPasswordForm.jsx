@@ -1,6 +1,12 @@
 import React, { useState } from "react";
 
-import OtpInput from "./OtpInput.jsx";
+
+import { lazy, Suspense } from "react";
+
+const OtpInput = lazy(() =>
+  import("./OtpInput.jsx")
+);
+
 import { requestPasswordReset, resetPassword } from "../../services/authService.js";
 
 const emptyOtp = ["", "", "", "", "", ""];
@@ -80,7 +86,9 @@ const ForgotPasswordForm = ({ role = "CUSTOMER", onBack, buttonClassName = "w-fu
 
       {otpSent ? (
         <>
+        <Suspense fallback={<div>Loading OTP...</div>}>
           <OtpInput otp={otp} setOtp={setOtp} />
+        </Suspense>
           <input
             type="password"
             placeholder="New Password"

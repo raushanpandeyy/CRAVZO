@@ -3,7 +3,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getRiderOrders, updateOrderStatus } from "../../services/orderService.js";
 import { updateRiderLocation, updateRiderStatus } from "../../services/riderService.js";
 import { getProfile } from "../../services/userService.js";
-import RiderMap from "./RiderMap.jsx";
+import { lazy, Suspense } from "react";
+
+const RiderMap = lazy(() =>
+  import("./RiderMap.jsx")
+);
 
 const formatCurrency = (amount) => `Rs ${Number(amount || 0).toFixed(0)}`;
 
@@ -120,7 +124,7 @@ const RiderDashboard = () => {
 
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission().catch(() => {});
+      Notification.requestPermission().catch(() => { });
     }
   }, []);
 
@@ -154,10 +158,10 @@ const RiderDashboard = () => {
                 syncedAt: Date.now(),
               };
             })
-            .catch(() => {});
+            .catch(() => { });
         }
       },
-      () => {},
+      () => { },
       {
         enableHighAccuracy: true,
         maximumAge: 10000,
@@ -405,21 +409,25 @@ const RiderDashboard = () => {
       {selectedOrder ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center">
           <div className="w-full max-w-md rounded-[32px] bg-white p-6 shadow-2xl">
-            <RiderMap
-              pickup={{
-                lat: selectedOrder.restaurant?.latitude,
-                lng: selectedOrder.restaurant?.longitude,
-              }}
-              drop={
-                selectedOrder.status === "OUT_FOR_DELIVERY"
-                  ? {
+            <Suspense fallback={<div className="flex h-[400px] items-center justify-center rounded-2xl bg-slate-100 text-sm font-bold text-slate-500">
+              Loading map...
+            </div>}>
+              <RiderMap
+                pickup={{
+                  lat: selectedOrder.restaurant?.latitude,
+                  lng: selectedOrder.restaurant?.longitude,
+                }}
+                drop={
+                  selectedOrder.status === "OUT_FOR_DELIVERY"
+                    ? {
                       lat: selectedOrder.address?.latitude,
                       lng: selectedOrder.address?.longitude,
                     }
-                  : null
-              }
-              rider={riderLocation}
-            />
+                    : null
+                }
+                rider={riderLocation}
+              />
+            </Suspense>
 
             <div className="mb-4 flex items-start justify-between">
               <div>

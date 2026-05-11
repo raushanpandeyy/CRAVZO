@@ -38,8 +38,17 @@ const DishCarousel = () => {
       onClick={() => openDish(dish.name)}
       className="bg-gray-100 p-2 flex w-full flex-col items-center transition-transform hover:scale-105 duration-300"
     >
-      <img src={dish.img} alt={dish.name} className="w-[100px] h-[100px] object-cover rounded-full" />
-      <p className="mt-2 text-md font-medium text-indigo-800">{dish.name}</p>
+      <img
+        src={dish.img}
+        alt={dish.name}
+        loading="lazy"
+        decoding="async"
+        className="w-[100px] h-[100px] object-cover rounded-full"
+      />
+
+      <p className="mt-2 text-md font-medium text-indigo-800">
+        {dish.name}
+      </p>
     </button>
   </SwiperSlide>
 ))}

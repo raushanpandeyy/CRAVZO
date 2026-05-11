@@ -16,6 +16,7 @@ app.use(
    origin: [
   "http://localhost:5173",
   "https://www.cravzo.shop",
+  "http://localhost:4173",
   "https://cravzo.shop"
 ],
     credentials: true,

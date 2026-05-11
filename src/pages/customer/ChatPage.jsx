@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import Chat from '../../components/Chat.jsx';
+import { lazy, Suspense } from "react";
+
+const Chat = lazy(() =>
+  import("../../components/Chat.jsx")
+);
 
 const ChatPage = () => {
   const [isChatOpen, setIsChatOpen] = useState(true);
@@ -17,7 +21,9 @@ const ChatPage = () => {
           </div>
 
           {/* Chat will be opened by default */}
-          <Chat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+          <Suspense fallback={<div>Loading chat...</div>}>
+            <Chat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+          </Suspense>
 
           {!isChatOpen && (
             <div className="text-center mt-8">

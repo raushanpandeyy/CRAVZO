@@ -154,7 +154,7 @@ const RiderProfile = () => {
           <div className="rounded-3xl bg-white p-6 shadow-lg">
             <h2 className="mb-4 text-xl font-bold text-indigo-900">Profile Photo</h2>
             <div className="flex flex-col items-center text-center">
-              <img src={previewAvatar} alt={form.name || "Rider"} className="h-32 w-32 rounded-full border-4 border-indigo-100 object-cover shadow-sm" />
+              <img src={previewAvatar} loading="lazy" alt={form.name || "Rider"} className="h-32 w-32 rounded-full border-4 border-indigo-100 object-cover shadow-sm" />
               <label className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200">
                 <Camera className="h-4 w-4" />
                 {uploadingAvatar ? "Uploading..." : "Change Photo"}

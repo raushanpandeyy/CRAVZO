@@ -25,6 +25,8 @@ const DishesListingPage = () => (
           <img
             src={dish.img}
             alt={dish.name}
+            loading="lazy"
+            decoding="async"
             className="h-28 w-28 rounded-full object-cover transition duration-300 group-hover:scale-105"
           />
           <h2 className="mt-4 text-base font-bold text-slate-950">{dish.name}</h2>

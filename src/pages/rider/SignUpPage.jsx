@@ -1,10 +1,17 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import Rider from "../../assets/images/Rider.webp";
+import { Rider } from "../../assets/images/vendorrider.js";
 import faqs from "../../assets/data/RiderFAQs.json";
-import ForgotPasswordForm from "../../components/common/ForgotPasswordForm.jsx";
-import OtpInput from "../../components/common/OtpInput.jsx";
+import { lazy, Suspense } from "react";
+
+const ForgotPasswordForm = lazy(() =>
+  import("../../components/common/ForgotPasswordForm.jsx")
+);
+
+const OtpInput = lazy(() =>
+  import("../../components/common/OtpInput.jsx")
+);
 import { login, sendOtp, signup, verifyOtp } from "../../services/authService.js";
 
 const emptyOtp = ["", "", "", "", "", ""];
@@ -166,14 +173,16 @@ const RiderSignup = () => {
       return (
         <div className="space-y-4">
           {isForgotPassword ? (
-            <ForgotPasswordForm
-              role="RIDER"
-              onBack={() => {
-                setIsForgotPassword(false);
-                setMessage("");
+            <Suspense fallback={<div>Loading...</div>}>
+              <ForgotPasswordForm
+                role="RIDER"
+                onBack={() => {
+                  setIsForgotPassword(false);
+                  setMessage("");
               }}
               buttonClassName="w-full rounded-xl bg-purple-700 py-3 font-bold text-white disabled:opacity-70"
             />
+           </Suspense> 
           ) : (
             <>
           <input
@@ -263,7 +272,9 @@ const RiderSignup = () => {
               {isSubmitting ? "Please wait..." : "Get OTP"}
             </button>
 
-            <OtpInput otp={otp} setOtp={setOtp} />
+           <Suspense fallback={<div>Loading OTP...</div>}>
+  <OtpInput otp={otp} setOtp={setOtp} />
+</Suspense>
 
             <div className="flex gap-2">
               <button
@@ -378,7 +389,7 @@ const RiderSignup = () => {
   return (
     <div className="bg-[#F4F7FB] pb-8 font-sans md:bg-white md:pb-0">
       <div className="relative h-[360px] w-full overflow-hidden md:h-screen">
-        <img src={Rider} className="h-full w-full object-cover" alt="Rider" />
+        <img src={Rider}  className="h-full w-full object-cover" alt="Rider" />
 
         <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/80 via-black/35 to-transparent px-5 pb-24 md:items-center md:bg-gradient-to-r md:from-black/60 md:to-transparent md:px-6 md:pb-0 lg:px-20">
           <div className="max-w-2xl">

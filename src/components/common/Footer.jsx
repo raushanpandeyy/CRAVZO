@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
-import cravzologo from "../../assets/logos/cravzologo.png";
+import {cravzologo} from "../../assets/images/logos.js";
 
 const Footer = () => {
   const navigate = useNavigate();

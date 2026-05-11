@@ -1,15 +1,15 @@
 
-import biryaniplate from '../../assets/images/foodimage/biryaniplate.png';
-import burger from '../../assets/images/foodimage/burger.png';
-import cake from '../../assets/images/foodimage/cake.png';
-import chholebhature from '../../assets/images/foodimage/chholebhature.png';
-import chinese from '../../assets/images/foodimage/chinise.png';
-import dosa from '../../assets/images/foodimage/dosa.png';
-import indianthali from '../../assets/images/foodimage/indianthali.png';
-import kebab from '../../assets/images/foodimage/kebab.png';
-import momos from '../../assets/images/foodimage/momos.png';
-import pasta from '../../assets/images/foodimage/pasta.png';
-import salad from '../../assets/images/foodimage/salad.png';
+import { biryaniplate } from '../../assets/images/foodimages.js';
+import { burger } from '../../assets/images/foodimages.js';
+import { cake } from '../../assets/images/foodimages.js';
+import { chholebhature } from '../../assets/images/foodimages.js';
+import { chinese } from '../../assets/images/foodimages.js';
+import { dosa } from '../../assets/images/foodimages.js';
+import { indianthali } from '../../assets/images/foodimages.js';
+import { kebab } from '../../assets/images/foodimages.js';
+import { momos } from '../../assets/images/foodimages.js';
+import { pasta } from '../../assets/images/foodimages.js';
+import { salad } from '../../assets/images/foodimages.js';
 
 
 const foodItems = [

@@ -1,6 +1,6 @@
-import Delhi from "../../assets/images/CityImages/Delhi.png";
-import Noida from "../../assets/images/CityImages/Noida.png";
-import Gurugram from "../../assets/images/CityImages/Gurugram.png";
+import { Delhi } from "../../assets/images/cityimages.js";
+import { Noida } from "../../assets/images/cityimages.js";
+import { Gurugram } from "../../assets/images/cityimages.js";
 
 const cities = [
   {

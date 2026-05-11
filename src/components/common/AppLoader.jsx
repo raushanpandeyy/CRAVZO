@@ -1,6 +1,6 @@
 import React from "react";
 
-import cravzologo from "../../assets/logos/cravzologo.png";
+import {cravzologo} from "../../assets/images/logos.js";
 
 const AppLoader = () => {
   return (

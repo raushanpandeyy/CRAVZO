@@ -2,10 +2,15 @@ import React, { useState } from "react";
 import { Lock, MapPin, Store, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import VendorImage from "../../assets/images/VendorImage.webp";
+import {VendorImage} from "../../assets/images/vendorrider.js";
 import faqs from "../../assets/data/VendorFAQs.json";
-import ForgotPasswordForm from "../../components/common/ForgotPasswordForm.jsx";
-import OtpInput from "../../components/common/OtpInput";
+const ForgotPasswordForm = lazy(() =>
+  import("../../components/common/ForgotPasswordForm.jsx")
+);
+
+const OtpInput = lazy(() =>
+  import("../../components/common/OtpInput.jsx")
+);
 import { login, sendOtp, signup, verifyOtp } from "../../services/authService.js";
 
 const steps = ["Basic Info", "OTP Verification", "Location", "Business", "Account"];
@@ -244,14 +249,16 @@ export default function VendorSignup() {
             {!isForgotPassword && message ? <p className="mb-4 rounded-2xl bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-800">{message}</p> : null}
 
             {isForgotPassword ? (
-              <ForgotPasswordForm
-                role="VENDOR"
-                onBack={() => {
-                  setIsForgotPassword(false);
-                  setMessage("");
-                }}
-                buttonClassName="w-full rounded-xl bg-indigo-600 py-3 text-white disabled:opacity-70"
-              />
+              <Suspense fallback={<div>Loading reset form...</div>}>
+  <ForgotPasswordForm
+    role="VENDOR"
+    onBack={() => {
+      setIsForgotPassword(false);
+      setMessage("");
+    }}
+    buttonClassName="w-full rounded-xl bg-indigo-600 py-3 text-white disabled:opacity-70"
+  />
+</Suspense>
             ) : isLogin ? (
               <div className="space-y-4">
                 <FormInput
@@ -322,7 +329,9 @@ export default function VendorSignup() {
 
                 {step === 2 ? (
                   <>
-                    <OtpInput otp={otp} setOtp={setOtp} />
+                    <Suspense fallback={<div>Loading OTP...</div>}>
+  <OtpInput otp={otp} setOtp={setOtp} />
+</Suspense>
                     <button
                       onClick={handleResendOtp}
                       disabled={isSubmitting}

@@ -1,7 +1,11 @@
 import React, { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
-import Sidebar from './Sidebar.jsx'
+import { lazy, Suspense } from "react";
+
+const Sidebar = lazy(() =>
+  import("./Sidebar.jsx")
+);
 const Account = () => {
   const [sidebar, setSidebar] = useState(false);
 
@@ -16,7 +20,9 @@ const Account = () => {
       </nav>
 
       <div className='flex-1 w-full flex h-[calc(100vh-64px)]'>
-        <Sidebar sidebar={sidebar} setSidebar={setSidebar} />
+        <Suspense fallback={<div>Loading sidebar...</div>}>
+          <Sidebar sidebar={sidebar} setSidebar={setSidebar} />
+        </Suspense>
         <div className='flex-1 bg-[#F4F7FB] pt-16 pb-16 sm:pb-0 overflow-y-auto'>
           <Outlet />
         </div>

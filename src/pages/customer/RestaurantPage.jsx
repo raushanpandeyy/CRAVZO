@@ -291,6 +291,7 @@ const RestaurantPage = () => {
                   <img
                     src={dish.imageUrl || restaurant.imageUrl}
                     alt={dish.name}
+                    loading="lazy"
                     className="h-full w-full rounded-2xl object-cover"
                   />
 

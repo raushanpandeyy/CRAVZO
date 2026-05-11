@@ -3,9 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { FiMapPin, FiChevronDown } from "react-icons/fi";
 import { LogOut, ShoppingCart, User as UserIcon } from "lucide-react";
 
-import cravzologo from "../../assets/logos/cravzologo.png";
-import { useAuth } from "../../hooks/useAuth";
-import { getAddresses } from "../../services/addressService";
+import {cravzologo} from "../../assets/images/logos.js";
+import { useAuth } from "../../hooks/useAuth.js";
+import { getAddresses } from "../../services/addressService.js";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);

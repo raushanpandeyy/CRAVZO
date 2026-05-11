@@ -7,22 +7,22 @@ import {
 } from "lucide-react";
 
 import SearchBar from "../../components/common/Searchbar.jsx";
-import biryani from "../../assets/images/foodimage/biryaniplate.png";
-import burger from "../../assets/images/foodimage/burger.png";
-import cake from "../../assets/images/foodimage/cake.png";
-import dosa from "../../assets/images/foodimage/dosa.png";
-import momos from "../../assets/images/foodimage/momos.png";
-import pizza from "../../assets/images/foodimage/pizza.png";
+import { biryaniplate } from "../../assets/images/foodimages.js";
+import {burger} from "../../assets/images/foodimages.js";
+import {cake} from "../../assets/images/foodimages.js";
+import {dosa} from "../../assets/images/foodimages.js";
+import {momos} from "../../assets/images/foodimages.js";
+
 import { getNearbyRestaurants, listRestaurants } from "../../services/foodService.js";
 import Citywise from "./Citywise.jsx";
 import DishCarousel from "./DishesGallery.jsx";
 import HeroSection from "./HeroSection.jsx";
 
 const categories = [
-  { name: "Pizza", image: pizza, to: "/dish/Pizza" },
+
   { name: "Burger", image: burger, to: "/dish/Burger" },
   { name: "Dosa", image: dosa, to: "/dish/Dosa" },
-  { name: "Biryani", image: biryani, to: "/dish/Biryani" },
+  { name: "Biryani", image: biryaniplate, to: "/dish/Biryani" },
   { name: "Momos", image: momos, to: "/dish/Momos" },
   { name: "Desserts", image: cake, to: "/dish/Cake" },
 ];
@@ -265,6 +265,8 @@ const Home = () => {
                   <img
                     src={restaurant.imageUrl}
                     alt={restaurant.name}
+                    loading="lazy"
+                    decoding="async"
                     className="h-24 md:h-52 w-full object-cover transition duration-500 group-hover:scale-105"
                   />
 

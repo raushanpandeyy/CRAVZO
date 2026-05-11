@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 
 import SearchBar from '../../components/common/Searchbar.jsx';
-import veggieImage from '../../assets/images/foodimage/veggieImage.png';
-import resturant from '../../assets/images/resturant/resturant.png';
-import biryaniplate from '../../assets/images/foodimage/biryaniplate.png';
-import dosa from '../../assets/images/foodimage/dosa.png';
-import gulabjamun from '../../assets/images/foodimage/gulabjamun.png';
-import cake from '../../assets/images/foodimage/cake.png';
+import {veggieImage} from '../../assets/images/foodimages.js';
+import {restaurant} from '../../assets/images/restaurant.js';
+import {biryaniplate} from '../../assets/images/foodimages.js';
+import {dosa} from '../../assets/images/foodimages.js';
+import {gulabjamun} from '../../assets/images/foodimages.js';
+import {cake} from '../../assets/images/foodimages.js';
 
 const rotatingImageStyles =
   "animate-spin-slow w-40 md:w-60 drop-shadow-xl hover:scale-110 transition-transform duration-300";
@@ -24,11 +24,37 @@ const HeroSection = () => {
       <div className="absolute bottom-10 right-10 w-60 md:w-96 h-60 md:h-96 bg-pink-500 rounded-full blur-3xl opacity-30 z-0" />
 
       {/* Floating Images */}
-      <img src={dosa} className={`${rotatingImageStyles} absolute top-40 left-20 z-10 hidden md:block`} />
-      <img src={biryaniplate} className={`${rotatingImageStyles} absolute bottom-20 left-40 z-10 hidden md:block`} />
-      <img src={gulabjamun} className={`${rotatingImageStyles} absolute top-40 right-20 z-10 hidden md:block`} />
-      <img src={cake} className={`${rotatingImageStyles} absolute bottom-20 right-40 z-10 hidden md:block`} />
+      <img
+  src={dosa}
+  loading="lazy"
+  decoding="async"
+  alt="Dosa"
+  className={`${rotatingImageStyles} absolute top-40 left-20 z-10 hidden md:block`}
+/>
 
+<img
+  src={biryaniplate}
+  loading="lazy"
+  decoding="async"
+  alt="Biryani Plate"
+  className={`${rotatingImageStyles} absolute bottom-20 left-40 z-10 hidden md:block`}
+/>
+
+<img
+  src={gulabjamun}
+  loading="lazy"
+  decoding="async"
+  alt="Gulab Jamun"
+  className={`${rotatingImageStyles} absolute top-40 right-20 z-10 hidden md:block`}
+/>
+
+<img
+  src={cake}
+  loading="lazy"
+  decoding="async"
+  alt="Cake"
+  className={`${rotatingImageStyles} absolute bottom-20 right-40 z-10 hidden md:block`}
+/>
       {/* Heading */}
       <div className="text-2xl md:text-6xl text-white font-bold text-center mb-8 z-10 px-2">
         <p>Cravzo! Partner of your cravings....</p>
@@ -71,7 +97,7 @@ const HeroSection = () => {
         >
           <div
             className="w-full h-full bg-cover bg-center transform group-hover:scale-110 transition duration-500"
-            style={{ backgroundImage: `url(${resturant})` }}
+            style={{ backgroundImage: `url(${restaurant})` }}
           />
 
           <div className="absolute inset-0 bg-black/30 group-hover:bg-black/50 transition" />

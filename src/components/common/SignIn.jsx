@@ -2,9 +2,17 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock, Mail, Phone, ShieldCheck, User } from "lucide-react";
 
-import ForgotPasswordForm from "./ForgotPasswordForm.jsx";
-import OtpInput from "./OtpInput.jsx";
-import cravzologo from "../../assets/logos/cravzologo.png";
+import { lazy, Suspense } from "react";
+
+const ForgotPasswordForm = lazy(() =>
+  import("./ForgotPasswordForm.jsx")
+);
+
+const OtpInput = lazy(() =>
+  import("./OtpInput.jsx")
+);
+
+import {cravzologo} from "../../assets/images/logos.js";
 import { clearSession, login, sendOtp, signup, verifyOtp } from "../../services/authService.js";
 
 const emptyOtp = ["", "", "", "", "", ""];
@@ -163,114 +171,118 @@ const LoginPage = () => {
             </p>
           ) : null}
 
-        {isForgotPassword ? (
-          <ForgotPasswordForm
-            role="CUSTOMER"
-            onBack={() => {
-              setIsForgotPassword(false);
-              setMessage("");
-            }}
-          />
-        ) : isLoggedIn ? (
-            <button onClick={handleLogout} className="w-full rounded-2xl bg-red-500 py-3 font-bold text-white">
-            Logout
-          </button>
-        ) : (
-          <form onSubmit={handleAuth} className="space-y-4">
-            {isSignup ? (
-              <>
-                <AuthInput
-                  type="text"
-                  placeholder="Name"
-                  icon={User}
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  required
-                />
-                <AuthInput
-                  type="tel"
-                  placeholder="Phone"
-                  icon={Phone}
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  required
-                />
-              </>
-            ) : null}
-
-            <AuthInput
-              type="email"
-              placeholder="Email"
-              icon={Mail}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-            />
-
-            <AuthInput
-              type="password"
-              placeholder="Password"
-              icon={Lock}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-            />
-
-            {showOtp ? (
-              <>
-                <OtpInput otp={otp} setOtp={setOtp} />
-                <button
-                  type="button"
-                  onClick={handleVerifyOtp}
-                  disabled={isSubmitting}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 py-3.5 font-bold text-white disabled:opacity-70"
-                >
-                  <ShieldCheck className="h-5 w-5" />
-                  Verify OTP
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResendOtp}
-                  disabled={isSubmitting}
-                  className="w-full rounded-2xl border border-indigo-200 py-3 font-bold text-indigo-800 disabled:opacity-70"
-                >
-                  Resend OTP
-                </button>
-              </>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-2xl bg-indigo-950 py-3.5 font-extrabold text-white shadow-lg shadow-indigo-950/20 disabled:opacity-70"
-            >
-              {isSubmitting ? "Please wait..." : isSignup ? "Create Account" : "Login"}
-            </button>
-
-            {!isSignup ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setIsForgotPassword(true);
+          {isForgotPassword ? (
+            <Suspense fallback={<div>Loading reset form...</div>}>
+              <ForgotPasswordForm
+                role="CUSTOMER"
+                onBack={() => {
+                  setIsForgotPassword(false);
                   setMessage("");
                 }}
-                className="w-full text-center text-sm font-bold text-indigo-700"
-              >
-                Forgot password?
-              </button>
-            ) : null}
-          </form>
-        )}
+              />
+            </Suspense>
+          ) : isLoggedIn ? (
+            <button onClick={handleLogout} className="w-full rounded-2xl bg-red-500 py-3 font-bold text-white">
+              Logout
+            </button>
+          ) : (
+            <form onSubmit={handleAuth} className="space-y-4">
+              {isSignup ? (
+                <>
+                  <AuthInput
+                    type="text"
+                    placeholder="Name"
+                    icon={User}
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    required
+                  />
+                  <AuthInput
+                    type="tel"
+                    placeholder="Phone"
+                    icon={Phone}
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    required
+                  />
+                </>
+              ) : null}
 
-        <button type="button" onClick={() => {
-          setIsSignup((current) => !current);
-          setIsForgotPassword(false);
-          setMessage("");
-          setShowOtp(false);
-          setOtp(emptyOtp);
-        }} className="w-full rounded-2xl bg-slate-100 px-4 py-3 text-center text-sm font-extrabold text-indigo-950">
-          {isSignup ? "Already have an account? Login" : "New user? Sign Up"}
-        </button>
+              <AuthInput
+                type="email"
+                placeholder="Email"
+                icon={Mail}
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+              />
+
+              <AuthInput
+                type="password"
+                placeholder="Password"
+                icon={Lock}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+
+              {showOtp ? (
+                <>
+                  <Suspense fallback={<div>Loading OTP...</div>}>
+                    <OtpInput otp={otp} setOtp={setOtp} />
+                  </Suspense>
+                  <button
+                    type="button"
+                    onClick={handleVerifyOtp}
+                    disabled={isSubmitting}
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-green-600 py-3.5 font-bold text-white disabled:opacity-70"
+                  >
+                    <ShieldCheck className="h-5 w-5" />
+                    Verify OTP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={isSubmitting}
+                    className="w-full rounded-2xl border border-indigo-200 py-3 font-bold text-indigo-800 disabled:opacity-70"
+                  >
+                    Resend OTP
+                  </button>
+                </>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full rounded-2xl bg-indigo-950 py-3.5 font-extrabold text-white shadow-lg shadow-indigo-950/20 disabled:opacity-70"
+              >
+                {isSubmitting ? "Please wait..." : isSignup ? "Create Account" : "Login"}
+              </button>
+
+              {!isSignup ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsForgotPassword(true);
+                    setMessage("");
+                  }}
+                  className="w-full text-center text-sm font-bold text-indigo-700"
+                >
+                  Forgot password?
+                </button>
+              ) : null}
+            </form>
+          )}
+
+          <button type="button" onClick={() => {
+            setIsSignup((current) => !current);
+            setIsForgotPassword(false);
+            setMessage("");
+            setShowOtp(false);
+            setOtp(emptyOtp);
+          }} className="w-full rounded-2xl bg-slate-100 px-4 py-3 text-center text-sm font-extrabold text-indigo-950">
+            {isSignup ? "Already have an account? Login" : "New user? Sign Up"}
+          </button>
         </div>
       </div>
     </div>

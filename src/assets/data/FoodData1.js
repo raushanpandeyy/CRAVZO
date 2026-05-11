@@ -1,13 +1,15 @@
-import northindian from '../../assets/images/foodimage/northindian.png';
-import nonveg from '../../assets/images/foodimage/nonveg.png';
-import paneer from '../../assets/images/foodimage/paneer.png';
-import Naan from '../../assets/images/foodimage/Naan.png';
-import Snacks from '../../assets/images/foodimage/Snacks.png';
-import Chaat from '../../assets/images/foodimage/Chaat.png';
-import pavbhaaji from '../../assets/images/foodimage/pavbhaaji.png';
-import rasmalai from '../../assets/images/foodimage/rasmalai.png';
-import gulabjaamun from '../../assets/images/foodimage/gulabjaamun.png';
-import icecream from '../../assets/images/foodimage/icecream.png';
+import { northindian } from '../../assets/images/foodimages.js';
+import { nonveg} from '../../assets/images/foodimages.js';
+import { paneer } from '../../assets/images/foodimages.js';
+import { Naan } from '../../assets/images/foodimages.js';
+import { Snacks } from '../../assets/images/foodimages.js';
+import { Chaat } from '../../assets/images/foodimages.js';
+import { pavbhaaji } from '../../assets/images/foodimages.js';
+import { rasmalai } from '../../assets/images/foodimages.js';
+import { gulabjaamun } from '../../assets/images/foodimages.js';
+import { icecream } from '../../assets/images/foodimages.js';
+import { biryaniplate } from '../../assets/images/foodimages.js';
+import { chholebhature } from '../../assets/images/foodimages.js';
 
 
 

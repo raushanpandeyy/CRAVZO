@@ -10,30 +10,51 @@ async function apiRequest(path, options = {}) {
   }
 
   const token = getStoredToken();
+
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
+  const controller = new AbortController();
 
-  const data = await response.json().catch(() => null);
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, 15000);
 
-  if (!response.ok) {
-    const error = new Error(data?.message || "Request failed");
-    error.status = response.status;
-    error.data = data;
-    throw error;
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const error = new Error(data?.message || "Request failed");
+      error.status = response.status;
+      error.data = data;
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    if (!navigator.onLine) {
+      throw new Error("No internet connection");
+    }
+
+    if (error.name === "AbortError") {
+      throw new Error("Request timeout. Please try again.");
+    }
+
+    throw new Error(error.message || "Network error");
   }
-
-  return data;
 }
 
-// 🔥 Debug
-console.log("BASE:", API_BASE_URL);
-console.log("FINAL URL:", API_BASE_URL + API_ENDPOINTS.auth.login);
+
+
 
 export { apiRequest };

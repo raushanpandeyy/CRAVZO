@@ -14,8 +14,8 @@ import {
   Utensils,
 } from "lucide-react";
 
-import cravzologo from "../../assets/logos/cravzologo.png";
-import { useAuth } from "../../hooks/useAuth";
+import {cravzologo} from "../../assets/images/logos.js";
+import { useAuth } from "../../hooks/useAuth.js";
 
 const roleConfig = {
   rider: {

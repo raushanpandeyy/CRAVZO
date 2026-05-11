@@ -1,7 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import OtpInput from "./OtpInput.jsx";
+import { lazy, Suspense } from "react";
+
+const OtpInput = lazy(() =>
+  import("./OtpInput.jsx")
+);
 import { verifyOtp } from "../../services/authService.js";
 
 export default function VerifyOtp() {
@@ -41,7 +45,9 @@ export default function VerifyOtp() {
     <div className="mt-20 flex flex-col items-center gap-6">
       <h2 className="text-2xl font-bold">Enter OTP</h2>
       {message ? <p className="text-sm text-red-600">{message}</p> : null}
-      <OtpInput otp={otp} setOtp={setOtp} />
+      <Suspense fallback={<div>Loading OTP input...</div>}>
+        <OtpInput otp={otp} setOtp={setOtp} />
+      </Suspense>
       <button
         onClick={handleVerify}
         disabled={isSubmitting}

@@ -1,6 +1,6 @@
 import React from "react";
 
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../hooks/useAuth.js";
 
 const copyByStatus = {
   PENDING: {
@@ -35,7 +35,7 @@ const AccessPending = ({ user }) => {
           <div className="mt-2 text-xl font-bold text-slate-900">{user?.name}</div>
           <div className="text-sm text-slate-600">{user?.email}</div>
           <div className="mt-3 inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold tracking-wide text-white">
-            {user?.role} · {user?.status}
+            {user?.role} ï¿½ {user?.status}
           </div>
         </div>
 

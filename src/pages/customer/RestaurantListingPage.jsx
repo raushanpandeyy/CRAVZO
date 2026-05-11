@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect,useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Clock3, MapPin, Search, Star, Store } from "lucide-react";
 
@@ -7,6 +7,7 @@ import { listRestaurants } from "../../services/foodService.js";
 const RestaurantListingPage = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -27,23 +28,32 @@ const RestaurantListingPage = () => {
 
     loadRestaurants();
   }, []);
+  useEffect(() => {
+  const timer = setTimeout(() => {
+    setDebouncedQuery(query);
+  }, 300);
 
-  const trimmedQuery = query.trim().toLowerCase();
+  return () => clearTimeout(timer);
+}, [query]);
+
+ const trimmedQuery = debouncedQuery.trim().toLowerCase();
   const suggestions = ["Biryani", "Pizza", "Burger", "Dosa", "Momos", "Cake"];
-  const filteredRestaurants = trimmedQuery
-    ? restaurants.filter((restaurant) => {
-        const menuMatch = restaurant.menuPreview?.some((item) =>
-          item.name.toLowerCase().includes(trimmedQuery),
-        );
+  const filteredRestaurants = useMemo(() => {
+  if (!trimmedQuery) return [];
 
-        return (
-          restaurant.name.toLowerCase().includes(trimmedQuery) ||
-          (restaurant.location || "").toLowerCase().includes(trimmedQuery) ||
-          (restaurant.cuisine || "").toLowerCase().includes(trimmedQuery) ||
-          menuMatch
-        );
-      })
-    : [];
+  return restaurants.filter((restaurant) => {
+    const menuMatch = restaurant.menuPreview?.some((item) =>
+      item.name.toLowerCase().includes(trimmedQuery),
+    );
+
+    return (
+      restaurant.name.toLowerCase().includes(trimmedQuery) ||
+      (restaurant.location || "").toLowerCase().includes(trimmedQuery) ||
+      (restaurant.cuisine || "").toLowerCase().includes(trimmedQuery) ||
+      menuMatch
+    );
+  });
+}, [restaurants, trimmedQuery]);
 
   return (
     <section className="mx-auto max-w-[1200px] bg-slate-50 px-4 pb-28 pt-28 md:bg-white md:pb-12 md:pt-32">
@@ -109,6 +119,8 @@ const RestaurantListingPage = () => {
               <img
                 src={featuredDish?.imageUrl || restaurant.imageUrl}
                 alt={restaurant.name}
+                loading="lazy"
+                decoding="async"
                 className="h-24 w-28 shrink-0 rounded-2xl object-cover transition duration-500 md:h-52 md:w-full md:rounded-none md:group-hover:scale-105"
               />
               <div className="min-w-0 flex-1 p-1 md:p-5">

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Clock3, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import cart from "../../assets/logos/cart.png";
+import {cart} from "../../assets/images/logos.js";
 import SearchBar from "../../components/common/Searchbar.jsx";
 import { cancelOrder, getMyOrders } from "../../services/orderService.js";
 
