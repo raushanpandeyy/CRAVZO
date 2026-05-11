@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 
 import { getRiderOrders, updateOrderStatus } from "../../services/orderService.js";
 import { updateRiderLocation, updateRiderStatus } from "../../services/riderService.js";
 import { getProfile } from "../../services/userService.js";
-import { lazy, Suspense } from "react";
+
 
 const RiderMap = lazy(() =>
   import("./RiderMap.jsx")

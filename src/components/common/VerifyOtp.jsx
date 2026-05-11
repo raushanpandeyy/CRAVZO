@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { lazy, Suspense } from "react";
+
 
 const OtpInput = lazy(() =>
   import("./OtpInput.jsx")

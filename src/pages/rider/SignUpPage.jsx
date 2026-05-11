@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Rider } from "../../assets/images/vendorrider.js";
 import faqs from "../../assets/data/RiderFAQs.json";
-import { lazy, Suspense } from "react";
+
 
 const ForgotPasswordForm = lazy(() =>
   import("../../components/common/ForgotPasswordForm.jsx")

@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock, Mail, Phone, ShieldCheck, User } from "lucide-react";
 
-import { lazy, Suspense } from "react";
+
 
 const ForgotPasswordForm = lazy(() =>
   import("./ForgotPasswordForm.jsx")

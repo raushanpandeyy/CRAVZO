@@ -1,7 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, lazy, Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
-import { lazy, Suspense } from "react";
+
 
 const Sidebar = lazy(() =>
   import("./Sidebar.jsx")

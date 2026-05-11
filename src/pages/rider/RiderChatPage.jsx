@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { lazy, Suspense } from "react";
+import React, { useState, lazy, Suspense } from 'react';
+
 
 const Chat = lazy(() =>
   import("../../components/Chat.jsx")

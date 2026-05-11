@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, lazy,Suspense  } from "react";
 import { Lock, MapPin, Store, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
