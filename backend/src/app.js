@@ -15,10 +15,10 @@ app.use(
   cors({
    origin: [
   "http://localhost:5173",
-  "https://www.cravzo.shop",
+  "http://www.cravzo.shop",
   "http://localhost:4173",
-  "https://cravzo.shop",
-  "https://cravzo-nine.vercel.app"
+  "http://cravzo.shop",
+  "http://cravzo-nine.vercel.app"
 ],
     credentials: true,
   })
