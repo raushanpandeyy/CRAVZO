@@ -11,16 +11,17 @@ import { apiRouter } from "./routes/index.js";
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 app.use(
   cors({
    origin: [
-  "http://localhost:5173",
-      "http://localhost:4173",
+  
       "https://www.cravzo.shop",
       "https://cravzo.shop", // HTTPS zaroori hai
-      "http://cravzo.shop",  // Backup ke liye
+        
       "https://cravzo-nine.vercel.app",
-      "http://cravzo-nine.vercel.app"
+    
 ],
     credentials: true,
   })
