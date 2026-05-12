@@ -17,7 +17,8 @@ app.use(
   "http://localhost:5173",
   "https://www.cravzo.shop",
   "http://localhost:4173",
-  "https://cravzo.shop"
+  "https://cravzo.shop",
+  "https://cravzo-nine.vercel.app"
 ],
     credentials: true,
   })
