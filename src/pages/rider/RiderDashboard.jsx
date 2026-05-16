@@ -6,7 +6,7 @@ import { getProfile } from "../../services/userService.js";
 
 
 const RiderMap = lazy(() =>
-  import("./RiderMap.jsx")
+  import("./LazyRiderMap.jsx")
 );
 
 const formatCurrency = (amount) => `Rs ${Number(amount || 0).toFixed(0)}`;

@@ -151,6 +151,8 @@ const Profile = () => {
 
             <div className="mt-6 flex flex-col items-center text-center sm:mt-8">
               <img
+                loading="lazy"
+                decoding="async"
                 src={previewAvatar}
                 alt={form.name || "Customer profile"}
                 className="h-28 w-28 rounded-full border-4 border-indigo-100 object-cover shadow-sm sm:h-36 sm:w-36"

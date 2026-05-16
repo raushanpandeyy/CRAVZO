@@ -14,7 +14,8 @@ const sampleRestaurants = [
     city: "Dwarka",
     state: "Delhi",
     postalCode: "110078",
-    imageUrl: "https://images.unsplash.com/photo-1563379091339-03246963d29a?auto=format&fit=crop&w=1200&q=80",
+    // FIX: Naya working URL + fm=webp force kiya hai (Size and format optimized)
+    imageUrl: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fm=webp&fit=crop&w=400&q=70",
     isOpen: true,
     menuItems: [
       { name: "Chicken Biryani", description: "Classic dum biryani with raita", category: "Biryani", price: 210, isVeg: false },
@@ -32,7 +33,8 @@ const sampleRestaurants = [
     city: "Delhi",
     state: "Delhi",
     postalCode: "110059",
-    imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1200&q=80",
+    // FIX: fm=webp force kiya aur width 400px ki taaki search drop-down freeze na ho
+    imageUrl: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fm=webp&fit=crop&w=400&q=70",
     isOpen: true,
     menuItems: [
       { name: "Cheese Burger", description: "Cheesy grilled burger", category: "Burgers", price: 150, isVeg: true },
@@ -50,7 +52,8 @@ const sampleRestaurants = [
     city: "Delhi",
     state: "Delhi",
     postalCode: "110019",
-    imageUrl: "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fit=crop&w=1200&q=80",
+    // FIX: fm=webp force kiya aur width 400px ki
+    imageUrl: "https://images.unsplash.com/photo-1668236543090-82eba5ee5976?auto=format&fm=webp&fit=crop&w=400&q=70",
     isOpen: true,
     menuItems: [
       { name: "Masala Dosa", description: "Crispy dosa with potato masala", category: "Main Course", price: 180, isVeg: true },
@@ -59,6 +62,8 @@ const sampleRestaurants = [
     ],
   },
 ];
+
+
 
 async function main() {
   const adminEmail = "admin@cravzo.com";

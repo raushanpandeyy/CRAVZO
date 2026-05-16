@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import {
   Clock3,
@@ -7,19 +7,33 @@ import {
 } from "lucide-react";
 
 import SearchBar from "../../components/common/Searchbar.jsx";
-import { biryaniplate } from "../../assets/images/foodimages.js";
-import {burger} from "../../assets/images/foodimages.js";
-import {cake} from "../../assets/images/foodimages.js";
-import {dosa} from "../../assets/images/foodimages.js";
-import {momos} from "../../assets/images/foodimages.js";
-
+import { biryaniplate, burger, cake, dosa, momos } from "../../assets/images/foodimages.js";
 import { getNearbyRestaurants, listRestaurants } from "../../services/foodService.js";
-import Citywise from "./Citywise.jsx";
-import DishCarousel from "./DishesGallery.jsx";
-import HeroSection from "./HeroSection.jsx";
+
+const HeroSection = lazy(() => import("./HeroSection.jsx"));
+const Citywise = lazy(() => import("./Citywise.jsx"));
+const DishCarousel = lazy(() => import("./DishesGallery.jsx"));
+
+const getOptimizedRestaurantImage = (
+  url,
+  width = 450
+) => {
+  if (!url) {
+    return "https://via.placeholder.com/400x300?text=No+Image";
+  }
+
+  if (url.includes("cloudinary.com")) {
+    const parts = url.split("/upload/");
+
+    if (parts.length === 2) {
+      return `${parts[0]}/upload/c_fill,w_${width},q_auto,f_auto/${parts[1]}`;
+    }
+  }
+
+  return url;
+};
 
 const categories = [
-
   { name: "Burger", image: burger, to: "/dish/Burger" },
   { name: "Dosa", image: dosa, to: "/dish/Dosa" },
   { name: "Biryani", image: biryaniplate, to: "/dish/Biryani" },
@@ -37,7 +51,6 @@ const formatDistance = (distance) => {
   if (distance === undefined || distance === null || Number.isNaN(Number(distance))) {
     return null;
   }
-
   return `${Number(distance).toFixed(1)} km away`;
 };
 
@@ -50,6 +63,19 @@ const MobileSectionHeader = ({ title, subtitle }) => (
   </div>
 );
 
+// CSS duplicates and leak protection image component
+const LazyImage = ({ src, alt, className, width = 450 }) => {
+  return (
+    <img
+      src={getOptimizedRestaurantImage(src, width)}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      decoding="async"
+    />
+  );
+};
+
 const MobileRestaurantCard = ({ restaurant, index }) => {
   const meta = getRestaurantMeta(restaurant, index);
   const distance = formatDistance(restaurant.distance);
@@ -60,11 +86,11 @@ const MobileRestaurantCard = ({ restaurant, index }) => {
       className="block overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-md shadow-slate-200/80"
     >
       <div className="relative h-44 w-full overflow-hidden bg-slate-100">
-        <img
+        <LazyImage
           src={restaurant.imageUrl}
           alt={restaurant.name}
           className="h-full w-full object-cover transition duration-500"
-          loading="lazy"
+          width={400}
         />
         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/65 to-transparent" />
         <div className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-indigo-950 shadow">
@@ -110,11 +136,14 @@ const MobileNearbyMiniCard = ({ restaurant, index }) => {
       to={`/restaurant/${restaurant.id}`}
       className="min-w-[160px] snap-start rounded-2xl bg-white shadow-md shadow-slate-200/80 transition-all duration-200 active:scale-95 hover:shadow-md"
     >
-      <img
-        src={dishImage}
+      <LazyImage
+        src={getOptimizedRestaurantImage(
+  dishImage,
+  300
+)}
         alt={dish?.name || restaurant.name}
         className="h-24 w-full rounded-t-2xl object-cover"
-        loading="lazy"
+        width={200}
       />
       <div className="p-3">
         <h3 className="line-clamp-1 text-sm font-black text-slate-950">{restaurant.name}</h3>
@@ -152,7 +181,6 @@ const Home = () => {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           const res = await getNearbyRestaurants(lat, lng);
-
           setRestaurants(Array.isArray(res) ? res : res?.data || []);
         } catch (error) {
           console.error("Failed to load nearby restaurants", error);
@@ -168,12 +196,18 @@ const Home = () => {
     );
   }, []);
 
+  const ComponentLoader = () => <div className="animate-pulse bg-slate-200 h-40 rounded-2xl m-4" />;
+
   return (
     <div className="bg-slate-50 md:bg-transparent">
+      {/* DESKTOP HERO */}
       <div className="hidden md:block">
-        <HeroSection />
+        <Suspense fallback={<ComponentLoader />}>
+          <HeroSection />
+        </Suspense>
       </div>
 
+      {/* MOBILE VIEW */}
       <div className="md:hidden">
         <div className="relative z-30 bg-gradient-to-b from-indigo-950 via-indigo-900 to-slate-50 px-4 pb-7 pt-24">
           <div className="relative z-10">
@@ -221,7 +255,6 @@ const Home = () => {
 
         <section className="bg-slate-50 py-6">
           <MobileSectionHeader title="Nearby Restaurants" subtitle="Fast delivery" />
-
           <div className="mt-4 space-y-4 px-4">
             {loading ? (
               <div className="rounded-3xl bg-white p-5 text-sm font-bold text-slate-500 shadow-sm">
@@ -238,9 +271,9 @@ const Home = () => {
             )}
           </div>
         </section>
-
       </div>
 
+      {/* DESKTOP VIEW */}
       <div className="hidden pt-32 md:block">
         <SearchBar />
 
@@ -262,25 +295,19 @@ const Home = () => {
                   to={`/restaurant/${restaurant.id}`}
                   className="group overflow-hidden rounded-2xl md:rounded-3xl border border-slate-200 bg-white shadow-sm"
                 >
-                  <img
-                    src={restaurant.imageUrl}
+                  <LazyImage
+                    src={getOptimizedRestaurantImage(
+  restaurant.imageUrl,
+  450
+)}
                     alt={restaurant.name}
-                    loading="lazy"
-                    decoding="async"
                     className="h-24 md:h-52 w-full object-cover transition duration-500 group-hover:scale-105"
+                    width={500}
                   />
-
                   <div className="p-2 md:p-5">
                     <h3 className="text-xs md:text-lg font-bold text-slate-900 line-clamp-1">{restaurant.name}</h3>
-
-                    <p className="mt-1 text-[10px] md:text-sm text-slate-500 line-clamp-1">
-                      {restaurant.location}
-                    </p>
-
-                    <p className="mt-1 text-[10px] md:text-sm text-indigo-700 font-medium line-clamp-1">
-                      {restaurant.cuisine}
-                    </p>
-
+                    <p className="mt-1 text-[10px] md:text-sm text-slate-500 line-clamp-1">{restaurant.location}</p>
+                    <p className="mt-1 text-[10px] md:text-sm text-indigo-700 font-medium line-clamp-1">{restaurant.cuisine}</p>
                     <p className="mt-1 text-[9px] md:text-xs text-gray-600">{restaurant.distance} km</p>
                   </div>
                 </Link>
@@ -289,11 +316,10 @@ const Home = () => {
           )}
         </section>
 
-        <Citywise />
-
-        <div className="hidden md:block">
+        <Suspense fallback={<ComponentLoader />}>
+          <Citywise />
           <DishCarousel />
-        </div>
+        </Suspense>
       </div>
     </div>
   );

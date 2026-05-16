@@ -1,16 +1,37 @@
 import { Routes, Route } from "react-router-dom";
-import React from "react";
+import React, { lazy, Suspense } from "react";
+
 import Navbar from "../components/common/Navbar.jsx";
 import PartnerMobileNav from "../components/common/PartnerMobileNav.jsx";
 
-// Rider Pages
-import RiderDashboard from "../pages/rider/RiderDashboard.jsx";
-import RiderAnalytics from "../pages/rider/TotalOrder.jsx";
-import RiderReview from "../pages/rider/Review.jsx";
-import RiderProfile from "../pages/rider/RiderProfile.jsx";
-import RiderContacts from "../pages/rider/Contacts.jsx";
-import RiderChatPage from "../pages/rider/RiderChatPage.jsx";
-import RiderNavbar from "../pages/rider/RiderNav.jsx";
+// Lazy Loaded Rider Pages
+const RiderDashboard = lazy(() =>
+  import("../pages/rider/RiderDashboard.jsx")
+);
+
+const RiderAnalytics = lazy(() =>
+  import("../pages/rider/TotalOrder.jsx")
+);
+
+const RiderReview = lazy(() =>
+  import("../pages/rider/Review.jsx")
+);
+
+const RiderProfile = lazy(() =>
+  import("../pages/rider/RiderProfile.jsx")
+);
+
+const RiderContacts = lazy(() =>
+  import("../pages/rider/Contacts.jsx")
+);
+
+const RiderChatPage = lazy(() =>
+  import("../pages/rider/RiderChatPage.jsx")
+);
+
+const RiderNavbar = lazy(() =>
+  import("../pages/rider/RiderNav.jsx")
+);
 
 const RiderRoutes = () => {
   return (
@@ -18,20 +39,57 @@ const RiderRoutes = () => {
       <div className="hidden md:block">
         <Navbar />
       </div>
+
       <PartnerMobileNav role="rider" />
+
       <main className="flex-1 pt-16 pb-24 md:p-0">
-        <Routes>
-          {/* ================= RIDER DASHBOARD ROUTES ================= */}
-          <Route path="/rider-dashboard" element={<RiderDashboard />} />
-          <Route path="/rider-analytics" element={<RiderAnalytics />} />
-          <Route path="/rider-reviews" element={<RiderReview />} />
-          <Route path="/rider-profile" element={<RiderProfile />} />
-          <Route path="/rider-contacts" element={<RiderContacts />} />
-          <Route path="/rider-chat" element={<RiderChatPage />} />
-        </Routes>
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center min-h-[60vh] text-slate-500 text-sm">
+              Loading...
+            </div>
+          }
+        >
+          <Routes>
+            {/* ================= RIDER DASHBOARD ROUTES ================= */}
+
+            <Route
+              path="/rider-dashboard"
+              element={<RiderDashboard />}
+            />
+
+            <Route
+              path="/rider-analytics"
+              element={<RiderAnalytics />}
+            />
+
+            <Route
+              path="/rider-reviews"
+              element={<RiderReview />}
+            />
+
+            <Route
+              path="/rider-profile"
+              element={<RiderProfile />}
+            />
+
+            <Route
+              path="/rider-contacts"
+              element={<RiderContacts />}
+            />
+
+            <Route
+              path="/rider-chat"
+              element={<RiderChatPage />}
+            />
+          </Routes>
+        </Suspense>
       </main>
+
       <div className="hidden md:block">
-        <RiderNavbar />
+        <Suspense fallback={null}>
+          <RiderNavbar />
+        </Suspense>
       </div>
     </div>
   );

@@ -7,6 +7,25 @@ import { addFavorite, getFavorites, removeFavorite } from "../../services/favori
 import { getRestaurantById } from "../../services/foodService.js";
 import { getRestaurantReviews, saveReview } from "../../services/reviewService.js";
 
+
+const getOptimizedImage = (
+  url,
+  width = 600,
+  height = 400
+) => {
+  if (!url) return "";
+
+  if (url.includes("cloudinary.com")) {
+    const parts = url.split("/upload/");
+
+    if (parts.length === 2) {
+      return `${parts[0]}/upload/c_fill,w_${width},h_${height},q_auto,f_auto/${parts[1]}`;
+    }
+  }
+
+  return url;
+};
+
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(0)}`;
 
 const Stars = ({ rating, onSelect = null }) => (
@@ -211,7 +230,11 @@ const RestaurantPage = () => {
         <section className="relative md:overflow-hidden md:rounded-3xl">
           <div className="relative h-56 w-full md:h-80">
             <img
-              src={restaurant.imageUrl}
+              src={getOptimizedImage(
+  restaurant.imageUrl,
+  1200,
+  500
+)}
               alt={restaurant.name}
               className="h-full w-full object-cover"
             />
@@ -289,7 +312,7 @@ const RestaurantPage = () => {
 
                 <div className="relative h-28 w-28 shrink-0">
                   <img
-                    src={dish.imageUrl || restaurant.imageUrl}
+                    src={getOptimizedImage(dish.imageUrl || restaurant.imageUrl, 300, 200)}
                     alt={dish.name}
                     loading="lazy"
                     className="h-full w-full rounded-2xl object-cover"
