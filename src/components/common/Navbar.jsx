@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiMapPin, FiChevronDown } from "react-icons/fi";
-import { LogOut, ShoppingCart, User as UserIcon } from "lucide-react";
+import { LogOut, MessageCircle, ShoppingCart, User as UserIcon } from "lucide-react";
 
 import {cravzologo} from "../../assets/images/logos.js";
 import { useAuth } from "../../hooks/useAuth.js";
+import { useChatNotifications } from "../../hooks/useChatNotifications.js";
+import { useNotifications } from "../../hooks/useNotifications.js";
 import { getAddresses } from "../../services/addressService.js";
+import { deleteCookie, getCookie, setCookie } from "../../utils/cookies.js";
+
+const DELIVERY_ADDRESS_COOKIE = "cravzoDeliveryAddress";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,8 +18,11 @@ const Navbar = () => {
   const [address, setAddress] = useState("");
   const [cartCount, setCartCount] = useState(0);
   const [isLoadingAddress, setIsLoadingAddress] = useState(false);
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { notifications, unreadCount, getChatPath, markAllRead, markNotificationRead } = useChatNotifications(user);
+  useNotifications(user);
 
   const syncCartCount = () => {
     try {
@@ -46,8 +54,14 @@ const Navbar = () => {
     const syncAddress = async () => {
       if (!user?.isLoggedIn || user.accountType !== "customer") {
         setAddress("");
+        deleteCookie(DELIVERY_ADDRESS_COOKIE);
         setIsLoadingAddress(false);
         return;
+      }
+
+      const cachedAddress = getCookie(DELIVERY_ADDRESS_COOKIE);
+      if (cachedAddress) {
+        setAddress(cachedAddress);
       }
 
       setIsLoadingAddress(true);
@@ -55,7 +69,13 @@ const Navbar = () => {
       try {
         const savedAddresses = await getAddresses();
         const defaultAddress = savedAddresses.find((entry) => entry.isDefault) || savedAddresses[0];
-        setAddress(defaultAddress ? [defaultAddress.line1, defaultAddress.city].filter(Boolean).join(", ") : "");
+        const nextAddress = defaultAddress ? [defaultAddress.line1, defaultAddress.city].filter(Boolean).join(", ") : "";
+        setAddress(nextAddress);
+        if (nextAddress) {
+          setCookie(DELIVERY_ADDRESS_COOKIE, nextAddress, { maxAgeDays: 30 });
+        } else {
+          deleteCookie(DELIVERY_ADDRESS_COOKIE);
+        }
       } catch {
         setAddress("");
       } finally {
@@ -117,6 +137,13 @@ const Navbar = () => {
     setMobileMenuOpen(false);
   };
 
+  const openChatNotification = (notification) => {
+    markNotificationRead(notification.id);
+    setChatMenuOpen(false);
+    setMobileMenuOpen(false);
+    navigate(getChatPath(notification));
+  };
+
   const handleLogout = async () => {
     await logout();
     setMobileMenuOpen(false);
@@ -144,6 +171,66 @@ const Navbar = () => {
     </button>
   );
 
+  const ChatNotificationButton = ({ compact = false }) => (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => {
+          setChatMenuOpen((current) => !current);
+          if (!chatMenuOpen) markAllRead();
+        }}
+        className={`relative flex items-center justify-center gap-2 rounded-full font-bold ${
+          compact
+            ? "h-10 w-10 bg-indigo-950 text-white shadow-md"
+            : "bg-white px-5 py-2 text-indigo-900"
+        }`}
+        aria-label={`Chat notifications with ${unreadCount} unread`}
+        aria-expanded={chatMenuOpen}
+      >
+        <MessageCircle className="h-5 w-5" />
+        {!compact ? <span>Chat</span> : null}
+        {unreadCount > 0 ? (
+          <span className="absolute -right-2 -top-2 min-w-5 rounded-full bg-rose-500 px-1.5 py-0.5 text-center text-[11px] leading-4 text-white">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        ) : null}
+      </button>
+
+      {chatMenuOpen ? (
+        <div className="absolute right-0 top-12 z-[70] w-80 overflow-hidden rounded-2xl border border-slate-100 bg-white text-slate-950 shadow-2xl">
+          <div className="border-b border-slate-100 px-4 py-3">
+            <p className="text-sm font-black">Chat notifications</p>
+            <p className="text-xs text-slate-500">Tap any item to open that chat.</p>
+          </div>
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length ? (
+              notifications.map((notification) => (
+                <button
+                  key={notification.id}
+                  type="button"
+                  onClick={() => openChatNotification(notification)}
+                  className="flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                >
+                  <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-700">
+                    <MessageCircle className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black">{notification.title || "Chat message"}</span>
+                    <span className="mt-0.5 line-clamp-2 text-xs leading-5 text-slate-500">
+                      {notification.subtitle || notification.text || "New message"}
+                    </span>
+                  </span>
+                </button>
+              ))
+            ) : (
+              <div className="px-4 py-8 text-center text-sm text-slate-500">No new chat notifications</div>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-white text-slate-950 shadow-sm shadow-slate-200/80 md:bg-indigo-900 md:text-white md:shadow-md font-sans">
       <div className="mx-auto flex w-full max-w-[1200px] items-center gap-3 px-4 py-2 md:hidden">
@@ -169,6 +256,10 @@ const Navbar = () => {
           </span>
         </button>
 
+        {user ? (
+          <ChatNotificationButton compact />
+        ) : null}
+
         {user?.accountType === "customer" ? (
           <CartButton compact />
         ) : !user ? (
@@ -180,7 +271,16 @@ const Navbar = () => {
           >
             Sign up
           </button>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-950 text-white shadow-md"
+            aria-label="Logout"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+        )}
       </div>
 
       <div className="max-w-[1200px] mx-auto px-4 py-3 hidden md:flex md:flex-row md:justify-between items-center gap-3">
@@ -203,6 +303,8 @@ const Navbar = () => {
         </button>
 
         <div className="hidden md:flex items-center gap-4">
+          {user ? <ChatNotificationButton /> : null}
+
           {user?.accountType === "customer" || !user ? <CartButton /> : null}
 
           {!user && (

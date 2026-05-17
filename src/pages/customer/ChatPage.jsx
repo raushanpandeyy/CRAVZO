@@ -1,4 +1,5 @@
 import React, { useState, lazy, Suspense } from 'react';
+import { useSearchParams } from "react-router-dom";
 
 
 const Chat = lazy(() =>
@@ -7,6 +8,10 @@ const Chat = lazy(() =>
 
 const ChatPage = () => {
   const [isChatOpen, setIsChatOpen] = useState(true);
+  const [searchParams] = useSearchParams();
+  const roomId = searchParams.get("roomId") || "";
+  const mode = searchParams.get("mode") === "order" ? "order" : "support";
+  const isOrderChat = mode === "order";
 
   return (
     <div className="min-h-screen overflow-y-auto bg-[#F4F7FB] px-3 py-3 sm:px-8 sm:py-8">
@@ -14,15 +19,25 @@ const ChatPage = () => {
         <div className="rounded-[28px] bg-white p-5 shadow-sm sm:rounded-3xl sm:p-6">
           <div className="mb-5 rounded-[24px] bg-indigo-950 p-5 text-white sm:bg-transparent sm:p-0 sm:text-slate-950">
             <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-indigo-200 sm:hidden">Help desk</p>
-            <h1 className="text-2xl font-black sm:text-3xl">Support Chat</h1>
+            <h1 className="text-2xl font-black sm:text-3xl">{isOrderChat ? "Order Chat" : "Support Chat"}</h1>
             <p className="mt-2 text-sm leading-6 text-indigo-100 sm:text-slate-500 sm:text-base">
-            Get instant help from our support team. We're here to assist you with any questions or issues.
+              {isOrderChat
+                ? "Continue the conversation linked to this order."
+                : "Get instant help from our support team. We're here to assist you with any questions or issues."}
             </p>
           </div>
 
           {/* Chat will be opened by default */}
           <Suspense fallback={<div>Loading chat...</div>}>
-            <Chat isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+            <Chat
+              isOpen={isChatOpen}
+              onClose={() => setIsChatOpen(false)}
+              variant="panel"
+              mode={mode}
+              roomId={roomId}
+              title={isOrderChat ? "Order Chat" : "Customer Support"}
+              subtitle={isOrderChat ? "Customer and rider conversation" : undefined}
+            />
           </Suspense>
 
           {!isChatOpen && (

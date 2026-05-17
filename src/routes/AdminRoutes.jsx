@@ -12,7 +12,7 @@ const AdminRoutes = () => {
     <div className="flex flex-col min-h-screen bg-slate-50">
       <Navbar />
 
-      <main className="flex-1 pt-24 px-4 md:px-8 pb-8">
+      <main className="flex-1 px-3 pb-8 pt-20 sm:px-4 md:px-8 md:pt-24">
         <Suspense fallback={<div>Loading...</div>}>
           <Routes>
             <Route path="/" element={<AdminDashboard />} />

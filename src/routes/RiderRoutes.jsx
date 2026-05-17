@@ -29,10 +29,6 @@ const RiderChatPage = lazy(() =>
   import("../pages/rider/RiderChatPage.jsx")
 );
 
-const RiderNavbar = lazy(() =>
-  import("../pages/rider/RiderNav.jsx")
-);
-
 const RiderRoutes = () => {
   return (
     <div className="flex flex-col min-h-screen">
@@ -85,12 +81,6 @@ const RiderRoutes = () => {
           </Routes>
         </Suspense>
       </main>
-
-      <div className="hidden md:block">
-        <Suspense fallback={null}>
-          <RiderNavbar />
-        </Suspense>
-      </div>
     </div>
   );
 };

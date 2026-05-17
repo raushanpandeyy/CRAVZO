@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { CheckCircle, Clock, Eye, ShoppingBag } from "lucide-react";
+import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { CheckCircle, Clock, Eye, MessageCircle, ShoppingBag } from "lucide-react";
 
 import { getVendorOrders, updateOrderStatus } from "../../services/orderService.js";
 
@@ -16,6 +16,8 @@ const vendorStatusLabel = {
 };
 
 const formatCurrency = (amount) => `Rs ${Number(amount || 0).toFixed(0)}`;
+const OrderChatModal = lazy(() => import("../../components/OrderChatModal.jsx"));
+const riderChatClosedStatuses = ["DELIVERED", "CANCELLED", "REJECTED"];
 
 const formatOrderTime = (value) =>
   new Date(value).toLocaleString("en-IN", {
@@ -32,6 +34,7 @@ const OrderPanel = () => {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [chatOrder, setChatOrder] = useState(null);
 
   const loadOrders = async () => {
     setLoading(true);
@@ -80,6 +83,8 @@ const OrderPanel = () => {
       setError(requestError.message || "Failed to update order");
     }
   };
+
+  const canChatWithRider = (order) => Boolean(order.rider?.id) && !riderChatClosedStatuses.includes(order.status);
 
   return (
     <div className="px-6 py-6 bg-[#F4F7FB] min-h-screen">
@@ -200,6 +205,15 @@ const OrderPanel = () => {
                         {vendorStatusLabel[order.status]}
                       </button>
                     ) : null}
+                    {canChatWithRider(order) ? (
+                      <button
+                        onClick={() => setChatOrder(order)}
+                        className="flex items-center gap-1 rounded bg-slate-950 px-3 py-1 text-sm text-white hover:bg-slate-800"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Rider Chat
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -251,14 +265,32 @@ const OrderPanel = () => {
                   Call Customer
                 </button>
               ) : null}
+              {canChatWithRider(selectedOrder) ? (
+                <button onClick={() => setChatOrder(selectedOrder)} className="flex-1 rounded bg-slate-950 py-2 text-white hover:bg-slate-800">
+                  Rider Chat
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
+      ) : null}
+
+      {chatOrder ? (
+        <Suspense fallback={<div className="fixed inset-0 z-[90] bg-slate-950/40" />}>
+          <OrderChatModal
+            order={chatOrder}
+            onClose={() => setChatOrder(null)}
+            title="Restaurant to Rider"
+            subtitle={chatOrder.rider?.name || "Assigned rider"}
+            participantName={chatOrder.rider?.name || "Assigned rider"}
+            disabled={!canChatWithRider(chatOrder)}
+            disabledReason="Restaurant to rider chat closes after delivery or cancellation."
+          />
+        </Suspense>
       ) : null}
     </div>
   );
 };
 
 export default OrderPanel;
-
 

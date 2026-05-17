@@ -13,7 +13,7 @@ const OtpInput = lazy(() =>
 );
 import { login, sendOtp, signup, verifyOtp } from "../../services/authService.js";
 
-const steps = ["Basic Info", "OTP Verification", "Location", "Business", "Account"];
+const steps = ["Basic Info", "Location", "Business", "Account", "OTP Verification"];
 const emptyOtp = ["", "", "", "", "", ""];
 const vendorPrimaryButtonClassName =
   "rounded-2xl bg-indigo-950 py-3.5 font-extrabold text-white shadow-lg shadow-indigo-950/20 transition active:scale-[0.99] disabled:opacity-70";
@@ -46,7 +46,6 @@ export default function VendorSignup() {
   const [showFAQ, setShowFAQ] = useState(false);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isOtpVerified, setIsOtpVerified] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
 
   const [form, setForm] = useState({
@@ -75,7 +74,12 @@ export default function VendorSignup() {
   const back = () => setStep((currentStep) => Math.max(currentStep - 1, 1));
 
   const handleContinue = async () => {
-    if (step === 1) {
+    if (step < 4) {
+      setStep((currentStep) => currentStep + 1);
+      return;
+    }
+
+    if (step === 4) {
       setMessage("");
       setIsSubmitting(true);
 
@@ -88,9 +92,14 @@ export default function VendorSignup() {
           role: "VENDOR",
           onboardingData: {
             restaurantName: form.restaurantName,
+            ownerName: form.ownerName,
+            address: form.address,
+            pincode: form.pincode,
+            cuisine: form.cuisine,
+            phone,
           },
         });
-        setStep(2);
+        setStep(5);
         setMessage("OTP sent to your email.");
       } catch (error) {
         setMessage(error.message || "Failed to start vendor signup");
@@ -101,7 +110,7 @@ export default function VendorSignup() {
       return;
     }
 
-    if (step === 2) {
+    if (step === 5) {
       setMessage("");
       setIsSubmitting(true);
 
@@ -111,9 +120,8 @@ export default function VendorSignup() {
           otp: otp.join(""),
           role: "VENDOR",
         });
-        setIsOtpVerified(true);
-        setStep(3);
-        setMessage("OTP verified. Complete your vendor onboarding details.");
+        setMessage("Vendor details submitted. Your account is pending admin approval.");
+        navigate("/vendor-dashboard");
       } catch (error) {
         setMessage(error.message || "Invalid OTP");
       } finally {
@@ -122,13 +130,6 @@ export default function VendorSignup() {
 
       return;
     }
-
-    if (step < 5) {
-      setStep((currentStep) => currentStep + 1);
-      return;
-    }
-
-    await saveVendor();
   };
 
   const handleVendorLogin = async () => {
@@ -167,38 +168,11 @@ export default function VendorSignup() {
     }
   };
 
-  const saveVendor = async () => {
-    setMessage("");
-    setIsSubmitting(true);
-
-    try {
-      if (!isOtpVerified) {
-        throw new Error("Verify OTP before completing vendor signup");
-      }
-
-      localStorage.setItem(
-        "cravzoVendorOnboardingDraft",
-        JSON.stringify({
-          ...form,
-          phone,
-        })
-      );
-
-      setMessage("Vendor authentication complete. Your account is pending admin approval.");
-      navigate("/vendor-dashboard");
-    } catch (error) {
-      setMessage(error.message || "Vendor signup failed");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const resetSignupState = () => {
     setStep(1);
     setOtp(emptyOtp);
     setPhone("");
     setMessage("");
-    setIsOtpVerified(false);
     setIsForgotPassword(false);
   };
 
@@ -329,21 +303,6 @@ export default function VendorSignup() {
 
                 {step === 2 ? (
                   <>
-                    <Suspense fallback={<div>Loading OTP...</div>}>
-  <OtpInput otp={otp} setOtp={setOtp} />
-</Suspense>
-                    <button
-                      onClick={handleResendOtp}
-                      disabled={isSubmitting}
-                      className="w-full rounded-xl border border-indigo-300 py-3 text-indigo-700 disabled:opacity-70"
-                    >
-                      Resend OTP
-                    </button>
-                  </>
-                ) : null}
-
-                {step === 3 ? (
-                  <>
                     <FormInput
                       label="Address"
                       icon={MapPin}
@@ -358,7 +317,7 @@ export default function VendorSignup() {
                   </>
                 ) : null}
 
-                {step === 4 ? (
+                {step === 3 ? (
                   <FormInput
                     label="Cuisine"
                     value={form.cuisine}
@@ -366,10 +325,25 @@ export default function VendorSignup() {
                   />
                 ) : null}
 
-                {step === 5 ? (
+                {step === 4 ? (
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
-                    OTP verified. Finalize signup to enter the vendor dashboard while admin approval is pending.
+                    Review your details. Admin approval will start only after OTP verification.
                   </div>
+                ) : null}
+
+                {step === 5 ? (
+                  <>
+                    <Suspense fallback={<div>Loading OTP...</div>}>
+                      <OtpInput otp={otp} setOtp={setOtp} />
+                    </Suspense>
+                    <button
+                      onClick={handleResendOtp}
+                      disabled={isSubmitting}
+                      className="w-full rounded-xl border border-indigo-300 py-3 text-indigo-700 disabled:opacity-70"
+                    >
+                      Resend OTP
+                    </button>
+                  </>
                 ) : null}
               </div>
             )}
@@ -386,7 +360,7 @@ export default function VendorSignup() {
                   disabled={isSubmitting}
                   className={`flex-[2] ${vendorPrimaryButtonClassName}`}
                 >
-                  {isSubmitting ? "Please wait..." : step === 2 ? "Verify OTP" : step === 5 ? "Finish Signup" : "Continue"}
+                  {isSubmitting ? "Please wait..." : step === 5 ? "Verify & Submit" : step === 4 ? "Send OTP" : "Continue"}
                 </button>
               </div>
             ) : null}

@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Clock3, X } from "lucide-react";
+import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { ArrowRight, Clock3, MessageCircle, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import {cart} from "../../assets/images/logos.js";
@@ -7,6 +7,8 @@ import SearchBar from "../../components/common/Searchbar.jsx";
 import { cancelOrder, getMyOrders } from "../../services/orderService.js";
 
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(0)}`;
+const OrderChatModal = lazy(() => import("../../components/OrderChatModal.jsx"));
+const riderChatClosedStatuses = ["DELIVERED", "CANCELLED", "REJECTED"];
 
 export default function Orders() {
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [chatOrder, setChatOrder] = useState(null);
 
   const loadOrders = async () => {
     try {
@@ -64,6 +67,14 @@ export default function Orders() {
 
   const getOrderItemsTotal = (order) =>
     order.items?.reduce((total, item) => total + Number(item.unitPrice || item.price || 0) * Number(item.quantity || 1), 0) || 0;
+
+  const canChatWithRider = (order) => Boolean(order.rider?.id) && !riderChatClosedStatuses.includes(order.status);
+
+  const openRiderChat = (event, order) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setChatOrder(order);
+  };
 
   return (
     <div className="min-h-screen bg-[#F4F7FB] px-3 py-3 sm:px-8 sm:py-8">
@@ -138,6 +149,16 @@ export default function Orders() {
                             className="rounded-full bg-rose-600 px-3 py-2 text-xs font-bold text-white"
                           >
                             Cancel
+                          </button>
+                        ) : null}
+                        {canChatWithRider(order) ? (
+                          <button
+                            type="button"
+                            onClick={(event) => openRiderChat(event, order)}
+                            className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-2 text-xs font-bold text-white"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            Rider
                           </button>
                         ) : null}
                         <span className="inline-flex items-center gap-1 text-xs font-black text-indigo-700">
@@ -222,8 +243,32 @@ export default function Orders() {
             >
               Open Restaurant <ArrowRight className="h-4 w-4" />
             </button>
+            {canChatWithRider(selectedOrder) ? (
+              <button
+                type="button"
+                onClick={(event) => openRiderChat(event, selectedOrder)}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Chat with Rider
+              </button>
+            ) : null}
           </div>
         </div>
+      ) : null}
+
+      {chatOrder ? (
+        <Suspense fallback={<div className="fixed inset-0 z-[90] bg-slate-950/40" />}>
+          <OrderChatModal
+            order={chatOrder}
+            onClose={() => setChatOrder(null)}
+            title="Chat with Rider"
+            subtitle={chatOrder.rider?.name || "Assigned rider"}
+            participantName={chatOrder.rider?.name || "Assigned rider"}
+            disabled={!canChatWithRider(chatOrder)}
+            disabledReason="Rider chat is available only while the order is active."
+          />
+        </Suspense>
       ) : null}
     </div>
   );

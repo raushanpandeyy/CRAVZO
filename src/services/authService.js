@@ -1,5 +1,6 @@
 import { API_ENDPOINTS } from "../constants/apiEndpoints.js";
 import { roleToAccountType } from "../constants/roles.js";
+import { unregisterFcmToken } from "../firebase/notificationService.js";
 import { apiRequest } from "./api.js";
 
 const AUTH_STORAGE_KEY = "cravzoCurrentUser";
@@ -133,6 +134,7 @@ const resetPassword = async (payload) => {
 
 const logout = async () => {
   try {
+    await unregisterFcmToken();
     await apiRequest(API_ENDPOINTS.auth.logout, {
       method: "POST",
     });
@@ -143,9 +145,6 @@ const logout = async () => {
 
 const loadCurrentUser = async () => {
   const token = localStorage.getItem(TOKEN_STORAGE_KEY);
-  if (!token) {
-    return null;
-  }
 
   try {
     const response = await apiRequest(API_ENDPOINTS.auth.me);

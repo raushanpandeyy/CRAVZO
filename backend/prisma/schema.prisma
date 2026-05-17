@@ -33,6 +33,9 @@ model User {
   riderOrders           Order[]      @relation("AssignedRiderOrders")
   restaurants           Restaurant[] @relation("VendorRestaurants")
   reviews               Review[]
+  supportChatRoom       ChatRoom?    @relation("SupportChatOwner")
+  chatMessages          ChatMessage[]
+  fcmTokens             FcmToken[]
 
   @@index([status])
   @@index([role, status, createdAt])
@@ -144,6 +147,7 @@ model Order {
   restaurant       Restaurant    @relation(fields: [restaurantId], references: [id])
   rider            User?         @relation("AssignedRiderOrders", fields: [riderId], references: [id])
   items            OrderItem[]
+  chatRooms        ChatRoom[]
 
   @@index([customerId, createdAt])
   @@index([restaurantId, createdAt])
@@ -194,6 +198,57 @@ model Favorite {
   @@unique([userId, restaurantId])
   @@index([userId, createdAt])
   @@index([restaurantId, createdAt])
+}
+
+model ChatRoom {
+  id            String        @id @default(cuid())
+  type          ChatRoomType
+  orderId       String?
+  supportUserId String?       @unique
+  status        ChatRoomStatus @default(ACTIVE)
+  lastMessageAt DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  order         Order?        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  supportUser   User?         @relation("SupportChatOwner", fields: [supportUserId], references: [id], onDelete: Cascade)
+  messages      ChatMessage[]
+
+  @@unique([type, orderId])
+  @@index([type, lastMessageAt])
+  @@index([orderId, type])
+  @@index([supportUserId, lastMessageAt])
+}
+
+model ChatMessage {
+  id        String          @id @default(cuid())
+  roomId    String
+  senderId  String
+  text      String?
+  imageUrl  String?
+  kind      ChatMessageKind @default(TEXT)
+  createdAt DateTime        @default(now())
+  room      ChatRoom        @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender    User            @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt, id])
+  @@index([senderId, createdAt])
+}
+
+model FcmToken {
+  id         String   @id @default(cuid())
+  userId     String
+  token      String   @unique
+  deviceId   String?
+  platform   String   @default("WEB")
+  userAgent  String?
+  isActive   Boolean  @default(true)
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive, updatedAt])
+  @@index([token])
 }
 
 model OtpVerification {
@@ -269,4 +324,20 @@ enum OtpPurpose {
   VENDOR_ONBOARDING
   RIDER_ONBOARDING
   PASSWORD_RESET
+}
+
+enum ChatRoomType {
+  SUPPORT
+  ORDER_RIDER
+}
+
+enum ChatRoomStatus {
+  ACTIVE
+  CLOSED
+}
+
+enum ChatMessageKind {
+  TEXT
+  IMAGE
+  MIXED
 }

@@ -2,6 +2,8 @@ import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { createPersistedOrder, serializeOrder } from "../services/orderCheckoutService.js";
+import { notifyOrderCreated, notifyOrderStatusChanged } from "../services/notificationService.js";
+import { logger } from "../utils/logger.js";
 import { createOrderSchema } from "../validators/orderValidators.js";
 
 const ACTIVE_DELIVERY_STATUSES = ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
@@ -24,6 +26,12 @@ const getDistanceKm = (startLat, startLng, endLat, endLng) => {
 
 const normalizeCity = (value) => value?.trim().toLowerCase() || "";
 
+const runNotificationTask = (task) => {
+  task.catch((error) => {
+    logger.warn("Push notification task failed", { error });
+  });
+};
+
 const createOrder = async (req, res) => {
   const { restaurantId, items, address = null, addressId = null, paymentMethod, notes = null } = createOrderSchema.parse(req.body);
   const order = await createPersistedOrder({
@@ -36,6 +44,8 @@ const createOrder = async (req, res) => {
     paymentStatus: paymentMethod === "COD" ? "PENDING" : "PAID",
     notes,
   });
+
+  runNotificationTask(notifyOrderCreated(order));
 
   res.status(201).json(
     apiResponse({
@@ -53,6 +63,15 @@ const getMyOrders = async (req, res) => {
     include: {
       restaurant: true,
       address: true,
+      rider: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          avatarUrl: true,
+        },
+      },
       items: {
         include: {
           menuItem: true,
@@ -88,6 +107,15 @@ const getVendorOrders = async (req, res) => {
           name: true,
           email: true,
           phone: true,
+        },
+      },
+      rider: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          avatarUrl: true,
         },
       },
       items: {
@@ -158,6 +186,15 @@ const getRiderOrders = async (req, res) => {
           name: true,
           email: true,
           phone: true,
+        },
+      },
+      rider: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          avatarUrl: true,
         },
       },
       items: {
@@ -358,6 +395,15 @@ const updateOrderStatus = async (req, res) => {
               phone: true,
             },
           },
+          rider: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              avatarUrl: true,
+            },
+          },
           items: {
             include: {
               menuItem: true,
@@ -373,6 +419,12 @@ const updateOrderStatus = async (req, res) => {
             ...serializeOrder(updatedOrder),
             customer: updatedOrder.customer,
           },
+        }),
+      );
+      runNotificationTask(
+        notifyOrderStatusChanged({
+          order: updatedOrder,
+          actorRole: req.user.role,
         }),
       );
       return;
@@ -445,6 +497,15 @@ const updateOrderStatus = async (req, res) => {
           phone: true,
         },
       },
+      rider: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          avatarUrl: true,
+        },
+      },
       items: {
         include: {
           menuItem: true,
@@ -452,6 +513,13 @@ const updateOrderStatus = async (req, res) => {
       },
     },
   });
+
+  runNotificationTask(
+    notifyOrderStatusChanged({
+      order: updatedOrder,
+      actorRole: req.user.role,
+    }),
+  );
 
   res.status(200).json(
     apiResponse({

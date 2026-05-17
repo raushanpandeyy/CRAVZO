@@ -19,7 +19,9 @@ app.use(
   
       "https://www.cravzo.shop",
       "https://cravzo.shop", // HTTPS zaroori hai
-        
+       "http://localhost:5173",
+       "https://localhost:5173",
+
       "https://cravzo-nine.vercel.app",
     
 ],

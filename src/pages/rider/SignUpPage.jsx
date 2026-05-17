@@ -33,7 +33,6 @@ const RiderSignup = () => {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLogin, setIsLogin] = useState(false);
-  const [isOtpVerified, setIsOtpVerified] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
 
   const [form, setForm] = useState({
@@ -59,7 +58,6 @@ const RiderSignup = () => {
     setStep(1);
     setOtp(emptyOtp);
     setMessage("");
-    setIsOtpVerified(false);
     setIsForgotPassword(false);
   };
 
@@ -76,9 +74,16 @@ const RiderSignup = () => {
         role: "RIDER",
         onboardingData: {
           city: form.city,
+          vehicleType: form.vehicleType,
+          vehicleNumber: form.vehicleNumber,
+          drivingLicense: form.drivingLicense,
+          address: form.address,
+          shirtSize: form.shirtSize,
+          phone,
         },
       });
       setMessage("OTP sent to your email.");
+      setStep(4);
     } catch (error) {
       setMessage(error.message || "Failed to send OTP");
     } finally {
@@ -114,37 +119,10 @@ const RiderSignup = () => {
         otp: otp.join(""),
         role: "RIDER",
       });
-      setIsOtpVerified(true);
-      setStep(2);
-      setMessage("OTP verified. Complete the remaining rider onboarding details.");
-    } catch (error) {
-      setMessage(error.message || "Invalid OTP");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handlePayment = async () => {
-    setMessage("");
-    setIsSubmitting(true);
-
-    try {
-      if (!isOtpVerified) {
-        throw new Error("Verify OTP before completing rider signup");
-      }
-
-      localStorage.setItem(
-        "cravzoRiderOnboardingDraft",
-        JSON.stringify({
-          ...form,
-          phone,
-        })
-      );
-
-      setMessage("Rider authentication complete. Your account is pending admin approval.");
+      setMessage("Rider details submitted. Your account is pending admin approval.");
       navigate("/rider-dashboard");
     } catch (error) {
-      setMessage(error.message || "Rider signup failed");
+      setMessage(error.message || "Invalid OTP");
     } finally {
       setIsSubmitting(false);
     }
@@ -264,34 +242,9 @@ const RiderSignup = () => {
               onChange={(event) => updateForm("password", event.target.value)}
             />
 
-            <button
-              onClick={handleRequestOtp}
-              disabled={isSubmitting}
-              className="w-full rounded-2xl bg-slate-100 py-3.5 font-extrabold text-slate-900 disabled:opacity-70"
-            >
-              {isSubmitting ? "Please wait..." : "Get OTP"}
+            <button onClick={() => setStep(2)} className={riderPrimaryButtonClassName}>
+              Continue
             </button>
-
-           <Suspense fallback={<div>Loading OTP...</div>}>
-  <OtpInput otp={otp} setOtp={setOtp} />
-</Suspense>
-
-            <div className="flex gap-2">
-              <button
-                onClick={handleVerifyOtp}
-                disabled={isSubmitting}
-                className={riderPrimaryButtonClassName}
-              >
-                Verify OTP
-              </button>
-              <button
-                onClick={handleResendOtp}
-                disabled={isSubmitting}
-                className={riderSecondaryButtonClassName}
-              >
-                Resend OTP
-              </button>
-            </div>
           </div>
         ) : null}
 
@@ -360,25 +313,36 @@ const RiderSignup = () => {
               <button onClick={() => setStep(2)} className="w-1/2 rounded-2xl bg-slate-200 py-3 font-bold text-slate-800">
                 Back
               </button>
-              <button onClick={() => setStep(4)} className="w-1/2 rounded-2xl bg-purple-700 py-3 font-bold text-white">
-                Next
+              <button onClick={handleRequestOtp} disabled={isSubmitting} className="w-1/2 rounded-2xl bg-purple-700 py-3 font-bold text-white disabled:opacity-70">
+                {isSubmitting ? "Please wait..." : "Send OTP"}
               </button>
             </div>
           </div>
         ) : null}
 
         {step === 4 ? (
-          <div className="space-y-4 text-center">
+          <div className="space-y-4">
             <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-              <h3 className="font-extrabold text-emerald-900">Pay Rs 1000</h3>
-              <p className="mt-1 text-sm font-medium text-emerald-700">Complete onboarding to continue.</p>
+              <h3 className="font-extrabold text-emerald-900">Verify and submit</h3>
+              <p className="mt-1 text-sm font-medium text-emerald-700">Admin approval starts after this OTP step.</p>
+            </div>
+            <Suspense fallback={<div>Loading OTP...</div>}>
+              <OtpInput otp={otp} setOtp={setOtp} />
+            </Suspense>
+            <div className="flex gap-2">
+              <button onClick={handleVerifyOtp} disabled={isSubmitting} className={riderPrimaryButtonClassName}>
+                {isSubmitting ? "Please wait..." : "Verify & Submit"}
+              </button>
+              <button onClick={handleResendOtp} disabled={isSubmitting} className={riderSecondaryButtonClassName}>
+                Resend
+              </button>
             </div>
             <button
-              onClick={handlePayment}
+              onClick={() => setStep(3)}
               disabled={isSubmitting}
-              className="w-full rounded-2xl bg-green-600 py-3.5 font-extrabold text-white disabled:opacity-70"
+              className="w-full rounded-2xl bg-slate-200 py-3 font-bold text-slate-800"
             >
-              {isSubmitting ? "Please wait..." : "Pay"}
+              Back
             </button>
           </div>
         ) : null}

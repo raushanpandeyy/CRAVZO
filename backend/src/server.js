@@ -1,6 +1,9 @@
 import 'dotenv/config';
+import http from "http";
+
 import { env } from "./config/env.js";
 import { connectRedis } from "./config/redis.js";
+import { attachChatSocket } from "./socket/chatSocket.js";
 
 
 const PORT = env.PORT || process.env.PORT || 8080;
@@ -8,7 +11,10 @@ const PORT = env.PORT || process.env.PORT || 8080;
 await connectRedis();
 
 const { app } = await import("./app.js");
+const server = http.createServer(app);
 
-app.listen(PORT, () => {
+attachChatSocket(server);
+
+server.listen(PORT, () => {
   console.log(`CRAVZO backend running on port ${PORT}`);
 });

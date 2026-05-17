@@ -16,6 +16,7 @@ import {
 
 import {cravzologo} from "../../assets/images/logos.js";
 import { useAuth } from "../../hooks/useAuth.js";
+import { useChatNotifications } from "../../hooks/useChatNotifications.js";
 
 const roleConfig = {
   rider: {
@@ -47,6 +48,8 @@ const PartnerMobileTopNav = ({ role }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, user } = useAuth();
+  const [chatMenuOpen, setChatMenuOpen] = React.useState(false);
+  const { notifications, unreadCount, getChatPath, markAllRead, markNotificationRead } = useChatNotifications(user);
   const config = roleConfig[role];
   const activeItem = config.items.find((item) =>
     item.to === config.homePath ? location.pathname === item.to : location.pathname.startsWith(item.to)
@@ -55,6 +58,12 @@ const PartnerMobileTopNav = ({ role }) => {
   const handleLogout = async () => {
     await logout();
     navigate("/signin", { replace: true });
+  };
+
+  const openChatNotification = (notification) => {
+    markNotificationRead(notification.id);
+    setChatMenuOpen(false);
+    navigate(getChatPath(notification));
   };
 
   return (
@@ -77,6 +86,58 @@ const PartnerMobileTopNav = ({ role }) => {
           </span>
         </button>
 
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setChatMenuOpen((current) => !current);
+              if (!chatMenuOpen) markAllRead();
+            }}
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-950 shadow-sm"
+            aria-label={`Chat notifications with ${unreadCount} unread`}
+          >
+            <MessageCircle className="h-5 w-5" />
+            {unreadCount > 0 ? (
+              <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-500 px-1 text-center text-[10px] leading-5 text-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            ) : null}
+          </button>
+
+          {chatMenuOpen ? (
+            <div className="absolute right-0 top-12 z-[70] w-80 overflow-hidden rounded-2xl border border-slate-100 bg-white text-slate-950 shadow-2xl">
+              <div className="border-b border-slate-100 px-4 py-3">
+                <p className="text-sm font-black">Chat notifications</p>
+                <p className="text-xs text-slate-500">Tap any item to open that chat.</p>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {notifications.length ? (
+                  notifications.map((notification) => (
+                    <button
+                      key={notification.id}
+                      type="button"
+                      onClick={() => openChatNotification(notification)}
+                      className="flex w-full gap-3 border-b border-slate-100 px-4 py-3 text-left hover:bg-slate-50"
+                    >
+                      <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-700">
+                        <MessageCircle className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-black">{notification.title || "Chat message"}</span>
+                        <span className="mt-0.5 line-clamp-2 text-xs leading-5 text-slate-500">
+                          {notification.subtitle || notification.text || "New message"}
+                        </span>
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  <div className="px-4 py-8 text-center text-sm text-slate-500">No new chat notifications</div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
         <button
           type="button"
           onClick={handleLogout}
@@ -92,6 +153,8 @@ const PartnerMobileTopNav = ({ role }) => {
 
 const PartnerMobileBottomNav = ({ role }) => {
   const location = useLocation();
+  const { user } = useAuth();
+  const { unreadCount } = useChatNotifications(user);
   const config = roleConfig[role];
 
   return (
@@ -100,6 +163,7 @@ const PartnerMobileBottomNav = ({ role }) => {
         {config.items.map(({ label, icon, to }) => {
           const NavIcon = icon;
           const isActive = to === config.homePath ? location.pathname === to : location.pathname.startsWith(to);
+          const showChatBadge = label === "Chat" && unreadCount > 0;
 
           return (
             <NavLink
@@ -110,11 +174,16 @@ const PartnerMobileBottomNav = ({ role }) => {
               }`}
             >
               <span
-                className={`flex h-9 w-9 items-center justify-center rounded-2xl ${
+                className={`relative flex h-9 w-9 items-center justify-center rounded-2xl ${
                   isActive ? "bg-indigo-950 text-white shadow-md shadow-indigo-950/20" : "text-slate-500"
                 }`}
               >
                 <NavIcon className="h-5 w-5" />
+                {showChatBadge ? (
+                  <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-rose-500 px-1 text-center text-[9px] leading-4 text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                ) : null}
               </span>
               <span className="whitespace-nowrap">{label}</span>
             </NavLink>

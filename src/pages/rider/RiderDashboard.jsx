@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import { MessageCircle } from "lucide-react";
 
 import { getRiderOrders, updateOrderStatus } from "../../services/orderService.js";
 import { updateRiderLocation, updateRiderStatus } from "../../services/riderService.js";
@@ -8,6 +9,7 @@ import { getProfile } from "../../services/userService.js";
 const RiderMap = lazy(() =>
   import("./LazyRiderMap.jsx")
 );
+const OrderChatModal = lazy(() => import("../../components/OrderChatModal.jsx"));
 
 const formatCurrency = (amount) => `Rs ${Number(amount || 0).toFixed(0)}`;
 
@@ -42,6 +44,7 @@ const RiderDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [chatOrder, setChatOrder] = useState(null);
   const [riderLocation, setRiderLocation] = useState(null);
   const firstLoadRef = useRef(true);
   const availableIdsRef = useRef([]);
@@ -272,6 +275,8 @@ const RiderDashboard = () => {
     );
   };
 
+  const canChatOnOrder = (order) => !order.isAvailable && !["DELIVERED", "CANCELLED", "REJECTED"].includes(order.status);
+
   return (
     <div className="min-h-screen bg-gray-50 pt-4 pb-24 font-sans md:pt-24 md:pb-20">
       <div className="rounded-b-[40px] bg-indigo-700 p-6 text-white shadow-lg">
@@ -396,6 +401,15 @@ const RiderDashboard = () => {
                       >
                         View
                       </button>
+                      {canChatOnOrder(order) ? (
+                        <button
+                          onClick={() => setChatOrder(order)}
+                          className="inline-flex items-center gap-1 rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          Chat
+                        </button>
+                      ) : null}
                       {renderPrimaryAction(order)}
                     </div>
                   </div>
@@ -493,6 +507,14 @@ const RiderDashboard = () => {
                   Call
                 </button>
               ) : null}
+              {canChatOnOrder(selectedOrder) ? (
+                <button
+                  onClick={() => setChatOrder(selectedOrder)}
+                  className="rounded-xl bg-slate-950 px-4 py-3 font-bold text-white"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                </button>
+              ) : null}
               <button
                 onClick={() => setSelectedOrder(null)}
                 className="w-1/3 rounded-2xl bg-gray-100 py-4 font-bold text-gray-600 transition hover:bg-gray-200"
@@ -504,6 +526,20 @@ const RiderDashboard = () => {
             {renderPrimaryAction(selectedOrder, true)}
           </div>
         </div>
+      ) : null}
+
+      {chatOrder ? (
+        <Suspense fallback={<div className="fixed inset-0 z-[90] bg-slate-950/40" />}>
+          <OrderChatModal
+            order={chatOrder}
+            onClose={() => setChatOrder(null)}
+            title="Chat with Customer"
+            subtitle={chatOrder.customer?.name || "Customer"}
+            participantName={chatOrder.customer?.name || "Customer"}
+            disabled={!canChatOnOrder(chatOrder)}
+            disabledReason="Customer chat closes after the order is delivered or cancelled."
+          />
+        </Suspense>
       ) : null}
 
     </div>

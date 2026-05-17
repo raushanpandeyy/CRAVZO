@@ -41,6 +41,15 @@ const serializeOrder = (order) => ({
         longitude: order.restaurant.longitude,
       }
     : null,
+  rider: order.rider
+    ? {
+        id: order.rider.id,
+        name: order.rider.name,
+        email: order.rider.email,
+        phone: order.rider.phone,
+        avatarUrl: order.rider.avatarUrl,
+      }
+    : null,
   address: order.address,
   items: order.items?.map((item) => ({
     id: item.id,
