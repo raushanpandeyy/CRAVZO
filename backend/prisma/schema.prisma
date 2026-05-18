@@ -353,3 +353,29 @@ enum ChatMessageKind {
   IMAGE
   MIXED
 }
+
+model FeaturedRestaurant {
+  id           String     @id @default(cuid())
+  restaurantId String
+  name         String
+  imageUrl     String?
+  position     Int        @default(0)
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([isActive, position])
+  @@index([restaurantId])
+}
+
+model Ad {
+  id        String   @id @default(cuid())
+  imageUrl  String
+  link      String?
+  position  Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, position])
+}

@@ -149,20 +149,20 @@ const AdminDashboard = () => {
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [featureEnabled, setFeatureEnabled] = useState(() => localStorage.getItem("cravzoFeatureEnabled") === "true");
-  const [featuredRestaurants, setFeaturedRestaurants] = useState(() => {
-    const cached = localStorage.getItem("cravzoFeaturedRestaurants");
-    return cached ? JSON.parse(cached) : [];
+  const [featureEnabled, setFeatureEnabled] = useState(() => {
+    const stored = localStorage.getItem("cravzoFeatureEnabled");
+    return stored === "true";
   });
+  const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
   const [allRestaurantsForFeature, setAllRestaurantsForFeature] = useState([]);
   const [allRestaurantsForFeatureFiltered, setAllRestaurantsForFeatureFiltered] = useState([]);
   const [showFeaturePanel, setShowFeaturePanel] = useState(false);
   const [featureLoading, setFeatureLoading] = useState(false);
-  const [ads, setAds] = useState(() => {
-    const cached = localStorage.getItem("cravzoAds");
-    return cached ? JSON.parse(cached) : [];
+  const [ads, setAds] = useState([]);
+  const [adsEnabled, setAdsEnabled] = useState(() => {
+    const stored = localStorage.getItem("cravzoAdsEnabled");
+    return stored === "true";
   });
-  const [adsEnabled, setAdsEnabled] = useState(() => localStorage.getItem("cravzoAdsEnabled") === "true");
   const [showAdPanel, setShowAdPanel] = useState(false);
 
   const debouncedUserSearch = useDebouncedValue(userSearch);
@@ -286,6 +286,31 @@ const refreshSupportResult = async () => {
     setSupportResult(response.data);
   };
 
+  const loadFeaturedAndAds = async () => {
+    try {
+      const [featuredRes, adsRes] = await Promise.all([
+        apiRequest(API_ENDPOINTS.public.featuredRestaurants),
+        apiRequest(API_ENDPOINTS.public.ads),
+      ]);
+      console.log("Featured response:", featuredRes);
+      console.log("Ads response:", adsRes);
+      
+      const featuredData = Array.isArray(featuredRes.data) ? featuredRes.data : [];
+      const adsData = Array.isArray(adsRes.data) ? adsRes.data : [];
+      
+      setFeaturedRestaurants(featuredData);
+      setAds(adsData);
+    } catch (err) {
+      console.error("Failed to load featured/ads", err);
+      setFeaturedRestaurants([]);
+      setAds([]);
+    }
+  };
+
+  useEffect(() => {
+    loadFeaturedAndAds();
+  }, []);
+
   const toggleFeature = () => {
     const newVal = !featureEnabled;
     setFeatureEnabled(newVal);
@@ -308,38 +333,89 @@ const refreshSupportResult = async () => {
     }
   };
 
-  const addToFeatured = (restaurant) => {
-    if (featuredRestaurants.find((r) => r.id === restaurant.id)) return;
-    const updated = [restaurant, ...featuredRestaurants];
-    setFeaturedRestaurants(updated);
-    localStorage.setItem("cravzoFeaturedRestaurants", JSON.stringify(updated));
-    window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
-    setMessage(`${restaurant.name} added to featured.`);
+  const addToFeatured = async (restaurant) => {
+    const activeList = featuredRestaurants.filter(Boolean);
+    console.log("Adding restaurant:", restaurant);
+    console.log("Current list:", activeList);
+    if (activeList.find((r) => r.restaurantId === restaurant.id)) {
+      console.log("Already in list");
+      return;
+    }
+    try {
+      const response = await apiRequest(API_ENDPOINTS.public.featuredRestaurants, {
+        method: "POST",
+        body: JSON.stringify({
+          restaurantId: restaurant.id,
+          name: restaurant.name,
+          imageUrl: restaurant.imageUrl || null,
+        }),
+      });
+      console.log("API Response:", response);
+      const newFeatured = response?.data;
+      if (!newFeatured || !newFeatured.id) {
+        console.error("Invalid response:", newFeatured);
+        setError("Invalid response from server");
+        return;
+      }
+      const updatedList = [newFeatured, ...activeList];
+      console.log("Updated list:", updatedList);
+      setFeaturedRestaurants(updatedList);
+      window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
+      setMessage(`${restaurant.name} added to featured.`);
+    } catch (err) {
+      console.error("Add featured error:", err);
+      console.error("Error status:", err.status);
+      console.error("Error data:", err.data);
+      setError(err.message || "Failed to add featured restaurant");
+    }
   };
 
-  const removeFromFeatured = (restaurantId) => {
-    const removed = featuredRestaurants.find((r) => r.id === restaurantId);
-    const updated = featuredRestaurants.filter((r) => r.id !== restaurantId);
-    setFeaturedRestaurants(updated);
-    localStorage.setItem("cravzoFeaturedRestaurants", JSON.stringify(updated));
-    if (removed) setMessage(`${removed.name} removed from featured.`);
-    window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
+  const removeFromFeatured = async (restaurantId) => {
+    const activeFeatured = featuredRestaurants.filter(Boolean);
+    const removed = activeFeatured.find((r) => r.id === restaurantId);
+    try {
+      await apiRequest(`${API_ENDPOINTS.public.featuredRestaurants}/${restaurantId}`, {
+        method: "DELETE",
+      });
+      const updated = activeFeatured.filter((r) => r.id !== restaurantId);
+      setFeaturedRestaurants(updated);
+      if (removed) setMessage(`${removed.name} removed from featured.`);
+      window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
+    } catch {
+      setError("Failed to remove featured restaurant");
+    }
   };
 
-  const moveFeaturedLeft = () => {
+  const moveFeaturedLeft = async () => {
+    if (featuredRestaurants.length < 2) return;
     const updated = [...featuredRestaurants];
     const last = updated.pop();
     updated.unshift(last);
     setFeaturedRestaurants(updated);
-    localStorage.setItem("cravzoFeaturedRestaurants", JSON.stringify(updated));
+    try {
+      await apiRequest(`${API_ENDPOINTS.public.featuredRestaurants}/order`, {
+        method: "PUT",
+        body: JSON.stringify({ order: updated }),
+      });
+    } catch {
+      console.error("Failed to update order");
+    }
   };
 
-  const moveFeaturedRight = () => {
+  const moveFeaturedRight = async () => {
+    if (featuredRestaurants.length < 2) return;
     const updated = [...featuredRestaurants];
     const first = updated.shift();
     updated.push(first);
     setFeaturedRestaurants(updated);
-    localStorage.setItem("cravzoFeaturedRestaurants", JSON.stringify(updated));
+    try {
+      await apiRequest(`${API_ENDPOINTS.public.featuredRestaurants}/order`, {
+        method: "PUT",
+        body: JSON.stringify({ order: updated }),
+      });
+    } catch {
+      console.error("Failed to update order");
+    }
   };
 
   const toggleAds = () => {
@@ -350,25 +426,44 @@ const refreshSupportResult = async () => {
     setMessage(newVal ? "Background ads enabled." : "Background ads disabled.");
   };
 
-  const addAd = (imageUrl, link = "") => {
-    const newAd = {
-      id: Date.now().toString(),
-      imageUrl,
-      link: link || "",
-    };
-    const updated = [newAd, ...ads];
-    setAds(updated);
-    localStorage.setItem("cravzoAds", JSON.stringify(updated));
-    window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
-    setMessage("Ad added successfully.");
+  const addAd = async (imageUrl, link = "") => {
+    try {
+      console.log("Adding ad with imageUrl:", imageUrl);
+      const response = await apiRequest(API_ENDPOINTS.public.ads, {
+        method: "POST",
+        body: JSON.stringify({ imageUrl, link }),
+      });
+      console.log("Ad API Response:", response);
+      const newAd = response.data;
+      if (!newAd || !newAd.id) {
+        console.error("Invalid ad response:", newAd);
+        setError("Invalid response from server");
+        return;
+      }
+      const activeAds = ads.filter(Boolean);
+      const updatedAds = [newAd, ...activeAds];
+      console.log("Updated ads:", updatedAds);
+      setAds(updatedAds);
+      window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
+      setMessage("Ad added successfully.");
+    } catch (err) {
+      console.error("Add ad error:", err);
+      setError("Failed to add ad");
+    }
   };
 
-  const removeAd = (adId) => {
-    const updated = ads.filter((a) => a.id !== adId);
-    setAds(updated);
-    localStorage.setItem("cravzoAds", JSON.stringify(updated));
-    window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
-    setMessage("Ad removed.");
+  const removeAd = async (adId) => {
+    try {
+      await apiRequest(`${API_ENDPOINTS.public.ads}/${adId}`, {
+        method: "DELETE",
+      });
+      const updated = ads.filter((a) => a.id !== adId);
+      setAds(updated);
+      window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
+      setMessage("Ad removed.");
+    } catch {
+      setError("Failed to remove ad");
+    }
   };
 
   const handleImageUrlAdd = () => {
@@ -384,7 +479,7 @@ const refreshSupportResult = async () => {
     if (!file) return;
 
     setMessage("Uploading image to Cloudinary...");
-    
+
     try {
       const reader = new FileReader();
       reader.onload = async () => {
@@ -393,9 +488,9 @@ const refreshSupportResult = async () => {
           method: "POST",
           body: JSON.stringify({ dataUrl, folder: "cravzo-ads" }),
         });
-        
+
         if (response.data?.url) {
-          addAd(response.data.url, "");
+          await addAd(response.data.url, "");
           setMessage("Image uploaded successfully!");
         } else {
           setError("Upload failed");
@@ -577,11 +672,11 @@ const refreshSupportResult = async () => {
               </div>
             </div>
             <div className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
-              {featuredRestaurants.map((r) => (
-                <div key={r.id} className="flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 shrink-0 min-w-max">
-                  <img src={r.imageUrl || ""} alt={r.name} className="h-8 w-8 rounded-lg object-cover bg-slate-200" />
-                  <span className="text-xs font-semibold text-slate-800">{r.name}</span>
-                  <button onClick={() => removeFromFeatured(r.id)} className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-100 text-rose-500 hover:bg-rose-200">
+              {featuredRestaurants.filter(Boolean).map((r) => (
+                <div key={r?.id} className="flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 shrink-0 min-w-max">
+                  <img src={r?.imageUrl || ""} alt={r?.name || ""} className="h-8 w-8 rounded-lg object-cover bg-slate-200" />
+                  <span className="text-xs font-semibold text-slate-800">{r?.name || "Unknown"}</span>
+                  <button onClick={() => r?.id && removeFromFeatured(r.id)} className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-100 text-rose-500 hover:bg-rose-200">
                     <X className="h-3 w-3" />
                   </button>
                 </div>
@@ -619,7 +714,7 @@ const refreshSupportResult = async () => {
             ) : (
               <div className="max-h-60 overflow-y-auto space-y-1">
                 {allRestaurantsForFeatureFiltered
-                  .filter((r) => !featuredRestaurants.find((f) => f.id === r.id))
+                  .filter((r) => !featuredRestaurants.filter(Boolean).find((f) => f.restaurantId === r.id))
                   .map((r) => (
                     <div key={r.id} className="flex items-center justify-between rounded-xl px-3 py-2 hover:bg-slate-50">
                       <div className="flex items-center gap-2">
@@ -638,7 +733,7 @@ const refreshSupportResult = async () => {
                       </button>
                     </div>
                   ))}
-                {allRestaurantsForFeatureFiltered.filter((r) => !featuredRestaurants.find((f) => f.id === r.id)).length === 0 && (
+                {allRestaurantsForFeatureFiltered.filter((r) => !featuredRestaurants.filter(Boolean).find((f) => f.restaurantId === r.id)).length === 0 && (
                   <p className="text-xs text-slate-400 text-center py-4">No restaurants found.</p>
                 )}
               </div>
@@ -670,12 +765,12 @@ const refreshSupportResult = async () => {
           </div>
         </div>
 
-        {ads.length > 0 && (
+        {ads.filter(Boolean).length > 0 && (
           <div className="mt-4 flex gap-2 overflow-x-auto [scrollbar-width:none]">
-            {ads.map((ad) => (
-              <div key={ad.id} className="relative shrink-0 w-32 h-20 rounded-lg overflow-hidden border border-slate-200">
-                <img src={ad.imageUrl} alt="Ad" className="w-full h-full object-cover" />
-                <button onClick={() => removeAd(ad.id)} className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
+            {ads.filter(Boolean).map((ad) => (
+              <div key={ad?.id} className="relative shrink-0 w-32 h-20 rounded-lg overflow-hidden border border-slate-200">
+                <img src={ad?.imageUrl || ""} alt="Ad" className="w-full h-full object-cover" />
+                <button onClick={() => ad?.id && removeAd(ad.id)} className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
                   <X className="h-3 w-3" />
                 </button>
               </div>

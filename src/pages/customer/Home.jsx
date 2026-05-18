@@ -197,11 +197,40 @@ const Home = () => {
   const [currentAd, setCurrentAd] = useState(0);
   const [ads, setAds] = useState([]);
 
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+
+  useEffect(() => {
+    const fetchFeaturedAndAds = async () => {
+      try {
+        const [featuredRes, adsRes] = await Promise.all([
+          fetch(`${API_BASE}/api/public/featured-restaurants`, { credentials: "include" }),
+          fetch(`${API_BASE}/api/public/ads`, { credentials: "include" }),
+        ]);
+        const featuredData = await featuredRes.json();
+        const adsData = await adsRes.json();
+        setFeaturedRestaurants(featuredData.data || []);
+        setAds(adsData.data || []);
+      } catch (err) {
+        console.error("Failed to load featured/ads", err);
+      }
+    };
+
+    fetchFeaturedAndAds();
+
+    const handleUpdate = () => {
+      fetchFeaturedAndAds();
+    };
+    window.addEventListener("cravzoFeatureUpdate", handleUpdate);
+    window.addEventListener("cravzoAdsUpdate", handleUpdate);
+    return () => {
+      window.removeEventListener("cravzoFeatureUpdate", handleUpdate);
+      window.removeEventListener("cravzoAdsUpdate", handleUpdate);
+    };
+  }, []);
+
   useEffect(() => {
     const cachedRestaurants = localStorage.getItem("cravzoHomeRestaurants");
-    const cachedFeatured = localStorage.getItem("cravzoFeaturedRestaurants");
     const enabled = localStorage.getItem("cravzoFeatureEnabled") === "true";
-    const cachedAds = localStorage.getItem("cravzoAds");
 
     setFeatureEnabled(enabled);
 
@@ -211,41 +240,6 @@ const Home = () => {
         setLoading(false);
       } catch {}
     }
-    if (cachedFeatured) {
-      try {
-        setFeaturedRestaurants(JSON.parse(cachedFeatured));
-      } catch {}
-    }
-    if (cachedAds) {
-      try {
-        setAds(JSON.parse(cachedAds));
-      } catch {}
-    }
-
-    const handleStorageChange = () => {
-      const updated = localStorage.getItem("cravzoFeaturedRestaurants");
-      const featEnabled = localStorage.getItem("cravzoFeatureEnabled") === "true";
-      const cachedAds = localStorage.getItem("cravzoAds");
-      setFeatureEnabled(featEnabled);
-      if (updated) {
-        try {
-          setFeaturedRestaurants(JSON.parse(updated));
-        } catch {}
-      }
-      if (cachedAds) {
-        try {
-          setAds(JSON.parse(cachedAds));
-        } catch {}
-      }
-    };
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("cravzoFeatureUpdate", handleStorageChange);
-    window.addEventListener("cravzoAdsUpdate", handleStorageChange);
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("cravzoFeatureUpdate", handleStorageChange);
-      window.removeEventListener("cravzoAdsUpdate", handleStorageChange);
-    };
   }, []);
 
   const ComponentLoader = () => <div className="animate-pulse bg-slate-200 h-40 rounded-2xl m-4" />;

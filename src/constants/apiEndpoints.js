@@ -75,12 +75,16 @@ export const API_ENDPOINTS = {
     approveRider: (id) => `${BASE}/admin/riders/${id}/approve`,
   },
 
- restaurant: {
-  list: `${BASE}/restaurants`,
-  nearby: (lat, lng) =>
-    `${BASE}/restaurants/nearby?lat=${lat}&lng=${lng}`,
-  byId: (id) => `${BASE}/restaurants/${id}`,
-},
+restaurant: {
+   list: `${BASE}/restaurants`,
+   nearby: (lat, lng) =>
+     `${BASE}/restaurants/nearby?lat=${lat}&lng=${lng}`,
+   byId: (id) => `${BASE}/restaurants/${id}`,
+ },
 
+ public: {
+   featuredRestaurants: `${BASE}/public/featured-restaurants`,
+   ads: `${BASE}/public/ads`,
+ },
 
 };
