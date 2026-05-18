@@ -24,9 +24,8 @@ const roleConfig = {
     homePath: "/rider-dashboard",
     items: [
       { label: "Home", to: "/rider-dashboard", icon: Home },
-      { label: "History", to: "/rider-analytics", icon: BarChart3 },
+      { label: "Orders", to: "/rider-analytics", icon: BarChart3 },
       { label: "Reviews", to: "/rider-reviews", icon: Star },
-      { label: "Support", to: "/rider-contacts", icon: Headphones },
       { label: "Chat", to: "/rider-chat", icon: MessageCircle },
       { label: "Profile", to: "/rider-profile", icon: User },
     ],

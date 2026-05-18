@@ -136,10 +136,22 @@ model Order {
   paymentStatus    PaymentStatus @default(PENDING)
   subtotal         Decimal       @db.Decimal(10, 2)
   deliveryFee      Decimal       @db.Decimal(10, 2)
+  deliveryFeeBase  Decimal       @db.Decimal(10, 2)
+  deliveryTax      Decimal       @db.Decimal(10, 2)
   packagingFee     Decimal       @db.Decimal(10, 2)
-  taxAmount        Decimal       @db.Decimal(10, 2)
+  packagingFeeBase Decimal       @db.Decimal(10, 2)
+  packagingTax     Decimal       @db.Decimal(10, 2)
+  platformFee      Decimal       @db.Decimal(10, 2)
+  platformFeeBase  Decimal       @db.Decimal(10, 2)
+  platformTax      Decimal       @db.Decimal(10, 2)
+  gatewayFee       Decimal       @db.Decimal(10, 2)
+  codCharge        Decimal       @db.Decimal(10, 2)
+  discount         Decimal       @db.Decimal(10, 2) @default(0)
+  couponCode       String?
+  totalTax         Decimal       @db.Decimal(10, 2)
   totalAmount      Decimal       @db.Decimal(10, 2)
   notes            String?
+  deliveryDistance Decimal?      @db.Decimal(5, 2)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   address          Address?      @relation(fields: [addressId], references: [id])

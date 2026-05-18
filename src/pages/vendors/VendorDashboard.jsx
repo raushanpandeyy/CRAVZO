@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, lazy, Suspense, useRef } from "react";
 import { AlertCircle, Clock, IndianRupee, ShoppingBag, Store } from "lucide-react";
 
-import { getVendorOrders } from "../../services/orderService.js";
+import { getVendorOrders, updateOrderStatus } from "../../services/orderService.js";
 import { getMyRestaurant, updateRestaurantAvailability } from "../../services/vendorService.js";
 
-const formatCurrency = (amount) => `Rs ${Number(amount || 0).toFixed(0)}`;
+const OrderRequestPopup = lazy(() => import("../../components/OrderRequestPopup.jsx"));
+
+const formatCurrency = (amount) => `Rs ${Math.floor(amount || 0)}`;
 
 const VendorDashboard = () => {
   const [restaurant, setRestaurant] = useState(null);
@@ -12,6 +14,9 @@ const VendorDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [orderRequest, setOrderRequest] = useState(null);
+  const [showRequest, setShowRequest] = useState(false);
+  const previousPendingOrdersRef = useRef([]);
 
   const loadDashboard = async () => {
     setLoading(true);
@@ -20,6 +25,31 @@ const VendorDashboard = () => {
 
     try {
       const [restaurantData, orderData] = await Promise.all([getMyRestaurant(), getVendorOrders()]);
+      
+      const currentPendingOrders = orderData.filter((order) => order.status === "PENDING");
+      const previousPendingIds = previousPendingOrdersRef.current.map((o) => o.id || o);
+      
+      const newPendingOrders = currentPendingOrders.filter(
+        (order) => !previousPendingIds.includes(order.id)
+      );
+
+      if (newPendingOrders.length > 0 && previousPendingOrdersRef.current.length > 0) {
+        const latestOrder = newPendingOrders[0];
+        setOrderRequest(latestOrder);
+        setShowRequest(true);
+
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("Cravzo - New Order!", {
+            body: `Order from ${latestOrder.customer?.name || "Customer"} - ₹${Math.floor(latestOrder.totalAmount || 0)}`,
+            icon: "/cravzologo.png",
+            tag: "new-order",
+            requireInteraction: true,
+          });
+        }
+      }
+
+      previousPendingOrdersRef.current = currentPendingOrders.map((o) => ({ id: o.id }));
+      
       setRestaurant(restaurantData);
       setOrders(orderData);
     } catch (requestError) {
@@ -29,8 +59,40 @@ const VendorDashboard = () => {
     }
   };
 
+  const handleAcceptOrder = async (orderId) => {
+    try {
+      await updateOrderStatus(orderId, "ACCEPTED");
+      setMessage("Order accepted!");
+      setShowRequest(false);
+      setOrderRequest(null);
+      await loadDashboard();
+    } catch (err) {
+      setError(err.message || "Failed to accept order");
+    }
+  };
+
+  const handleRejectOrder = async (orderId) => {
+    try {
+      await updateOrderStatus(orderId, "REJECTED");
+      setMessage("Order rejected.");
+      setShowRequest(false);
+      setOrderRequest(null);
+      await loadDashboard();
+    } catch (err) {
+      setError(err.message || "Failed to reject order");
+    }
+  };
+
   useEffect(() => {
     loadDashboard();
+    const intervalId = setInterval(loadDashboard, 10000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => { });
+    }
   }, []);
 
   const handleToggleRestaurant = async () => {
@@ -56,7 +118,7 @@ const VendorDashboard = () => {
   const stats = useMemo(() => {
     const activeOrders = orders.filter((order) => ["PENDING", "ACCEPTED", "PREPARING"].includes(order.status));
     const completedOrders = orders.filter((order) => order.status === "DELIVERED");
-    const earnings = completedOrders.reduce((sum, order) => sum + Number(order.totalAmount || 0), 0);
+    const earnings = completedOrders.reduce((sum, order) => sum + Math.floor(Number(order.totalAmount || 0)), 0);
 
     return {
       totalOrders: orders.length,
@@ -233,6 +295,18 @@ const VendorDashboard = () => {
           </div>
         </div>
       </div>
+
+      {showRequest && orderRequest ? (
+        <Suspense fallback={null}>
+          <OrderRequestPopup
+            order={orderRequest}
+            type="vendor"
+            onAccept={handleAcceptOrder}
+            onReject={handleRejectOrder}
+            onClose={() => { setShowRequest(false); setOrderRequest(null); }}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 };

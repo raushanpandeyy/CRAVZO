@@ -1,6 +1,6 @@
 ﻿
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { CalendarRange, MessageCircle, PackageCheck, Search, Store, UserCheck, Users, X } from "lucide-react";
+import { CalendarRange, MessageCircle, PackageCheck, Search, Store, UserCheck, Users, X, Star, Plus, Trash2, Eye, EyeOff, ChevronRight, ChevronLeft } from "lucide-react";
 
 import { API_ENDPOINTS } from "../../constants/apiEndpoints.js";
 import { apiRequest } from "../../services/api.js";
@@ -149,6 +149,14 @@ const AdminDashboard = () => {
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [featureEnabled, setFeatureEnabled] = useState(() => localStorage.getItem("cravzoFeatureEnabled") === "true");
+  const [featuredRestaurants, setFeaturedRestaurants] = useState(() => {
+    const cached = localStorage.getItem("cravzoFeaturedRestaurants");
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [allRestaurantsForFeature, setAllRestaurantsForFeature] = useState([]);
+  const [showFeaturePanel, setShowFeaturePanel] = useState(false);
+  const [featureLoading, setFeatureLoading] = useState(false);
 
   const debouncedUserSearch = useDebouncedValue(userSearch);
   const debouncedRestaurantSearch = useDebouncedValue(restaurantSearch);
@@ -264,13 +272,73 @@ const AdminDashboard = () => {
     }
   };
 
-  const refreshSupportResult = async () => {
+const refreshSupportResult = async () => {
     if (!supportResult?.user) return;
-
     const lookupValue = supportResult.user.phone || supportResult.user.email;
     const response = await apiRequest(API_ENDPOINTS.admin.supportUserSearch(lookupValue));
     setSupportResult(response.data);
   };
+
+  const toggleFeature = () => {
+    const newVal = !featureEnabled;
+    setFeatureEnabled(newVal);
+    localStorage.setItem("cravzoFeatureEnabled", String(newVal));
+    window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
+    setMessage(newVal ? "Home featured section enabled." : "Home featured section disabled.");
+  };
+
+  const loadAllRestaurantsForFeature = async () => {
+    setFeatureLoading(true);
+    try {
+      const response = await apiRequest("/api/restaurants?page=1&limit=100");
+      const data = Array.isArray(response.data) ? response.data : (response.data?.data || []);
+      setAllRestaurantsForFeature(data);
+    } catch (err) {
+      console.error("Failed to load restaurants for feature", err);
+    } finally {
+      setFeatureLoading(false);
+    }
+  };
+
+  const addToFeatured = (restaurant) => {
+    if (featuredRestaurants.find((r) => r.id === restaurant.id)) return;
+    const updated = [restaurant, ...featuredRestaurants];
+    setFeaturedRestaurants(updated);
+    localStorage.setItem("cravzoFeaturedRestaurants", JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
+    setMessage(`${restaurant.name} added to featured.`);
+  };
+
+  const removeFromFeatured = (restaurantId) => {
+    const removed = featuredRestaurants.find((r) => r.id === restaurantId);
+    const updated = featuredRestaurants.filter((r) => r.id !== restaurantId);
+    setFeaturedRestaurants(updated);
+    localStorage.setItem("cravzoFeaturedRestaurants", JSON.stringify(updated));
+    if (removed) setMessage(`${removed.name} removed from featured.`);
+    window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
+  };
+
+  const moveFeaturedLeft = () => {
+    const updated = [...featuredRestaurants];
+    const last = updated.pop();
+    updated.unshift(last);
+    setFeaturedRestaurants(updated);
+    localStorage.setItem("cravzoFeaturedRestaurants", JSON.stringify(updated));
+  };
+
+  const moveFeaturedRight = () => {
+    const updated = [...featuredRestaurants];
+    const first = updated.shift();
+    updated.push(first);
+    setFeaturedRestaurants(updated);
+    localStorage.setItem("cravzoFeaturedRestaurants", JSON.stringify(updated));
+  };
+
+  useEffect(() => {
+    if (showFeaturePanel && allRestaurantsForFeature.length === 0) {
+      loadAllRestaurantsForFeature();
+    }
+  }, [showFeaturePanel]);
 
   const updateUserStatus = async (userId, status) => {
     resetStatusMessages();
@@ -391,6 +459,103 @@ const AdminDashboard = () => {
 
       {message ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-emerald-700">{message}</div> : null}
       {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-red-700">{error}</div> : null}
+
+      {/* Home Featured Section Toggle */}
+      <section className="rounded-3xl border border-indigo-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${featureEnabled ? "bg-indigo-600" : "bg-slate-200"}`}>
+              <Star className={`h-5 w-5 ${featureEnabled ? "text-white" : "text-slate-500"}`} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Home Featured Section</h2>
+              <p className="text-xs text-slate-500">Auto-scrolling restaurant banner on customer home page</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { setShowFeaturePanel(!showFeaturePanel); }}
+              className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Manage List
+            </button>
+            <button
+              onClick={toggleFeature}
+              className={`relative h-7 w-12 rounded-full transition-colors ${featureEnabled ? "bg-indigo-600" : "bg-slate-300"}`}
+            >
+              <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${featureEnabled ? "translate-x-5" : "translate-x-0.5"}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Featured Restaurants List */}
+        {featuredRestaurants.length > 0 && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-slate-500">{featuredRestaurants.length} restaurant(s) in featured list</p>
+              <div className="flex gap-1">
+                <button onClick={moveFeaturedLeft} className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200">
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={moveFeaturedRight} className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200">
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex gap-2 overflow-x-auto [scrollbar-width:none]">
+              {featuredRestaurants.map((r) => (
+                <div key={r.id} className="flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 shrink-0 min-w-max">
+                  <img src={r.imageUrl || ""} alt={r.name} className="h-8 w-8 rounded-lg object-cover bg-slate-200" />
+                  <span className="text-xs font-semibold text-slate-800">{r.name}</span>
+                  <button onClick={() => removeFromFeatured(r.id)} className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-100 text-rose-500 hover:bg-rose-200">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Add Restaurants Panel */}
+        {showFeaturePanel && (
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <p className="text-sm font-semibold text-slate-700 mb-3">Add restaurants to featured list</p>
+            {featureLoading ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-14 rounded-xl bg-slate-100 animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <div className="max-h-60 overflow-y-auto space-y-1">
+                {allRestaurantsForFeature
+                  .filter((r) => !featuredRestaurants.find((f) => f.id === r.id))
+                  .map((r) => (
+                    <div key={r.id} className="flex items-center justify-between rounded-xl px-3 py-2 hover:bg-slate-50">
+                      <div className="flex items-center gap-2">
+                        <img src={r.imageUrl || ""} alt={r.name} className="h-8 w-8 rounded-lg object-cover bg-slate-200" />
+                        <div>
+                          <p className="text-xs font-semibold text-slate-800">{r.name}</p>
+                          <p className="text-[10px] text-slate-500">{r.city || r.location}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => addToFeatured(r)}
+                        className="flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-[10px] font-bold text-white"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Add
+                      </button>
+                    </div>
+                  ))}
+                {allRestaurantsForFeature.filter((r) => !featuredRestaurants.find((f) => f.id === r.id)).length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-4">All restaurants are already featured.</p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => <MetricCard key={metric.title} {...metric} />)}
@@ -557,12 +722,102 @@ const AdminDashboard = () => {
               </div>
               <button onClick={() => setSelectedOrder(null)} className="rounded-full bg-slate-100 p-2 text-slate-600 hover:bg-slate-200"><X className="h-5 w-5" /></button>
             </div>
+
             <div className="space-y-4 text-sm text-slate-700">
-              <div className="rounded-2xl bg-slate-50 p-4"><p><strong>Status:</strong> {selectedOrder.status.replaceAll("_", " ")}</p><p><strong>Payment:</strong> {selectedOrder.paymentMethod} / {selectedOrder.paymentStatus}</p><p><strong>Total:</strong> {formatCurrency(selectedOrder.totalAmount)}</p></div>
-              <div className="rounded-2xl border border-slate-200 p-4"><p><strong>Customer:</strong> {selectedOrder.customer?.name || "NA"}</p><p><strong>Phone:</strong> {selectedOrder.customer?.phone || "NA"}</p></div>
-              <div className="rounded-2xl border border-slate-200 p-4"><p><strong>Restaurant:</strong> {selectedOrder.restaurant?.name || "NA"}</p><p><strong>Vendor:</strong> {selectedOrder.restaurant?.vendor?.name || "NA"}</p><p><strong>Vendor Phone:</strong> {selectedOrder.restaurant?.vendor?.phone || "NA"}</p></div>
-              <div className="rounded-2xl border border-slate-200 p-4"><p><strong>Rider:</strong> {selectedOrder.rider?.name || "Not assigned"}</p><p><strong>Rider Phone:</strong> {selectedOrder.rider?.phone || "NA"}</p></div>
-              <div className="rounded-2xl border border-slate-200 p-4"><p><strong>Address:</strong> {[selectedOrder.address?.line1, selectedOrder.address?.line2, selectedOrder.address?.city, selectedOrder.address?.state, selectedOrder.address?.postalCode].filter(Boolean).join(", ") || "NA"}</p></div>
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <p><strong>Status:</strong> {selectedOrder.status.replaceAll("_", " ")}</p>
+                <p><strong>Payment:</strong> {selectedOrder.paymentMethod} / {selectedOrder.paymentStatus}</p>
+                <p><strong>Total:</strong> {formatCurrency(selectedOrder.totalAmount)}</p>
+                {selectedOrder.deliveryDistance && <p><strong>Distance:</strong> {selectedOrder.deliveryDistance} km</p>}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <h4 className="mb-3 font-bold text-slate-900">Price Breakdown</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Item Total</span>
+                    <span className="font-medium">{formatCurrency(selectedOrder.subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Delivery Fee</span>
+                    <span className="font-medium">{formatCurrency(selectedOrder.deliveryFee)}</span>
+                  </div>
+                  {selectedOrder.platformFee > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Platform Fee</span>
+                      <span className="font-medium">{formatCurrency(selectedOrder.platformFee)}</span>
+                    </div>
+                  )}
+                  {selectedOrder.packagingFee > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Packaging Charge</span>
+                      <span className="font-medium">{formatCurrency(selectedOrder.packagingFee)}</span>
+                    </div>
+                  )}
+                  {selectedOrder.gatewayFee > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Gateway Fee (2%)</span>
+                      <span className="font-medium">{formatCurrency(selectedOrder.gatewayFee)}</span>
+                    </div>
+                  )}
+                  {selectedOrder.codCharge > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">COD Handling</span>
+                      <span className="font-medium">{formatCurrency(selectedOrder.codCharge)}</span>
+                    </div>
+                  )}
+                  {selectedOrder.discount > 0 && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>Discount ({selectedOrder.couponCode || "Coupon"})</span>
+                      <span className="font-medium">-{formatCurrency(selectedOrder.discount)}</span>
+                    </div>
+                  )}
+                  <div className="border-t border-dashed border-slate-200 pt-2">
+                    <div className="flex justify-between">
+                      <span className="font-bold text-slate-900">Total Tax</span>
+                      <span className="font-bold">{formatCurrency(selectedOrder.totalTax)}</span>
+                    </div>
+                  </div>
+                  <div className="border-t border-slate-200 pt-2">
+                    <div className="flex justify-between">
+                      <span className="font-extrabold text-slate-900">Final Amount</span>
+                      <span className="font-extrabold text-indigo-700">{formatCurrency(selectedOrder.totalAmount)}</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-slate-400">Inclusive of all applicable taxes.</p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <h4 className="mb-3 font-bold text-slate-900">Items ({selectedOrder.items?.length || 0})</h4>
+                <div className="space-y-2">
+                  {selectedOrder.items?.map((item) => (
+                    <div key={item.id} className="flex justify-between">
+                      <span>{item.quantity}x {item.menuItem?.name || "Item"}</span>
+                      <span className="font-medium">{formatCurrency(item.totalPrice)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <p><strong>Customer:</strong> {selectedOrder.customer?.name || "NA"}</p>
+                  <p><strong>Phone:</strong> {selectedOrder.customer?.phone || "NA"}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <p><strong>Restaurant:</strong> {selectedOrder.restaurant?.name || "NA"}</p>
+                  <p><strong>Vendor:</strong> {selectedOrder.restaurant?.vendor?.name || "NA"}</p>
+                  <p><strong>Vendor Phone:</strong> {selectedOrder.restaurant?.vendor?.phone || "NA"}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <p><strong>Rider:</strong> {selectedOrder.rider?.name || "Not assigned"}</p>
+                  <p><strong>Rider Phone:</strong> {selectedOrder.rider?.phone || "NA"}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <p><strong>Address:</strong> {[selectedOrder.address?.line1, selectedOrder.address?.line2, selectedOrder.address?.city, selectedOrder.address?.state, selectedOrder.address?.postalCode].filter(Boolean).join(", ") || "NA"}</p>
+                </div>
+              </div>
             </div>
             <button
               onClick={() => setChatOrder(selectedOrder)}

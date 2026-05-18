@@ -5,13 +5,11 @@ import { getRiderOrders, updateOrderStatus } from "../../services/orderService.j
 import { updateRiderLocation, updateRiderStatus } from "../../services/riderService.js";
 import { getProfile } from "../../services/userService.js";
 
-
-const RiderMap = lazy(() =>
-  import("./LazyRiderMap.jsx")
-);
+const OrderRequestPopup = lazy(() => import("../../components/OrderRequestPopup.jsx"));
+const RiderMap = lazy(() => import("./LazyRiderMap.jsx"));
 const OrderChatModal = lazy(() => import("../../components/OrderChatModal.jsx"));
 
-const formatCurrency = (amount) => `Rs ${Number(amount || 0).toFixed(0)}`;
+const formatCurrency = (amount) => `Rs ${Math.floor(amount || 0)}`;
 
 const formatRestaurantAddress = (restaurant) =>
   [restaurant?.addressLine1, restaurant?.addressLine2, restaurant?.city, restaurant?.state, restaurant?.postalCode, "India"]
@@ -46,10 +44,13 @@ const RiderDashboard = () => {
   const [error, setError] = useState("");
   const [chatOrder, setChatOrder] = useState(null);
   const [riderLocation, setRiderLocation] = useState(null);
+  const [orderRequest, setOrderRequest] = useState(null);
+  const [showRequest, setShowRequest] = useState(false);
   const firstLoadRef = useRef(true);
   const availableIdsRef = useRef([]);
   const lastLocationSyncRef = useRef({ lat: null, lng: null, syncedAt: 0 });
   const isOnlineRef = useRef(false);
+  const previousAvailableOrdersRef = useRef([]);
 
   const openNavigation = (target) => {
     if (!target) {
@@ -58,31 +59,6 @@ const RiderDashboard = () => {
     }
 
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(target)}`, "_blank");
-  };
-
-  const notifyForNewOrders = (nextOrders) => {
-    const nextAvailableIds = nextOrders.filter((order) => order.isAvailable).map((order) => order.id);
-
-    if (firstLoadRef.current) {
-      availableIdsRef.current = nextAvailableIds;
-      firstLoadRef.current = false;
-      return;
-    }
-
-    const previousIds = new Set(availableIdsRef.current);
-    const freshOrders = nextOrders.filter((order) => order.isAvailable && !previousIds.has(order.id));
-
-    if (freshOrders.length) {
-      setMessage("New order available in your area.");
-
-      if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("Cravzo Rider", {
-          body: `${freshOrders.length} new order${freshOrders.length > 1 ? "s" : ""} available in your area.`,
-        });
-      }
-    }
-
-    availableIdsRef.current = nextAvailableIds;
   };
 
   const loadOrders = async ({ silent = false } = {}) => {
@@ -94,7 +70,31 @@ const RiderDashboard = () => {
 
     try {
       const data = await getRiderOrders();
-      notifyForNewOrders(data);
+      
+      const currentAvailableIds = data.filter((order) => order.isAvailable).map((order) => order.id);
+      const previousAvailableIds = previousAvailableOrdersRef.current;
+      
+      const newAvailableOrders = data.filter(
+        (order) => order.isAvailable && !previousAvailableIds.includes(order.id)
+      );
+
+      if (!firstLoadRef.current && newAvailableOrders.length > 0) {
+        const latestOrder = newAvailableOrders[0];
+        setOrderRequest(latestOrder);
+        setShowRequest(true);
+
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("Cravzo - New Order!", {
+            body: `${latestOrder.restaurant?.name || "New order"} - Earn ₹${Math.floor(latestOrder.deliveryFee || 0)}`,
+            icon: "/cravzologo.png",
+            tag: "new-order",
+            requireInteraction: true,
+          });
+        }
+      }
+
+      previousAvailableOrdersRef.current = currentAvailableIds;
+      firstLoadRef.current = false;
       setOrders(data);
     } catch (requestError) {
       setError(requestError.message || "Failed to load rider orders");
@@ -111,6 +111,30 @@ const RiderDashboard = () => {
       setIsOnline(Boolean(user?.isOnline));
     } catch (requestError) {
       setError(requestError.message || "Failed to load rider profile");
+    }
+  };
+
+  const handleAcceptOrder = async (orderId) => {
+    try {
+      await updateOrderStatus(orderId, "ACCEPTED");
+      setMessage("Order accepted successfully!");
+      setShowRequest(false);
+      setOrderRequest(null);
+      await loadOrders({ silent: true });
+    } catch (err) {
+      setError(err.message || "Failed to accept order");
+    }
+  };
+
+  const handleRejectOrder = async (orderId) => {
+    try {
+      await updateOrderStatus(orderId, "REJECTED");
+      setMessage("Order rejected.");
+      setShowRequest(false);
+      setOrderRequest(null);
+      await loadOrders({ silent: true });
+    } catch (err) {
+      setError(err.message || "Failed to reject order");
     }
   };
 
@@ -538,6 +562,18 @@ const RiderDashboard = () => {
             participantName={chatOrder.customer?.name || "Customer"}
             disabled={!canChatOnOrder(chatOrder)}
             disabledReason="Customer chat closes after the order is delivered or cancelled."
+          />
+        </Suspense>
+      ) : null}
+
+      {showRequest && orderRequest ? (
+        <Suspense fallback={null}>
+          <OrderRequestPopup
+            order={orderRequest}
+            type="rider"
+            onAccept={handleAcceptOrder}
+            onReject={handleRejectOrder}
+            onClose={() => { setShowRequest(false); setOrderRequest(null); }}
           />
         </Suspense>
       ) : null}

@@ -4,10 +4,17 @@ import {
   Clock3,
   IndianRupee,
   Star,
+  Smartphone,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import SearchBar from "../../components/common/Searchbar.jsx";
-import { biryaniplate, burger, cake, dosa, momos } from "../../assets/images/foodimages.js";
+import {
+  biryaniplate, burger, cake, dosa, momos,
+  chinese, indianthali, rolls, parathe, Chaat,
+  icecream, Snacks, southindian, salad, northindian,
+} from "../../assets/images/foodimages.js";
 import { getNearbyRestaurants, listRestaurants } from "../../services/foodService.js";
 
 const HeroSection = lazy(() => import("./HeroSection.jsx"));
@@ -39,6 +46,16 @@ const categories = [
   { name: "Biryani", image: biryaniplate, to: "/dish/Biryani" },
   { name: "Momos", image: momos, to: "/dish/Momos" },
   { name: "Desserts", image: cake, to: "/dish/Cake" },
+  { name: "Chinese", image: chinese, to: "/dish/Chinese" },
+  { name: "Thali", image: indianthali, to: "/dish/Thali" },
+  { name: "Rolls", image: rolls, to: "/dish/Rolls" },
+  { name: "Paratha", image: parathe, to: "/dish/Paratha" },
+  { name: "Chaat", image: Chaat, to: "/dish/Chaat" },
+  { name: "Ice Cream", image: icecream, to: "/dish/Ice%20Cream" },
+  { name: "Snacks", image: Snacks, to: "/dish/Snacks" },
+  { name: "South Indian", image: southindian, to: "/dish/South%20Indian" },
+  { name: "Salad", image: salad, to: "/dish/Salad" },
+  { name: "North Indian", image: northindian, to: "/dish/North%20Indian" },
 ];
 
 const getRestaurantMeta = (restaurant, index) => ({
@@ -128,32 +145,31 @@ const MobileRestaurantCard = ({ restaurant, index }) => {
 
 const MobileNearbyMiniCard = ({ restaurant, index }) => {
   const dish = restaurant.menuPreview?.[0];
-  const meta = getRestaurantMeta(restaurant, index);
   const dishImage = dish?.imageUrl || restaurant.imageUrl;
+  const deliveryTime = restaurant.deliveryTime || `${20 + (index % 4) * 5}-${30 + (index % 4) * 5} min`;
+  const price = dish?.price ? Math.floor(Number(dish.price)) : null;
 
   return (
     <Link
       to={`/restaurant/${restaurant.id}`}
-      className="min-w-[160px] snap-start rounded-2xl bg-white shadow-md shadow-slate-200/80 transition-all duration-200 active:scale-95 hover:shadow-md"
+      className="min-w-[120px] snap-start rounded-xl bg-white shadow-sm transition-all duration-200 active:scale-95 overflow-hidden"
     >
-      <LazyImage
-        src={getOptimizedRestaurantImage(
-  dishImage,
-  300
-)}
-        alt={dish?.name || restaurant.name}
-        className="h-24 w-full rounded-t-2xl object-cover"
-        width={200}
-      />
-      <div className="p-3">
-        <h3 className="line-clamp-1 text-sm font-black text-slate-950">{restaurant.name}</h3>
-        <p className="mt-1 line-clamp-1 text-xs font-semibold text-slate-500">
-          {dish?.name || restaurant.cuisine || "Fresh meals"}
-        </p>
-        <p className="mt-2 flex items-center gap-1 text-[11px] font-extrabold text-indigo-700">
-          <Clock3 className="h-3.5 w-3.5" />
-          {meta.deliveryTime}
-        </p>
+      <div className="relative h-20 w-full overflow-hidden rounded-xl">
+        <LazyImage
+          src={getOptimizedRestaurantImage(dishImage, 200)}
+          alt={dish?.name || restaurant.name}
+          className="h-full w-full object-cover"
+          width={150}
+        />
+        {price && (
+          <span className="absolute bottom-1 right-1 rounded-md bg-indigo-950 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
+            ₹{price}
+          </span>
+        )}
+      </div>
+      <div className="px-2 py-1.5">
+        <p className="line-clamp-1 text-[11px] font-extrabold text-slate-800">{restaurant.name}</p>
+        <p className="mt-0.5 text-[10px] font-semibold text-indigo-600">{deliveryTime}</p>
       </div>
     </Link>
   );
@@ -162,12 +178,59 @@ const MobileNearbyMiniCard = ({ restaurant, index }) => {
 const Home = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [locationError, setLocationError] = useState(false);
+  const [featuredIndex, setFeaturedIndex] = useState(0);
+  const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
+  const [featureEnabled, setFeatureEnabled] = useState(false);
 
   useEffect(() => {
-    const loadFallbackRestaurants = async () => {
+    const cachedRestaurants = localStorage.getItem("cravzoHomeRestaurants");
+    const cachedFeatured = localStorage.getItem("cravzoFeaturedRestaurants");
+    const enabled = localStorage.getItem("cravzoFeatureEnabled") === "true";
+
+    setFeatureEnabled(enabled);
+
+    if (cachedRestaurants) {
       try {
-        const data = await listRestaurants({ page: 1, limit: 8 });
-        setRestaurants(Array.isArray(data) ? data : []);
+        setRestaurants(JSON.parse(cachedRestaurants));
+        setLoading(false);
+      } catch {}
+    }
+    if (cachedFeatured) {
+      try {
+        setFeaturedRestaurants(JSON.parse(cachedFeatured));
+      } catch {}
+    }
+
+    if (enabled) {
+      const handleStorageChange = () => {
+        const updated = localStorage.getItem("cravzoFeaturedRestaurants");
+        const featEnabled = localStorage.getItem("cravzoFeatureEnabled") === "true";
+        setFeatureEnabled(featEnabled);
+        if (updated) {
+          try {
+            setFeaturedRestaurants(JSON.parse(updated));
+          } catch {}
+        }
+      };
+      window.addEventListener("storage", handleStorageChange);
+      window.addEventListener("cravzoFeatureUpdate", handleStorageChange);
+      return () => {
+        window.removeEventListener("storage", handleStorageChange);
+        window.removeEventListener("cravzoFeatureUpdate", handleStorageChange);
+      };
+    }
+  }, []);
+
+  const ComponentLoader = () => <div className="animate-pulse bg-slate-200 h-40 rounded-2xl m-4" />;
+
+  useEffect(() => {
+    const loadRestaurants = async () => {
+      try {
+        const data = await listRestaurants({ page: 1, limit: 20 });
+        const restaurantData = Array.isArray(data) ? data : (data?.data || []);
+        setRestaurants(restaurantData);
+        localStorage.setItem("cravzoHomeRestaurants", JSON.stringify(restaurantData));
       } catch (error) {
         console.error("Failed to load restaurants", error);
       } finally {
@@ -175,28 +238,53 @@ const Home = () => {
       }
     };
 
+    if (!navigator.geolocation) {
+      setLocationError(true);
+      loadRestaurants();
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           const res = await getNearbyRestaurants(lat, lng);
-          setRestaurants(Array.isArray(res) ? res : res?.data || []);
+          const restaurantData = Array.isArray(res) ? res : (res?.data || []);
+          if (restaurantData.length > 0) {
+            setRestaurants(restaurantData);
+            localStorage.setItem("cravzoHomeRestaurants", JSON.stringify(restaurantData));
+          } else {
+            await loadRestaurants();
+          }
         } catch (error) {
           console.error("Failed to load nearby restaurants", error);
-          await loadFallbackRestaurants();
+          await loadRestaurants();
         } finally {
           setLoading(false);
         }
       },
       (error) => {
-        console.error("Location error:", error);
-        loadFallbackRestaurants();
+        console.error("Location error:", error.code, error.message);
+        setLocationError(true);
+        loadRestaurants();
       },
-    );
+      {
+        enableHighAccuracy: false,
+        timeout: 5000,
+        maximumAge: 60000,
+      }
+);
   }, []);
 
-  const ComponentLoader = () => <div className="animate-pulse bg-slate-200 h-40 rounded-2xl m-4" />;
+  // Auto-scroll featured restaurant every 5 seconds
+  useEffect(() => {
+    if (!featureEnabled || featuredRestaurants.length === 0) return;
+    const interval = setInterval(() => {
+      setFeaturedIndex((prev) => (prev + 1) % featuredRestaurants.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [featureEnabled, featuredRestaurants.length]);
 
   return (
     <div className="bg-slate-50 md:bg-transparent">
@@ -207,41 +295,117 @@ const Home = () => {
         </Suspense>
       </div>
 
+      {/* MOBILE APP BANNER - Small indigo button */}
+      <div className="md:hidden">
+        {!localStorage.getItem("cravzoAppBannerDismissed") && (
+          <div className="absolute right-4 top-14 z-50">
+            <button
+              onClick={() => {
+                const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+                if (isIOS) {
+                  alert("To install: Tap the share button in Safari, then scroll down and tap 'Add to Home Screen'");
+                } else {
+                  window.dispatchEvent(new CustomEvent("showInstallPrompt"));
+                }
+                localStorage.setItem("cravzoAppBannerDismissed", "1");
+              }}
+              className="flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-[10px] font-extrabold text-white shadow"
+            >
+              <Smartphone className="h-3 w-3" />
+              App
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* MOBILE VIEW */}
       <div className="md:hidden">
-        <div className="relative z-30 bg-gradient-to-b from-indigo-950 via-indigo-900 to-slate-50 px-4 pb-7 pt-24">
-          <div className="relative z-10">
-            <p className="text-xs font-extrabold uppercase tracking-[0.25em] text-indigo-200">Cravzo quick bites</p>
-            <h1 className="mt-2 max-w-xs text-3xl font-black leading-tight tracking-tight text-white">
-              What are you craving today?
-            </h1>
-            <div className="mt-5">
-              <SearchBar />
-            </div>
+        <div className="bg-gradient-to-b from-indigo-950 via-indigo-900 to-white px-4 pt-20 pb-4">
+          <div className="max-w-md mx-auto">
+            <SearchBar />
           </div>
         </div>
 
-        <section className="relative z-10 -mt-3 bg-slate-50 pb-5">
-          <div className="flex snap-x gap-3 overflow-x-auto px-4 pb-1 pt-5 [scrollbar-width:none]">
+        {/* Featured Restaurant - Auto-scrolling */}
+        {(featureEnabled && featuredRestaurants.length > 0) && (
+          <div className="bg-white px-4 pt-3 pb-2">
+            <div className="relative flex gap-2.5 overflow-hidden rounded-xl">
+              {loading ? (
+                <div className="flex gap-2.5 overflow-hidden rounded-xl">
+                  <div className="min-w-[280px] h-28 rounded-xl bg-slate-100 animate-pulse shrink-0" />
+                </div>
+              ) : (
+                <>
+                  <button onClick={() => setFeaturedIndex((p) => (p - 1 + featuredRestaurants.length) % featuredRestaurants.length)} className="absolute left-1 top-1/2 -translate-y-1/2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white/80 shadow">
+                    <ChevronLeft className="h-3 w-3" />
+                  </button>
+                  {featuredRestaurants.slice(featuredIndex, featuredIndex + 3).map((restaurant, i) => (
+                    <Link
+                      key={`${restaurant.id}-${i}-${featuredIndex}`}
+                      to={`/restaurant/${restaurant.id}`}
+                      className="min-w-[280px] h-28 rounded-xl bg-slate-50 overflow-hidden shrink-0 active:scale-98 transition-transform flex items-center"
+                    >
+                      <div className="w-28 h-full shrink-0">
+                        <LazyImage
+                          src={getOptimizedRestaurantImage(restaurant.imageUrl, 300)}
+                          alt={restaurant.name}
+                          className="h-full w-full object-cover"
+                          width={200}
+                        />
+                      </div>
+                      <div className="flex-1 px-3 py-2 flex flex-col justify-center min-w-0">
+                        <p className="line-clamp-2 text-sm font-black text-slate-900">{restaurant.name}</p>
+                        <p className="mt-1 text-xs font-semibold text-indigo-600">{restaurant.cuisine || "Multi-cuisine"}</p>
+                        <p className="mt-1 text-[11px] text-slate-500">{restaurant.city || restaurant.location}</p>
+                        <p className="mt-1 text-[10px] font-extrabold text-emerald-600">Open Now</p>
+                      </div>
+                    </Link>
+                  ))}
+                  <button onClick={() => setFeaturedIndex((p) => (p + 1) % featuredRestaurants.length)} className="absolute right-1 top-1/2 -translate-y-1/2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white/80 shadow">
+                    <ChevronRight className="h-3 w-3" />
+                  </button>
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                    {featuredRestaurants.slice(0, Math.min(5, featuredRestaurants.length)).map((_, i) => (
+                      <span key={i} className={`h-1.5 rounded-full transition-all ${i === featuredIndex ? 'w-4 bg-indigo-600' : 'w-1.5 bg-slate-300'}`} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Ad Banner Space - subtle, only shows when restaurants load */}
+        {!loading && restaurants.length > 0 && (
+          <div className="bg-slate-50 px-4 pt-4 pb-2">
+            <div className="h-16 flex items-center justify-center" />
+          </div>
+        )}
+
+        {/* Mini Dish Cards Row */}
+        <div className="bg-white px-4 pb-4">
+          <div className="flex snap-x gap-2.5 overflow-x-auto [scrollbar-width:none]">
             {loading ? (
-              <div className="min-w-[160px] rounded-2xl bg-white p-4 text-sm font-bold text-slate-500 shadow-sm">
-                Finding nearby picks...
-              </div>
+              Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="min-w-[120px] rounded-xl bg-slate-100 animate-pulse h-32 shrink-0" />
+              ))
             ) : restaurants.length ? (
-              restaurants.slice(0, 6).map((restaurant, index) => (
-                <MobileNearbyMiniCard key={restaurant.id} restaurant={restaurant} index={index} />
+              restaurants.slice(0, 15).map((restaurant, index) => (
+                <div key={restaurant.id} className="animate-fade-in shrink-0" style={{ animationDelay: `${index * 80}ms` }}>
+                  <MobileNearbyMiniCard restaurant={restaurant} index={index} />
+                </div>
               ))
             ) : (
-              <div className="min-w-[180px] rounded-2xl bg-white p-4 text-sm font-bold text-slate-500 shadow-sm">
-                Nearby restaurants will appear here.
-              </div>
+              Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="min-w-[120px] rounded-xl bg-slate-100 animate-pulse h-32 shrink-0" />
+              ))
             )}
           </div>
-        </section>
+        </div>
 
         <section className="bg-white py-5">
           <MobileSectionHeader title="Eat what you love" subtitle="Categories" />
-          <div className="mt-4 flex gap-3 overflow-x-auto px-4 [scrollbar-width:none]">
+          <div className="mt-4 flex gap-2.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
             {categories.map((category) => (
               <Link key={category.name} to={category.to} className="min-w-[78px] text-center">
                 <span className="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl bg-indigo-50 shadow-sm">

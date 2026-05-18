@@ -2,7 +2,9 @@ import { Server } from "socket.io";
 
 import { prisma } from "../config/database.js";
 import { createMessageForRoom, assertCanAccessRoom } from "../controllers/chatController.js";
+import { notifyChatMessage } from "../services/notificationService.js";
 import { verifyToken } from "../utils/jwt.js";
+import { logger } from "../utils/logger.js";
 
 const allowedOrigins = [
   "https://www.cravzo.shop",
@@ -23,6 +25,14 @@ const getSocketToken = (socket) => {
     .find(([name]) => name === "token")?.[1];
 
   return authToken || headerToken || (cookieToken ? decodeURIComponent(cookieToken) : null);
+};
+
+const getAdminUserIds = async () => {
+  const admins = await prisma.user.findMany({
+    where: { role: "ADMIN" },
+    select: { id: true },
+  });
+  return admins.map((a) => a.id);
 };
 
 const attachChatSocket = (server) => {
@@ -88,7 +98,10 @@ const attachChatSocket = (server) => {
         }
 
         const room = await prisma.chatRoom.findUnique({ where: { id: roomId } });
-        await assertCanAccessRoom({ user: socket.user }, room);
+        if (!room) throw new Error("Chat room not found");
+        if (room.type === "SUPPORT" && socket.user.role !== "ADMIN" && room.supportUserId !== socket.user.sub) {
+          throw new Error("You do not have permission to access this support chat");
+        }
 
         socket.join(`chat:${roomId}`);
         ack?.({ ok: true });
@@ -146,10 +159,18 @@ const attachChatSocket = (server) => {
           },
         });
 
-        const recipientIds =
-          room?.type === "ORDER_RIDER"
-            ? [room.order?.customerId, room.order?.riderId]
-            : [room?.supportUserId];
+        let recipientIds = [];
+
+        if (room?.type === "ORDER_RIDER") {
+          recipientIds = [room.order?.customerId, room.order?.riderId].filter(Boolean);
+        } else if (room?.type === "SUPPORT") {
+          if (socket.user.role === "ADMIN") {
+            recipientIds = [room.supportUserId].filter(Boolean);
+          } else {
+            const adminIds = await getAdminUserIds();
+            recipientIds = adminIds;
+          }
+        }
 
         const notification = {
           id: `${message.id}:notification`,
@@ -172,11 +193,17 @@ const attachChatSocket = (server) => {
         };
 
         recipientIds
-          .filter(Boolean)
           .filter((recipientId) => recipientId !== socket.user.sub)
           .forEach((recipientId) => {
             io.to(`user:${recipientId}`).emit("chat:notification", notification);
           });
+
+        notifyChatMessage({
+          room,
+          sender: socket.user,
+          messageText: message.text,
+          imageUrl: message.imageUrl,
+        }).catch((err) => logger.error("Push notification failed", { error: err.message }));
 
         ack?.({ ok: true, message });
       } catch (error) {

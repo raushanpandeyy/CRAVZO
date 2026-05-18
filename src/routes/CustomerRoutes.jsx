@@ -1,10 +1,11 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 
 // Common Components
 import Navbar from '../components/common/Navbar.jsx';
 import Footer from '../components/common/Footer.jsx';
 import MobileBottomNav from '../components/common/MobileBottomNav.jsx';
+import CookiesConsent from '../components/CookiesConsent.jsx';
 
 // Lazy Loaded Auth Components
 const SignIn = lazy(() => import('../components/common/SignIn.jsx'));
@@ -24,6 +25,9 @@ const RestaurantListingPage = lazy(() => import('../pages/customer/RestaurantLis
 const Citywise = lazy(() => import('../pages/customer/Citywise.jsx'));
 const RestaurantPage = lazy(() => import('../pages/customer/RestaurantPage.jsx'));
 const CheckoutPage = lazy(() => import('../pages/customer/CheckoutPage.jsx'));
+const PrivacyPolicy = lazy(() => import('../pages/customer/PrivacyPolicy.jsx'));
+const AboutUs = lazy(() => import('../pages/customer/AboutUs.jsx'));
+const ContactUs = lazy(() => import('../pages/customer/ContactUs.jsx'));
 
 // Lazy Loaded Account Pages
 const CustomerLayout = lazy(() => import('../layouts/CustomerLayout.jsx'));
@@ -72,10 +76,6 @@ function CustomerRoutes() {
             <Route path="/restaurant/:id" element={<RestaurantPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
 
-            {/* ================= SIGNUP ROUTES ================= */}
-            <Route path="/rider-signup" element={<RiderSignup />} />
-            <Route path="/vendor-signup" element={<VendorSignup />} />
-
             {/* ================= ACCOUNT ROUTES ================= */}
             <Route path="/account" element={<CustomerLayout />}>
               <Route index element={<Profile />} />
@@ -86,7 +86,15 @@ function CustomerRoutes() {
               <Route path="reviews" element={<Reviews />} />
               <Route path="payments" element={<Payments />} />
               <Route path="chat" element={<ChatPage />} />
+              <Route path="about" element={<AboutUs />} />
+              <Route path="contact" element={<ContactUs />} />
+              <Route path="privacy" element={<PrivacyPolicy />} />
             </Route>
+
+            {/* ================= INFO ROUTES (standalone) ================= */}
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/contact" element={<ContactUs />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
           </Routes>
         </Suspense>
       </main>
@@ -98,6 +106,7 @@ function CustomerRoutes() {
       )}
 
       {!hideMobileBottomNav && <MobileBottomNav />}
+      <CookiesConsent />
     </div>
   );
 }

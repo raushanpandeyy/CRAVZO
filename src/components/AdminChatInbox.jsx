@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { MessageCircle, RefreshCw, UserRound } from "lucide-react";
 
-import { getAdminChatRooms } from "../services/chatService.js";
+import { getAdminChatRooms, getCustomerSupportRoom } from "../services/chatService.js";
 
 const Chat = lazy(() => import("./Chat.jsx"));
 

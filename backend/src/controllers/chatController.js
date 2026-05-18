@@ -100,7 +100,8 @@ const assertCanAccessRoom = async (req, room, options = {}) => {
   }
 
   if (room.type === "SUPPORT") {
-    if (req.user.role !== "ADMIN" && room.supportUserId !== req.user.sub) {
+    if (req.user.role === "ADMIN") return null;
+    if (room.supportUserId !== req.user.sub) {
       throw new ApiError(403, "You do not have permission to access this support chat");
     }
 
@@ -111,14 +112,31 @@ const assertCanAccessRoom = async (req, room, options = {}) => {
 };
 
 const getOrCreateSupportRoom = async (req, res) => {
+  if (req.user.role === "ADMIN") {
+    const customerId = req.body.customerId;
+    if (customerId) {
+      const customerRoom = await prisma.chatRoom.findFirst({
+        where: { type: "SUPPORT", supportUserId: customerId },
+      });
+      if (customerRoom) {
+        return res.status(200).json(apiResponse({ message: "Customer support room ready", data: sanitizeRoom(customerRoom) }));
+      }
+      const newRoom = await prisma.chatRoom.create({
+        data: { type: "SUPPORT", supportUserId: customerId },
+      });
+      return res.status(200).json(apiResponse({ message: "Customer support room created", data: sanitizeRoom(newRoom) }));
+    }
+    const existingRoom = await prisma.chatRoom.findFirst({ where: { type: "SUPPORT" } });
+    if (existingRoom) {
+      return res.status(200).json(apiResponse({ message: "Support room ready", data: sanitizeRoom(existingRoom) }));
+    }
+    const adminRoom = await prisma.chatRoom.create({ data: { type: "SUPPORT", supportUserId: req.user.sub } });
+    return res.status(200).json(apiResponse({ message: "Support room created", data: sanitizeRoom(adminRoom) }));
+  }
+
   const room = await prisma.chatRoom.upsert({
-    where: {
-      supportUserId: req.user.sub,
-    },
-    create: {
-      type: "SUPPORT",
-      supportUserId: req.user.sub,
-    },
+    where: { supportUserId: req.user.sub },
+    create: { type: "SUPPORT", supportUserId: req.user.sub },
     update: {},
   });
 
@@ -445,5 +463,6 @@ export {
   getRoomMessages,
   listAdminChatRooms,
   sanitizeMessage,
+  sanitizeRoom,
   uploadChatImage,
 };

@@ -42,4 +42,9 @@ const getAdminChatRooms = async (type = "SUPPORT") => {
   return response.data || [];
 };
 
-export { getAdminChatRooms, getChatMessages, getOrderChatRoom, getSupportChatRoom, sendChatMessage, uploadChatImage };
+const getCustomerSupportRoom = async (customerId) => {
+  const response = await apiRequest(`/api/chats/admin/rooms/${encodeURIComponent(customerId)}`);
+  return response.data;
+};
+
+export { getAdminChatRooms, getChatMessages, getCustomerSupportRoom, getOrderChatRoom, getSupportChatRoom, sendChatMessage, uploadChatImage };

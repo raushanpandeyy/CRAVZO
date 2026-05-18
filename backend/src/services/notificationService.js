@@ -181,4 +181,95 @@ const notifyOrderStatusChanged = async ({ order, actorRole }) => {
   );
 };
 
-export { notifyOrderCreated, notifyOrderStatusChanged, removeFcmToken, sendNotificationToUsers, upsertFcmToken };
+const notifyChatMessage = async ({ room, sender, messageText, imageUrl }) => {
+  const senderName = sender?.name || "Someone";
+  const title = "New message";
+  const body = messageText || (imageUrl ? "Sent a photo" : "Sent a message");
+
+  let recipientIds = [];
+  let clickUrl = "/";
+
+  if (room?.type === "ORDER_RIDER") {
+    recipientIds = [room.order?.customerId, room.order?.riderId].filter(Boolean);
+    if (room.orderId) {
+      clickUrl = `/account/orders?orderId=${room.orderId}`;
+    }
+  } else if (room?.type === "SUPPORT") {
+    if (sender.role === "ADMIN") {
+      recipientIds = [room.supportUserId].filter(Boolean);
+    } else {
+      const admins = await prisma.user.findMany({
+        where: { role: "ADMIN" },
+        select: { id: true },
+      });
+      recipientIds = admins.map((a) => a.id);
+    }
+    clickUrl = "/admin";
+  }
+
+  await sendNotificationToUsers({
+    userIds: recipientIds.filter((id) => id !== sender.sub),
+    title: `${senderName}: ${title}`,
+    body,
+    data: {
+      type: "CHAT_MESSAGE",
+      roomId: room?.id || "",
+      senderId: sender?.sub || "",
+      senderName: senderName,
+      clickUrl,
+    },
+  });
+};
+
+const notifyRiderNewOrder = async (order) => {
+  const vendorName = order.restaurant?.name || "Restaurant";
+  const title = "New Delivery Request!";
+  const body = `Pickup from ${vendorName} - Earn ₹${Math.floor(order.deliveryFee || 33)}`;
+
+  const nearbyRiders = await prisma.user.findMany({
+    where: {
+      role: "RIDER",
+      status: "ACTIVE",
+      isOnline: true,
+    },
+    select: { id: true },
+  });
+
+  await sendNotificationToUsers({
+    userIds: nearbyRiders.map((r) => r.id),
+    title,
+    body,
+    data: {
+      type: "RIDER_NEW_ORDER",
+      orderId: order.id,
+      restaurantName: vendorName,
+      deliveryFee: String(order.deliveryFee || 0),
+      deliveryDistance: order.deliveryDistance ? String(order.deliveryDistance) : "",
+      clickUrl: "/rider-dashboard",
+    },
+  });
+};
+
+const notifyVendorNewOrder = async (order) => {
+  const customerName = order.customer?.name || "Customer";
+  const title = "New Order Received!";
+  const body = `Order #${order.id?.slice(-6)} from ${customerName} - ₹${Math.floor(order.totalAmount || 0)}`;
+
+  if (order.restaurant?.vendorId) {
+    await sendNotificationToUsers({
+      userIds: [order.restaurant.vendorId],
+      title,
+      body,
+      data: {
+        type: "VENDOR_NEW_ORDER",
+        orderId: order.id,
+        customerName,
+        totalAmount: String(order.totalAmount || 0),
+        itemsCount: String(order.items?.length || 0),
+        clickUrl: "/vendor-dashboard",
+      },
+    });
+  }
+};
+
+export { notifyChatMessage, notifyOrderCreated, notifyOrderStatusChanged, notifyRiderNewOrder, notifyVendorNewOrder, removeFcmToken, sendNotificationToUsers, upsertFcmToken };
