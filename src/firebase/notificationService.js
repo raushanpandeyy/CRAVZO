@@ -69,7 +69,10 @@ const showForegroundNotification = (payload) => {
 
   notification.onclick = () => {
     window.focus();
-    window.location.assign(clickUrl);
+    window.postMessage(
+      { type: "CRAVZO_NOTIFICATION_CLICK", clickUrl },
+      window.location.origin
+    );
     notification.close();
   };
 };

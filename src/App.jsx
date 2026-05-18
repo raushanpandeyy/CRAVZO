@@ -1,4 +1,5 @@
-import React, { lazy, Suspense } from "react";
+import React, { lazy, Suspense, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 import AccessPending from "./components/common/AccessPending";
 import AppLoader from "./components/common/AppLoader";
@@ -11,6 +12,30 @@ const VendorRoutes = lazy(() => import("./routes/VendorRoutes"));
 
 const App = () => {
   const { user, isHydrating } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleNotificationClick = (event) => {
+      if (event.data?.type === "CRAVZO_NOTIFICATION_CLICK" && event.data.clickUrl) {
+        navigate(event.data.clickUrl);
+      }
+    };
+
+    window.addEventListener("message", handleNotificationClick);
+    return () => window.removeEventListener("message", handleNotificationClick);
+  }, [navigate]);
+
+  useEffect(() => {
+    const handleFcmMessage = (event) => {
+      const clickUrl = event.detail?.data?.clickUrl;
+      if (clickUrl) {
+        navigate(clickUrl);
+      }
+    };
+
+    window.addEventListener("cravzo:fcm-message", handleFcmMessage);
+    return () => window.removeEventListener("cravzo:fcm-message", handleFcmMessage);
+  }, [navigate]);
 
   if (isHydrating) {
     return <AppLoader />;

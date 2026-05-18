@@ -35,14 +35,19 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
   const clickUrl = event.notification.data?.clickUrl || "/";
-  const targetUrl = new URL(clickUrl, self.location.origin).href;
+  const targetOrigin = self.location.origin;
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      const focusedClient = clients.find((client) => client.url === targetUrl);
-      if (focusedClient) return focusedClient.focus();
-
-      return self.clients.openWindow(targetUrl);
+      const client = clients.find((c) => c.url.startsWith(targetOrigin));
+      if (client) {
+        return client.navigate(targetOrigin + clickUrl).then((navigatedClient) => {
+          if (navigatedClient) navigatedClient.focus();
+        }).catch(() => {
+          return self.clients.openWindow(targetOrigin + clickUrl);
+        });
+      }
+      return self.clients.openWindow(targetOrigin + clickUrl);
     }),
   );
 });
