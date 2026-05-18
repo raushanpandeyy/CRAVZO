@@ -11,6 +11,8 @@ const allowedOrigins = [
   "https://cravzo.shop",
   "http://localhost:5173",
   "https://localhost:5173",
+  "http://localhost:5174",
+  "https://localhost:5174",
   "https://cravzo-nine.vercel.app",
 ];
 

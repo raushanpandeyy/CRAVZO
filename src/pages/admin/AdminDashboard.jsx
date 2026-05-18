@@ -155,8 +155,15 @@ const AdminDashboard = () => {
     return cached ? JSON.parse(cached) : [];
   });
   const [allRestaurantsForFeature, setAllRestaurantsForFeature] = useState([]);
+  const [allRestaurantsForFeatureFiltered, setAllRestaurantsForFeatureFiltered] = useState([]);
   const [showFeaturePanel, setShowFeaturePanel] = useState(false);
   const [featureLoading, setFeatureLoading] = useState(false);
+  const [ads, setAds] = useState(() => {
+    const cached = localStorage.getItem("cravzoAds");
+    return cached ? JSON.parse(cached) : [];
+  });
+  const [adsEnabled, setAdsEnabled] = useState(() => localStorage.getItem("cravzoAdsEnabled") === "true");
+  const [showAdPanel, setShowAdPanel] = useState(false);
 
   const debouncedUserSearch = useDebouncedValue(userSearch);
   const debouncedRestaurantSearch = useDebouncedValue(restaurantSearch);
@@ -293,6 +300,7 @@ const refreshSupportResult = async () => {
       const response = await apiRequest("/api/restaurants?page=1&limit=100");
       const data = Array.isArray(response.data) ? response.data : (response.data?.data || []);
       setAllRestaurantsForFeature(data);
+      setAllRestaurantsForFeatureFiltered(data);
     } catch (err) {
       console.error("Failed to load restaurants for feature", err);
     } finally {
@@ -332,6 +340,72 @@ const refreshSupportResult = async () => {
     updated.push(first);
     setFeaturedRestaurants(updated);
     localStorage.setItem("cravzoFeaturedRestaurants", JSON.stringify(updated));
+  };
+
+  const toggleAds = () => {
+    const newVal = !adsEnabled;
+    setAdsEnabled(newVal);
+    localStorage.setItem("cravzoAdsEnabled", String(newVal));
+    window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
+    setMessage(newVal ? "Background ads enabled." : "Background ads disabled.");
+  };
+
+  const addAd = (imageUrl, link = "") => {
+    const newAd = {
+      id: Date.now().toString(),
+      imageUrl,
+      link: link || "",
+    };
+    const updated = [newAd, ...ads];
+    setAds(updated);
+    localStorage.setItem("cravzoAds", JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
+    setMessage("Ad added successfully.");
+  };
+
+  const removeAd = (adId) => {
+    const updated = ads.filter((a) => a.id !== adId);
+    setAds(updated);
+    localStorage.setItem("cravzoAds", JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
+    setMessage("Ad removed.");
+  };
+
+  const handleImageUrlAdd = () => {
+    const url = prompt("Enter Cloudinary image URL:");
+    if (url) {
+      const link = prompt("Enter target URL (optional):") || "";
+      addAd(url, link);
+    }
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setMessage("Uploading image to Cloudinary...");
+    
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result;
+        const response = await apiRequest("/api/users/uploads/image", {
+          method: "POST",
+          body: JSON.stringify({ dataUrl, folder: "cravzo-ads" }),
+        });
+        
+        if (response.data?.url) {
+          addAd(response.data.url, "");
+          setMessage("Image uploaded successfully!");
+        } else {
+          setError("Upload failed");
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error("Upload error", err);
+      setError("Failed to upload image");
+    }
   };
 
   useEffect(() => {
@@ -516,9 +590,25 @@ const refreshSupportResult = async () => {
           </div>
         )}
 
-        {/* Add Restaurants Panel */}
+        {/* Add Restaurants Panel with Search */}
         {showFeaturePanel && (
           <div className="mt-4 border-t border-slate-200 pt-4">
+            <div className="relative mb-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search restaurants to add..."
+                className="w-full rounded-xl border border-slate-200 pl-10 pr-3 py-2 text-sm"
+                onChange={(e) => {
+                  const search = e.target.value.toLowerCase();
+                  const filtered = allRestaurantsForFeature.filter(r => 
+                    r.name?.toLowerCase().includes(search) || 
+                    r.city?.toLowerCase().includes(search)
+                  );
+                  setAllRestaurantsForFeatureFiltered(filtered);
+                }}
+              />
+            </div>
             <p className="text-sm font-semibold text-slate-700 mb-3">Add restaurants to featured list</p>
             {featureLoading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
@@ -528,7 +618,7 @@ const refreshSupportResult = async () => {
               </div>
             ) : (
               <div className="max-h-60 overflow-y-auto space-y-1">
-                {allRestaurantsForFeature
+                {allRestaurantsForFeatureFiltered
                   .filter((r) => !featuredRestaurants.find((f) => f.id === r.id))
                   .map((r) => (
                     <div key={r.id} className="flex items-center justify-between rounded-xl px-3 py-2 hover:bg-slate-50">
@@ -548,11 +638,72 @@ const refreshSupportResult = async () => {
                       </button>
                     </div>
                   ))}
-                {allRestaurantsForFeature.filter((r) => !featuredRestaurants.find((f) => f.id === r.id)).length === 0 && (
-                  <p className="text-xs text-slate-400 text-center py-4">All restaurants are already featured.</p>
+                {allRestaurantsForFeatureFiltered.filter((r) => !featuredRestaurants.find((f) => f.id === r.id)).length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-4">No restaurants found.</p>
                 )}
               </div>
             )}
+          </div>
+        )}
+      </section>
+
+      {/* Background Ads Management */}
+      <section className="rounded-3xl border border-indigo-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Background Ads</h2>
+            <p className="text-xs text-slate-500">Manage background advertisements on home page</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowAdPanel(!showAdPanel)}
+              className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              {showAdPanel ? "Close" : "Manage"}
+            </button>
+            <button
+              onClick={toggleAds}
+              className={`relative h-7 w-12 rounded-full transition-colors ${adsEnabled ? "bg-indigo-600" : "bg-slate-300"}`}
+            >
+              <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${adsEnabled ? "translate-x-5" : "translate-x-0.5"}`} />
+            </button>
+          </div>
+        </div>
+
+        {ads.length > 0 && (
+          <div className="mt-4 flex gap-2 overflow-x-auto [scrollbar-width:none]">
+            {ads.map((ad) => (
+              <div key={ad.id} className="relative shrink-0 w-32 h-20 rounded-lg overflow-hidden border border-slate-200">
+                <img src={ad.imageUrl} alt="Ad" className="w-full h-full object-cover" />
+                <button onClick={() => removeAd(ad.id)} className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showAdPanel && (
+          <div className="mt-4 border-t border-slate-200 pt-4">
+            <p className="text-sm font-semibold text-slate-700 mb-3">Add new advertisement</p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <label className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 cursor-pointer flex items-center gap-2">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleFileUpload} 
+                  className="hidden"
+                />
+                Upload from Device
+              </label>
+              <button
+                onClick={handleImageUrlAdd}
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Add Image URL
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">Upload image from your device - it will be saved to Cloudinary automatically</p>
           </div>
         )}
       </section>
