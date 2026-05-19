@@ -1,8 +1,8 @@
-import React, { useState, lazy,Suspense  } from "react";
-import { Lock, MapPin, Store, User } from "lucide-react";
+import React, { useState, lazy, Suspense } from "react";
+import { Lock, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import {VendorImage} from "../../assets/images/vendorrider.js";
+import { VendorImage } from "../../assets/images/vendorrider.js";
 import faqs from "../../assets/data/VendorFAQs.json";
 const ForgotPasswordForm = lazy(() =>
   import("../../components/common/ForgotPasswordForm.jsx")
@@ -13,12 +13,11 @@ const OtpInput = lazy(() =>
 );
 import { login, sendOtp, signup, verifyOtp } from "../../services/authService.js";
 
-const steps = ["Basic Info", "Location", "Business", "Account", "OTP Verification"];
 const emptyOtp = ["", "", "", "", "", ""];
 const vendorPrimaryButtonClassName =
   "rounded-2xl bg-indigo-950 py-3.5 font-extrabold text-white shadow-lg shadow-indigo-950/20 transition active:scale-[0.99] disabled:opacity-70";
 
-function FormInput({ label, icon: Icon, value, onChange, type = "text" }) {
+function FormInput({ label, icon: Icon, value, onChange, type = "text", placeholder }) {
   return (
     <div className="space-y-1">
       <label className="text-sm font-bold text-slate-600">{label}</label>
@@ -28,6 +27,7 @@ function FormInput({ label, icon: Icon, value, onChange, type = "text" }) {
           type={type}
           value={value}
           onChange={onChange}
+          placeholder={placeholder}
           className={`w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pr-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100 ${
             Icon ? "pl-12" : "pl-4"
           }`}
@@ -38,7 +38,7 @@ function FormInput({ label, icon: Icon, value, onChange, type = "text" }) {
 }
 
 export default function VendorSignup() {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState("form");
   const [isLogin, setIsLogin] = useState(false);
   const [otp, setOtp] = useState(emptyOtp);
   const [phone, setPhone] = useState("");
@@ -49,11 +49,7 @@ export default function VendorSignup() {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
 
   const [form, setForm] = useState({
-    restaurantName: "",
-    ownerName: "",
-    address: "",
-    pincode: "",
-    cuisine: "",
+    name: "",
     email: "",
     password: "",
   });
@@ -71,35 +67,24 @@ export default function VendorSignup() {
     setPhone(event.target.value.replace(/\D/g, "").slice(0, 10));
   };
 
-  const back = () => setStep((currentStep) => Math.max(currentStep - 1, 1));
-
   const handleContinue = async () => {
-    if (step < 4) {
-      setStep((currentStep) => currentStep + 1);
-      return;
-    }
-
-    if (step === 4) {
+    if (step === "form") {
+      if (!form.name || !form.email || !phone || !form.password) {
+        setMessage("Please fill all fields");
+        return;
+      }
       setMessage("");
       setIsSubmitting(true);
 
       try {
         await signup({
-          name: form.ownerName,
+          name: form.name,
           email: form.email,
           phone,
           password: form.password,
           role: "VENDOR",
-          onboardingData: {
-            restaurantName: form.restaurantName,
-            ownerName: form.ownerName,
-            address: form.address,
-            pincode: form.pincode,
-            cuisine: form.cuisine,
-            phone,
-          },
         });
-        setStep(5);
+        setStep("otp");
         setMessage("OTP sent to your email.");
       } catch (error) {
         setMessage(error.message || "Failed to start vendor signup");
@@ -110,7 +95,7 @@ export default function VendorSignup() {
       return;
     }
 
-    if (step === 5) {
+    if (step === "otp") {
       setMessage("");
       setIsSubmitting(true);
 
@@ -120,7 +105,6 @@ export default function VendorSignup() {
           otp: otp.join(""),
           role: "VENDOR",
         });
-        setMessage("Vendor details submitted. Your account is pending admin approval.");
         navigate("/vendor-dashboard");
       } catch (error) {
         setMessage(error.message || "Invalid OTP");
@@ -169,7 +153,7 @@ export default function VendorSignup() {
   };
 
   const resetSignupState = () => {
-    setStep(1);
+    setStep("form");
     setOtp(emptyOtp);
     setPhone("");
     setMessage("");
@@ -215,10 +199,10 @@ export default function VendorSignup() {
             </div>
 
             <h2 className="mb-2 text-center text-2xl font-extrabold text-slate-950">
-              {isForgotPassword ? "Reset Vendor Password" : isLogin ? "Vendor Login" : steps[step - 1]}
+              {isForgotPassword ? "Reset Vendor Password" : isLogin ? "Vendor Login" : step === "otp" ? "Verify OTP" : "Create Account"}
             </h2>
             <p className="mb-4 text-center text-sm font-medium leading-6 text-slate-500">
-              {isLogin ? "Access orders, menu, and restaurant settings." : "Verify your account and complete onboarding."}
+              {isLogin ? "Access orders, menu, and restaurant settings." : "Enter your details to get started."}
             </p>
             {!isForgotPassword && message ? <p className="mb-4 rounded-2xl bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-800">{message}</p> : null}
 
@@ -265,22 +249,17 @@ export default function VendorSignup() {
               </div>
             ) : (
               <div className="space-y-4">
-                {step === 1 ? (
+                {step === "form" ? (
                   <>
                     <FormInput
-                      label="Restaurant Name"
-                      icon={Store}
-                      value={form.restaurantName}
-                      onChange={(event) => updateForm("restaurantName", event.target.value)}
-                    />
-                    <FormInput
-                      label="Owner Name"
+                      label="Name"
                       icon={User}
-                      value={form.ownerName}
-                      onChange={(event) => updateForm("ownerName", event.target.value)}
+                      value={form.name}
+                      onChange={(event) => updateForm("name", event.target.value)}
+                      placeholder="Your full name"
                     />
                     <input
-                      placeholder="Phone"
+                      placeholder="Mobile Number"
                       value={phone}
                       onChange={handlePhoneChange}
                       className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm font-semibold text-slate-950 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
@@ -290,6 +269,7 @@ export default function VendorSignup() {
                       type="email"
                       value={form.email}
                       onChange={(event) => updateForm("email", event.target.value)}
+                      placeholder="your@email.com"
                     />
                     <FormInput
                       label="Password"
@@ -297,41 +277,12 @@ export default function VendorSignup() {
                       type="password"
                       value={form.password}
                       onChange={(event) => updateForm("password", event.target.value)}
+                      placeholder="Create password"
                     />
                   </>
                 ) : null}
 
-                {step === 2 ? (
-                  <>
-                    <FormInput
-                      label="Address"
-                      icon={MapPin}
-                      value={form.address}
-                      onChange={(event) => updateForm("address", event.target.value)}
-                    />
-                    <FormInput
-                      label="Pincode"
-                      value={form.pincode}
-                      onChange={(event) => updateForm("pincode", event.target.value)}
-                    />
-                  </>
-                ) : null}
-
-                {step === 3 ? (
-                  <FormInput
-                    label="Cuisine"
-                    value={form.cuisine}
-                    onChange={(event) => updateForm("cuisine", event.target.value)}
-                  />
-                ) : null}
-
-                {step === 4 ? (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
-                    Review your details. Admin approval will start only after OTP verification.
-                  </div>
-                ) : null}
-
-                {step === 5 ? (
+                {step === "otp" ? (
                   <>
                     <Suspense fallback={<div>Loading OTP...</div>}>
                       <OtpInput otp={otp} setOtp={setOtp} />
@@ -349,18 +300,13 @@ export default function VendorSignup() {
             )}
 
             {!isLogin ? (
-              <div className="mt-6 flex gap-3">
-                {step > 1 ? (
-                  <button onClick={back} className="flex-1 rounded-2xl border border-slate-200 py-3 font-bold text-slate-700">
-                    Back
-                  </button>
-                ) : null}
+              <div className="mt-6">
                 <button
                   onClick={handleContinue}
                   disabled={isSubmitting}
-                  className={`flex-[2] ${vendorPrimaryButtonClassName}`}
+                  className={`w-full ${vendorPrimaryButtonClassName}`}
                 >
-                  {isSubmitting ? "Please wait..." : step === 5 ? "Verify & Submit" : step === 4 ? "Send OTP" : "Continue"}
+                  {isSubmitting ? "Please wait..." : step === "otp" ? "Verify & Create Account" : "Create Account"}
                 </button>
               </div>
             ) : null}

@@ -654,6 +654,165 @@ const searchUserSupportDetails = async (req, res) => {
   );
 };
 
+export const getUserDetails = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log("getUserDetails called with userId:", userId);
+
+    // First just get user without any relations
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    console.log("Found user:", user ? "YES" : "NO", user?.name);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const response = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      status: user.status,
+      isOnline: user.isOnline,
+      createdAt: user.createdAt,
+    };
+
+    // Only try to get restaurant if user is a vendor
+    if (user.role === "VENDOR") {
+      try {
+        const restaurant = await prisma.restaurant.findFirst({
+          where: { vendorId: user.id },
+        });
+        if (restaurant) {
+          response.restaurant = {
+            id: restaurant.id,
+            name: restaurant.name,
+            cuisine: restaurant.cuisine,
+            phone: restaurant.phone,
+            addressLine1: restaurant.addressLine1,
+            city: restaurant.city,
+            state: restaurant.state,
+            status: restaurant.status,
+            openDays: restaurant.openDays,
+            openingTime: restaurant.openingTime,
+            closingTime: restaurant.closingTime,
+            fssaiNumber: restaurant.fssaiNumber,
+            isOpen: restaurant.isOpen,
+          };
+        }
+      } catch (err) {
+        console.error("Restaurant fetch error:", err);
+      }
+    }
+
+    res.status(200).json({ success: true, data: response });
+  } catch (error) {
+    console.error("getUserDetails error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Internal error",
+    });
+  }
+};
+
+export const getUserOrders = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    console.log("getUserOrders called with userId:", userId);
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    console.log("User role:", user?.role);
+
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    let orders = [];
+
+    if (user.role === "CUSTOMER") {
+      orders = await prisma.order.findMany({
+        where: { customerId: userId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          customer: { select: { id: true, name: true, phone: true } },
+          restaurant: { select: { id: true, name: true, phone: true } },
+          rider: { select: { id: true, name: true, phone: true } },
+          items: { include: { menuItem: { select: { name: true } } } },
+        },
+      });
+    } else if (user.role === "VENDOR") {
+      const restaurantIds = await prisma.restaurant.findMany({
+        where: { vendorId: userId },
+        select: { id: true },
+      });
+      const rIds = restaurantIds.map(r => r.id);
+      console.log("Vendor restaurant IDs:", rIds);
+      
+      orders = await prisma.order.findMany({
+        where: { restaurantId: { in: rIds } },
+        orderBy: { createdAt: "desc" },
+        include: {
+          customer: { select: { id: true, name: true, phone: true } },
+          restaurant: { select: { id: true, name: true, phone: true } },
+          rider: { select: { id: true, name: true, phone: true } },
+          items: { include: { menuItem: { select: { name: true } } } },
+        },
+      });
+    } else if (user.role === "RIDER") {
+      orders = await prisma.order.findMany({
+        where: { riderId: userId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          customer: { select: { id: true, name: true, phone: true } },
+          restaurant: { select: { id: true, name: true, phone: true } },
+          rider: { select: { id: true, name: true, phone: true } },
+          items: { include: { menuItem: { select: { name: true } } } },
+        },
+      });
+    }
+
+  const serializedOrders = orders.map((order) => ({
+    id: order.id,
+    status: order.status,
+    createdAt: order.createdAt,
+    subtotal: order.subtotal,
+    deliveryFee: order.deliveryFee,
+    platformFee: order.platformFee,
+    packagingFee: order.packagingFee,
+    totalAmount: order.totalAmount,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    deliveryDistance: order.deliveryDistance,
+    customer: order.customer,
+    restaurant: order.restaurant,
+    rider: order.rider,
+    items: order.items.map((item) => ({
+      quantity: item.quantity,
+      price: item.price,
+      menuItem: item.menuItem,
+    })),
+    vendorEarnings: order.vendorEarnings,
+    riderEarnings: order.riderEarnings,
+  }));
+
+  res.status(200).json(apiResponse({ data: serializedOrders }));
+  } catch (error) {
+    console.error("getUserOrders error:", error);
+    throw error;
+  }
+};
+
 export {
   approveRider,
   approveVendor,

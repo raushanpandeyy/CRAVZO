@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { X, MapPin, Package, Clock, Navigation, Phone, ChevronRight, Check } from "lucide-react";
+import { playAlertSound, stopAlertSound } from "../utils/alertSound.js";
 
 const OrderRequestPopup = ({ order, onAccept, onReject, onClose, type = "rider" }) => {
   const [isAccepting, setIsAccepting] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
 
-  if (!order) return null;
-
-  const formatCurrency = (amount) => `₹${Math.floor(amount || 0)}`;
+  useEffect(() => {
+    if (order) {
+      playAlertSound(true, "urgent");
+    }
+    return () => stopAlertSound();
+  }, [order]);
 
   const handleAccept = async () => {
+    stopAlertSound();
     setIsAccepting(true);
     try {
       await onAccept(order.id);
@@ -19,6 +24,7 @@ const OrderRequestPopup = ({ order, onAccept, onReject, onClose, type = "rider" 
   };
 
   const handleReject = async () => {
+    stopAlertSound();
     setIsRejecting(true);
     try {
       await onReject(order.id);
@@ -26,6 +32,10 @@ const OrderRequestPopup = ({ order, onAccept, onReject, onClose, type = "rider" 
       setIsRejecting(false);
     }
   };
+
+if (!order) return null;
+
+  const formatCurrency = (amount) => `₹${Math.floor(amount || 0)}`;
 
   if (type === "rider") {
     return (

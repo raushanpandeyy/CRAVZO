@@ -11,6 +11,7 @@ import React, {
 
 import {
   CheckCircle,
+  Clock,
   CreditCard,
   Edit,
   ImagePlus,
@@ -25,6 +26,7 @@ import {
 } from "../../services/vendorService.js";
 
 import { uploadImage } from "../../services/userService.js";
+import { VerifiedBadge, ProfileProgress, VerifiedBadgeLarge } from "../../components/vendors/VerifiedBadge.jsx";
 
 const DAYS_OF_WEEK = [
   "Monday",
@@ -73,6 +75,7 @@ const emptyProfile = {
   city: "",
   state: "",
   postalCode: "",
+  fssaiNumber: "",
   isOpen: true,
   openingTime: "09:00",
   closingTime: "22:00",
@@ -163,6 +166,10 @@ const VendorProfile = () => {
 
               postalCode:
                 data.postalCode ||
+                "",
+
+              fssaiNumber:
+                data.fssaiNumber ||
                 "",
 
               isOpen:
@@ -407,6 +414,9 @@ const VendorProfile = () => {
             postalCode:
               form.postalCode,
 
+            fssaiNumber:
+              form.fssaiNumber || null,
+
             status: "ACTIVE",
 
             isOpen:
@@ -487,9 +497,12 @@ const VendorProfile = () => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">
-                Vendor Profile
-              </h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl font-bold text-slate-800">
+                  Vendor Profile
+                </h1>
+                <VerifiedBadge restaurant={restaurant} />
+              </div>
 
               <p className="text-sm text-slate-500 mt-1">
                 Manage your restaurant information
@@ -521,6 +534,16 @@ const VendorProfile = () => {
         {error && (
           <div className="rounded-2xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
             {error}
+          </div>
+        )}
+
+        {/* PROGRESS STATUS */}
+        {restaurant && (
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+            <VerifiedBadgeLarge restaurant={restaurant} />
+            <div className="mt-4">
+              <ProfileProgress restaurant={restaurant} />
+            </div>
           </div>
         )}
 
@@ -643,6 +666,25 @@ const VendorProfile = () => {
 
               <div>
                 <label className="text-sm font-semibold text-slate-700">
+                  FSSAI Number <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+
+                <input
+                  type="text"
+                  value={form.fssaiNumber}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "fssaiNumber",
+                      e.target.value
+                    )
+                  }
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="e.g. 12345678901234"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-semibold text-slate-700">
                   Description
                 </label>
 
@@ -738,6 +780,60 @@ const VendorProfile = () => {
               placeholder="Postal Code"
               className="rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
             />
+          </div>
+        </div>
+
+        {/* BANK DETAILS */}
+
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+
+          <h2 className="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2">
+            <Clock size={18} />
+            Business Hours
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="text-sm font-semibold text-slate-700">Opening Time</label>
+              <input
+                type="time"
+                value={form.openingTime}
+                onChange={(e) => handleInputChange("openingTime", e.target.value)}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-700">Closing Time</label>
+              <input
+                type="time"
+                value={form.closingTime}
+                onChange={(e) => handleInputChange("closingTime", e.target.value)}
+                className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-sm font-semibold text-slate-700 mb-3 block">Open Days</label>
+            <div className="flex flex-wrap gap-2">
+              {DAYS_OF_WEEK.map((day) => (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => toggleOpenDay(day)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    form.openDays.includes(day)
+                      ? "bg-indigo-600 text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {day.slice(0, 3)}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Selected: {form.openDays.length} days ({form.openDays.join(", ")})
+            </p>
           </div>
         </div>
 

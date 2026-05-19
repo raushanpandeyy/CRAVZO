@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Search } from "lucide-react";
+import { Search, ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { API_ENDPOINTS } from "../../constants/apiEndpoints.js";
 import { apiRequest } from "../../services/api.js";
 
 const AdminUsers = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -106,7 +108,7 @@ const AdminUsers = () => {
           <div className="p-8 text-center text-slate-500 bg-white rounded-2xl border border-slate-200">No users found</div>
         ) : (
           users.map((user) => (
-            <div key={user.id} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+            <div key={user.id} onClick={() => navigate(`/admin/users/${user.id}`)} className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all">
               <div className="flex items-start justify-between">
                 <div className="min-w-0 flex-1">
                   <p className="font-bold text-slate-900 truncate">{user.name}</p>
@@ -125,12 +127,15 @@ const AdminUsers = () => {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => updateStatus(user.id, user.status)}
-                  className={`text-xs font-bold px-3 py-1.5 rounded-full ${user.status === "BLOCKED" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"}`}
-                >
-                  {user.status === "BLOCKED" ? "Unblock" : "Block"}
-                </button>
+                <div className="flex flex-col items-end gap-2">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); updateStatus(user.id, user.status); }}
+                      className={`text-xs font-bold px-3 py-1.5 rounded-full ${user.status === "BLOCKED" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"}`}
+                    >
+                      {user.status === "BLOCKED" ? "Unblock" : "Block"}
+                    </button>
+                    <ChevronRight className="h-5 w-5 text-slate-400" />
+                  </div>
               </div>
             </div>
           ))

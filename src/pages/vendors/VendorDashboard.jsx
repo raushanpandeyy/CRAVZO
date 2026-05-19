@@ -3,6 +3,7 @@ import { AlertCircle, Clock, IndianRupee, ShoppingBag, Store } from "lucide-reac
 
 import { getVendorOrders, updateOrderStatus } from "../../services/orderService.js";
 import { getMyRestaurant, updateRestaurantAvailability } from "../../services/vendorService.js";
+import { VerifiedBadge, ProfileProgress } from "../../components/vendors/VerifiedBadge.jsx";
 
 const OrderRequestPopup = lazy(() => import("../../components/OrderRequestPopup.jsx"));
 
@@ -16,46 +17,82 @@ const VendorDashboard = () => {
   const [error, setError] = useState("");
   const [orderRequest, setOrderRequest] = useState(null);
   const [showRequest, setShowRequest] = useState(false);
-  const previousPendingOrdersRef = useRef([]);
+  const previousPendingCountRef = useRef(0);
+  const isFirstLoadRef = useRef(true);
+  const pendingOrderIdsRef = useRef([]);
 
   const loadDashboard = async () => {
-    setLoading(true);
-    setMessage("");
     setError("");
 
     try {
-      const [restaurantData, orderData] = await Promise.all([getMyRestaurant(), getVendorOrders()]);
-      
+      // First load - fetch all data
+      if (isFirstLoadRef.current) {
+        setLoading(true);
+        const [restaurantData, orderData] = await Promise.all([getMyRestaurant(), getVendorOrders()]);
+        
+        const pendingOrders = orderData.filter((order) => order.status === "PENDING");
+        previousPendingCountRef.current = pendingOrders.length;
+        pendingOrderIdsRef.current = pendingOrders.map(o => o.id);
+
+        if (pendingOrders.length > 0) {
+          setOrderRequest(pendingOrders[0]);
+          setShowRequest(true);
+          triggerNotification(pendingOrders[0]);
+        }
+
+        setRestaurant(restaurantData);
+        setOrders(orderData);
+        isFirstLoadRef.current = false;
+        setLoading(false);
+        return;
+      }
+
+      // Smart polling - only fetch pending count first
+      const orderData = await getVendorOrders();
       const currentPendingOrders = orderData.filter((order) => order.status === "PENDING");
-      const previousPendingIds = previousPendingOrdersRef.current.map((o) => o.id || o);
-      
-      const newPendingOrders = currentPendingOrders.filter(
-        (order) => !previousPendingIds.includes(order.id)
-      );
+      const currentPendingCount = currentPendingOrders.length;
 
-      if (newPendingOrders.length > 0 && previousPendingOrdersRef.current.length > 0) {
-        const latestOrder = newPendingOrders[0];
-        setOrderRequest(latestOrder);
-        setShowRequest(true);
-
-        if ("Notification" in window && Notification.permission === "granted") {
-          new Notification("Cravzo - New Order!", {
-            body: `Order from ${latestOrder.customer?.name || "Customer"} - ₹${Math.floor(latestOrder.totalAmount || 0)}`,
-            icon: "/cravzologo.png",
-            tag: "new-order",
-            requireInteraction: true,
-          });
+      // Only fetch full data if pending count increased
+      if (currentPendingCount > previousPendingCountRef.current) {
+        // New order came! Show popup
+        const currentPendingIds = currentPendingOrders.map(o => o.id);
+        const newOrderIds = currentPendingIds.filter(id => !pendingOrderIdsRef.current.includes(id));
+        
+        if (newOrderIds.length > 0) {
+          const newOrder = currentPendingOrders.find(o => o.id === newOrderIds[0]) || currentPendingOrders[0];
+          setOrderRequest(newOrder);
+          setShowRequest(true);
+          triggerNotification(newOrder);
         }
       }
 
-      previousPendingOrdersRef.current = currentPendingOrders.map((o) => ({ id: o.id }));
-      
-      setRestaurant(restaurantData);
+      // Always update refs
+      previousPendingCountRef.current = currentPendingCount;
+      pendingOrderIdsRef.current = currentPendingOrders.map(o => o.id);
+
+      // Only update orders if there are changes (or on first few checks)
       setOrders(orderData);
+
+      // Also update restaurant occasionally (every 5th call)
+      const randomCheck = Math.random() < 0.2;
+      if (randomCheck) {
+        const restaurantData = await getMyRestaurant();
+        setRestaurant(restaurantData);
+      }
+
     } catch (requestError) {
-      setError(requestError.message || "Failed to load dashboard");
-    } finally {
-      setLoading(false);
+      console.error("Polling error:", requestError);
+    }
+  };
+
+  const triggerNotification = (order) => {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("Cravzo - New Order!", {
+        body: `Order from ${order.customer?.name || "Customer"} - ₹${Math.floor(order.totalAmount || 0)}`,
+        icon: "/cravzologo.png",
+        tag: "new-order",
+        requireInteraction: true,
+      });
     }
   };
 
@@ -85,6 +122,7 @@ const VendorDashboard = () => {
 
   useEffect(() => {
     loadDashboard();
+    // Smart polling - check every 10 seconds but only full fetch on new orders
     const intervalId = setInterval(loadDashboard, 10000);
     return () => clearInterval(intervalId);
   }, []);
@@ -134,12 +172,20 @@ const VendorDashboard = () => {
     <div className="px-6 py-6 bg-[#F4F7FB] min-h-screen">
       <div className="mb-8 flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900">{restaurant?.name || "Vendor Dashboard"}</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-4xl font-bold text-gray-900">{restaurant?.name || "Vendor Dashboard"}</h1>
+            <VerifiedBadge restaurant={restaurant} />
+          </div>
           <p className="text-gray-600 text-sm mt-1">
             {restaurant
               ? `${restaurant.cuisine || "Restaurant"} in ${restaurant.city || "your city"}`
               : "Create your restaurant profile to start receiving and managing orders."}
           </p>
+          {restaurant && (
+            <div className="mt-3 max-w-sm">
+              <ProfileProgress restaurant={restaurant} />
+            </div>
+          )}
         </div>
         <button
           onClick={loadDashboard}

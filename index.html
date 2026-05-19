@@ -10,8 +10,26 @@
     <meta name="description" content="Order food from your favorite restaurants with fast delivery. Browse restaurants, explore menus, and get food delivered to your doorstep." />
     <meta name="keywords" content="food delivery, online ordering, restaurants, fast food, pizza, biryani, delivery, crave, hungry" />
     <meta name="author" content="CRAVZO" />
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <link rel="canonical" href="https://cravzo.shop/" />
+    
+    <!-- Geo Tags -->
+    <meta name="geo.region" content="IN" />
+    <meta name="geo.placename" content="India" />
+    <meta name="language" content="English" />
+    
+    <!-- Additional SEO -->
+    <meta name="distribution" content="global" />
+    <meta name="revisit-after" content="1 day" />
+    <meta name="rating" content="general" />
+    
+    <!-- Business/Local SEO -->
+    <meta property="business:contact_data:street_address" content="" />
+    <meta property="business:contact_data:locality" content="India" />
+    <meta property="business:contact_data:country" content="India" />
+    <meta property="business:contact_data:email" content="support@cravzo.shop" />
+    <meta property="business:contact_data:phone_number" content="" />
+    <meta property="business:contact_data:website" content="https://cravzo.shop" />
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
@@ -32,6 +50,7 @@
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/cravzologo.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#4f46e5" />
@@ -59,15 +78,43 @@
       "name": "CRAVZO",
       "url": "https://cravzo.shop",
       "logo": "https://cravzo.shop/logo.png",
-      "description": "Food delivery platform connecting customers with local restaurants",
+      "description": "CRAVZO - Food delivery platform connecting customers with local restaurants in India. Order pizza, biryani, burgers, and more from your favorite restaurants.",
       "sameAs": [
         "https://instagram.com/cravzo",
-        "https://twitter.com/cravzo"
+        "https://twitter.com/cravzo",
+        "https://facebook.com/cravzo"
       ],
       "contactPoint": {
         "@type": "ContactPoint",
         "telephone": "+91-XXXXXXXXXX",
-        "contactType": "customer service"
+        "contactType": "customer service",
+        "availableHours": "24/7"
+      },
+      "areaServed": "India",
+      "serviceType": "Food Delivery"
+    }
+    </script>
+
+    <!-- LocalBusiness Schema -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "CRAVZO",
+      "image": "https://cravzo.shop/cravzologo.png",
+      "url": "https://cravzo.shop",
+      "description": "Online food delivery service in India. Order food from restaurants near you.",
+      "address": {
+        "@type": "PostalAddress",
+        "addressCountry": "IN",
+        "addressRegion": "India"
+      },
+      "priceRange": "₹",
+      "openingHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        "opens": "00:00",
+        "closes": "23:59"
       }
     }
     </script>

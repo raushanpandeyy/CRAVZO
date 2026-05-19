@@ -232,7 +232,7 @@ const Navbar = () => {
   );
 
   return (
-    <nav className="fixed top-0 left-0 w-full z-50 bg-transparent text-slate-950 md:text-white font-sans">
+    <nav className="fixed top-0 left-0 w-full z-50 bg-transparent md:bg-indigo-900 text-slate-950 md:text-white font-sans">
       <div className="mx-auto flex w-full max-w-[1200px] items-center gap-3 px-4 py-2 md:hidden">
         <button type="button" onClick={navigateToUserHome} className="shrink-0">
           <img src={cravzologo} alt="Cravzo Logo" className="h-9 w-9 rounded-xl object-cover" />

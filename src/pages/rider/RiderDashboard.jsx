@@ -72,24 +72,43 @@ const RiderDashboard = () => {
       const data = await getRiderOrders();
       
       const currentAvailableIds = data.filter((order) => order.isAvailable).map((order) => order.id);
-      const previousAvailableIds = previousAvailableOrdersRef.current;
       
-      const newAvailableOrders = data.filter(
-        (order) => order.isAvailable && !previousAvailableIds.includes(order.id)
-      );
+      if (currentAvailableIds.length > 0) {
+        if (firstLoadRef.current) {
+          const latestOrder = data.find(o => o.isAvailable);
+          if (latestOrder) {
+            setOrderRequest(latestOrder);
+            setShowRequest(true);
+            
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification("Cravzo - New Order!", {
+                body: `${latestOrder.restaurant?.name || "New order"} - Earn ₹${Math.floor(latestOrder.deliveryFee || 0)}`,
+                icon: "/cravzologo.png",
+                tag: "new-order",
+                requireInteraction: true,
+              });
+            }
+          }
+        } else {
+          const previousAvailableIds = previousAvailableOrdersRef.current;
+          const newAvailableOrders = data.filter(
+            (order) => order.isAvailable && !previousAvailableIds.includes(order.id)
+          );
 
-      if (!firstLoadRef.current && newAvailableOrders.length > 0) {
-        const latestOrder = newAvailableOrders[0];
-        setOrderRequest(latestOrder);
-        setShowRequest(true);
+          if (newAvailableOrders.length > 0) {
+            const latestOrder = newAvailableOrders[0];
+            setOrderRequest(latestOrder);
+            setShowRequest(true);
 
-        if ("Notification" in window && Notification.permission === "granted") {
-          new Notification("Cravzo - New Order!", {
-            body: `${latestOrder.restaurant?.name || "New order"} - Earn ₹${Math.floor(latestOrder.deliveryFee || 0)}`,
-            icon: "/cravzologo.png",
-            tag: "new-order",
-            requireInteraction: true,
-          });
+            if ("Notification" in window && Notification.permission === "granted") {
+              new Notification("Cravzo - New Order!", {
+                body: `${latestOrder.restaurant?.name || "New order"} - Earn ₹${Math.floor(latestOrder.deliveryFee || 0)}`,
+                icon: "/cravzologo.png",
+                tag: "new-order",
+                requireInteraction: true,
+              });
+            }
+          }
         }
       }
 

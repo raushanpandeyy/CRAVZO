@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import AccessPending from "./components/common/AccessPending";
 import AppLoader from "./components/common/AppLoader";
 import { useAuth } from "./hooks/useAuth";
+import { useNotifications } from "./hooks/useNotifications";
 
 const AdminRoutes = lazy(() => import("./routes/AdminRoutes"));
 const CustomerRoutes = lazy(() => import("./routes/CustomerRoutes"));
@@ -13,6 +14,8 @@ const VendorRoutes = lazy(() => import("./routes/VendorRoutes"));
 const App = () => {
   const { user, isHydrating } = useAuth();
   const navigate = useNavigate();
+
+  useNotifications(user);
 
   useEffect(() => {
     const handleNotificationClick = (event) => {

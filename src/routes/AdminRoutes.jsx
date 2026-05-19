@@ -9,6 +9,7 @@ const AdminDashboard = lazy(() => import("../pages/admin/AdminDashboard.jsx"));
 const AdminFeatured = lazy(() => import("../pages/admin/AdminFeatured.jsx"));
 const AdminOrders = lazy(() => import("../pages/admin/AdminOrders.jsx"));
 const AdminUsers = lazy(() => import("../pages/admin/AdminUsers.jsx"));
+const AdminUserDetails = lazy(() => import("../pages/admin/AdminUserDetails.jsx"));
 const AdminRestaurants = lazy(() => import("../pages/admin/AdminRestaurants.jsx"));
 const AdminPending = lazy(() => import("../pages/admin/AdminPending.jsx"));
 const AdminAnalytics = lazy(() => import("../pages/admin/AdminAnalytics.jsx"));
@@ -28,6 +29,7 @@ const AdminRoutes = () => {
             <Route path="/admin/featured" element={<AdminFeatured />} />
             <Route path="/admin/orders" element={<AdminOrders />} />
             <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/users/:userId" element={<AdminUserDetails />} />
             <Route path="/admin/restaurants" element={<AdminRestaurants />} />
             <Route path="/admin/pending" element={<AdminPending />} />
             <Route path="/admin/support" element={<AdminChatInbox />} />

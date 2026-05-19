@@ -1,21 +1,32 @@
 {
-  "name": "MyWebSite",
-  "short_name": "MySite",
+  "name": "Cravzo - Food Delivery",
+  "short_name": "Cravzo",
+  "description": "Order food from your favorite restaurants",
+  "start_url": "/",
   "icons": [
     {
-      "src": "/web-app-manifest-192x192.png?v=20260519",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     },
     {
-      "src": "/web-app-manifest-512x512.png?v=20260519",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     }
   ],
-  "theme_color": "#ffffff",
-  "background_color": "#ffffff",
-  "display": "standalone"
+  "theme_color": "#4F46E5",
+  "background_color": "#F4F7FB",
+  "display": "standalone",
+  "orientation": "portrait",
+  "categories": ["food", "shopping"],
+  "shortcuts": [
+    {
+      "name": "Orders",
+      "url": "/account/orders",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
 }

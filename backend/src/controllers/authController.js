@@ -22,7 +22,7 @@ const AUTH_COOKIE_NAME = "token";
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 
 const getUserStatusForRole = (role) => {
-  return role === ROLES.CUSTOMER ? "ACTIVE" : "PENDING";
+  return role === ROLES.CUSTOMER || role === ROLES.VENDOR ? "ACTIVE" : "PENDING";
 };
 
 const getOtpPurposeForRole = (role) => {
@@ -238,10 +238,7 @@ export const verifyOtpController = async (req, res) => {
 
   res.status(200).json(
     apiResponse({
-      message:
-        user.role === ROLES.CUSTOMER
-          ? "OTP verified. Account activated."
-          : "OTP verified. Account is pending admin approval.",
+      message: "OTP verified. Account activated.",
       data: {
         user: sanitizeUser(user),
         token,
