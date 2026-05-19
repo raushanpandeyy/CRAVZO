@@ -91,6 +91,10 @@ function CustomerRoutes() {
               <Route path="privacy" element={<PrivacyPolicy />} />
             </Route>
 
+            {/* ================= PARTNER SIGNUP ROUTES ================= */}
+            <Route path="/rider-signup" element={<RiderSignup />} />
+            <Route path="/vendor-signup" element={<VendorSignup />} />
+
             {/* ================= INFO ROUTES (standalone) ================= */}
             <Route path="/about" element={<AboutUs />} />
             <Route path="/contact" element={<ContactUs />} />
