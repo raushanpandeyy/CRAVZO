@@ -8,6 +8,15 @@ import { createOrderSchema } from "../validators/orderValidators.js";
 
 const ACTIVE_DELIVERY_STATUSES = ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
 
+const sanitizeCustomerForNonAdmin = (customer, userRole) => {
+  if (userRole === "ADMIN") {
+    return customer;
+  }
+  if (!customer) return null;
+  const { phone, ...rest } = customer;
+  return rest;
+};
+
 const toRadians = (value) => (value * Math.PI) / 180;
 
 const getDistanceKm = (startLat, startLng, endLat, endLng) => {
@@ -135,7 +144,7 @@ const getVendorOrders = async (req, res) => {
       message: "Vendor orders fetched successfully",
       data: orders.map((order) => ({
         ...serializeOrder(order),
-        customer: order.customer,
+        customer: sanitizeCustomerForNonAdmin(order.customer, req.user.role),
       })),
     }),
   );
@@ -296,7 +305,7 @@ const getRiderOrders = async (req, res) => {
       message: "Rider orders fetched successfully",
       data: orders.map((order) => ({
         ...serializeOrder(order),
-        customer: order.customer,
+        customer: sanitizeCustomerForNonAdmin(order.customer, req.user.role),
         isAvailable:
           rider.isOnline &&
           !order.riderId &&
@@ -418,7 +427,7 @@ const updateOrderStatus = async (req, res) => {
           message: "Order rejected successfully",
           data: {
             ...serializeOrder(updatedOrder),
-            customer: updatedOrder.customer,
+            customer: sanitizeCustomerForNonAdmin(updatedOrder.customer, req.user.role),
           },
         }),
       );

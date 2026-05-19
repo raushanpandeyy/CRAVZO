@@ -160,12 +160,28 @@ const notifyOrderStatusChanged = async ({ order, actorRole }) => {
 
   const recipients = [];
 
-  if (actorRole !== "CUSTOMER") recipients.push({ userId: order.customerId, role: "CUSTOMER" });
-  if (actorRole !== "VENDOR") recipients.push({ userId: order.restaurant?.vendorId, role: "VENDOR" });
-  if (order.riderId && actorRole !== "RIDER") recipients.push({ userId: order.riderId, role: "RIDER" });
+  // CUSTOMER always gets notified about their own order (except when they are the actor)
+  if (actorRole !== "CUSTOMER") {
+    recipients.push({ userId: order.customerId, role: "CUSTOMER" });
+  }
+
+  // VENDOR gets notified when status changes (they are the actor or order involves their restaurant)
+  if (actorRole !== "VENDOR" && order.restaurant?.vendorId) {
+    recipients.push({ userId: order.restaurant.vendorId, role: "VENDOR" });
+  }
+
+  // RIDER only gets notified if they are assigned to this specific order
+  if (order.riderId && actorRole !== "RIDER") {
+    recipients.push({ userId: order.riderId, role: "RIDER" });
+  }
+
+  // Remove duplicates (in case customer is also vendor or other edge case)
+  const uniqueRecipients = recipients.filter(
+    (recipient, index, self) => index === self.findIndex((r) => r.userId === recipient.userId)
+  );
 
   await Promise.all(
-    recipients.map((recipient) =>
+    uniqueRecipients.map((recipient) =>
       sendNotificationToUsers({
         userIds: [recipient.userId],
         title,
