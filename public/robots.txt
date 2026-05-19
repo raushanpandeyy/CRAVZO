@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://cravzo.shop/sitemap.xml
+
+# Disallow admin and private routes
+Disallow: /admin/
+Disallow: /api/
+Disallow: /account/
+Disallow: /cart
+
+# Crawl delay for API calls
+Crawl-delay: 1

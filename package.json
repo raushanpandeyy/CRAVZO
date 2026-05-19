@@ -1,7 +1,7 @@
 {
   "name": "cravzo",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -37,7 +37,10 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.3.0",
+    "react-is": "^19.0.0",
     "rollup-plugin-visualizer": "^7.0.1",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vite-plugin-pwa": "^0.21.1",
+    "sitemap": "^8.0.0"
   }
 }
