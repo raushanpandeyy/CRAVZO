@@ -328,7 +328,7 @@ const createMessageForRoom = async ({ user, roomId, text: rawText = "", imageUrl
     where: { id: roomId },
   });
 
-  await assertCanAccessRoom({ user }, room, { forWrite: true });
+  await assertCanAccessRoom({ user: { sub: user.sub, role: user.role } }, room, { forWrite: true });
 
   const now = Date.now();
   const rateKey = `${user.sub}:${room.id}`;
