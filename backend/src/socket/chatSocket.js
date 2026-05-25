@@ -29,12 +29,50 @@ const getSocketToken = (socket) => {
   return authToken || headerToken || (cookieToken ? decodeURIComponent(cookieToken) : null);
 };
 
+let ioInstance = null;
+const connectedAdminSocketCounts = new Map();
+let cachedAdminUserIds = [];
+let cachedAdminUserIdsAt = 0;
+const ADMIN_IDS_CACHE_MS = 60 * 1000;
+
 const getAdminUserIds = async () => {
+  if (Date.now() - cachedAdminUserIdsAt < ADMIN_IDS_CACHE_MS) {
+    return cachedAdminUserIds;
+  }
+
   const admins = await prisma.user.findMany({
     where: { role: "ADMIN" },
     select: { id: true },
   });
-  return admins.map((a) => a.id);
+  cachedAdminUserIds = admins.map((a) => a.id);
+  cachedAdminUserIdsAt = Date.now();
+  return cachedAdminUserIds;
+};
+
+const addConnectedAdmin = (adminId) => {
+  connectedAdminSocketCounts.set(adminId, (connectedAdminSocketCounts.get(adminId) || 0) + 1);
+};
+
+const removeConnectedAdmin = (adminId) => {
+  const nextCount = (connectedAdminSocketCounts.get(adminId) || 1) - 1;
+  if (nextCount <= 0) {
+    connectedAdminSocketCounts.delete(adminId);
+    return;
+  }
+
+  connectedAdminSocketCounts.set(adminId, nextCount);
+};
+
+const emitAdminOrderEvent = (event) => {
+  if (!ioInstance) return;
+
+  try {
+    connectedAdminSocketCounts.forEach((_count, adminId) => {
+      ioInstance.to(`user:${adminId}`).emit("admin:order-alert", event);
+    });
+  } catch (error) {
+    logger.warn("Admin order socket event failed", { error });
+  }
 };
 
 const attachChatSocket = (server) => {
@@ -45,6 +83,7 @@ const attachChatSocket = (server) => {
     },
     transports: ["websocket", "polling"],
   });
+  ioInstance = io;
 
   io.use(async (socket, next) => {
     try {
@@ -92,6 +131,10 @@ const attachChatSocket = (server) => {
 
   io.on("connection", (socket) => {
     socket.join(`user:${socket.user.sub}`);
+    if (socket.user.role === "ADMIN") {
+      addConnectedAdmin(socket.user.sub);
+      socket.on("disconnect", () => removeConnectedAdmin(socket.user.sub));
+    }
 
     socket.on("chat:join", async ({ roomId } = {}, ack) => {
       try {
@@ -217,4 +260,4 @@ const attachChatSocket = (server) => {
   return io;
 };
 
-export { attachChatSocket };
+export { attachChatSocket, emitAdminOrderEvent };

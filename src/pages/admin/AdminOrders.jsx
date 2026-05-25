@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Search, CalendarRange, X } from "lucide-react";
 import { API_ENDPOINTS } from "../../constants/apiEndpoints.js";
 import { apiRequest } from "../../services/api.js";
+import { onAdminOrderAlert } from "../../services/chatSocket.js";
 
 const formatCurrency = (amount) => `Rs ${Number(amount || 0).toFixed(0)}`;
 
@@ -14,6 +15,7 @@ const AdminOrders = () => {
   const [toDate, setToDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [liveAlert, setLiveAlert] = useState(null);
 
   const loadOrders = async () => {
     setLoading(true);
@@ -40,6 +42,45 @@ const AdminOrders = () => {
     loadOrders();
   }, [page, fromDate, toDate, statusFilter]);
 
+  useEffect(() => {
+    const unsubscribe = onAdminOrderAlert((alert) => {
+      setLiveAlert(alert);
+
+      if (alert.order) {
+        setOrders((currentOrders) => {
+          const exists = currentOrders.some((order) => order.id === alert.order.id);
+          if (!exists) return [alert.order, ...currentOrders].slice(0, 10);
+
+          return currentOrders.map((order) =>
+            order.id === alert.order.id
+              ? {
+                  ...order,
+                  ...alert.order,
+                  customer: alert.order.customer || order.customer,
+                  restaurant: alert.order.restaurant || order.restaurant,
+                  rider: alert.order.rider || order.rider,
+                }
+              : order,
+          );
+        });
+
+        setSelectedOrder((currentOrder) =>
+          currentOrder?.id === alert.order.id
+            ? {
+                ...currentOrder,
+                ...alert.order,
+                customer: alert.order.customer || currentOrder.customer,
+                restaurant: alert.order.restaurant || currentOrder.restaurant,
+                rider: alert.order.rider || currentOrder.rider,
+              }
+            : currentOrder,
+        );
+      }
+    });
+
+    return unsubscribe;
+  }, []);
+
   const getStatusColor = (status) => {
     switch (status) {
       case "DELIVERED": return "bg-emerald-50 text-emerald-700";
@@ -55,6 +96,26 @@ const AdminOrders = () => {
         <h1 className="text-xl md:text-2xl font-bold">Orders</h1>
         <p className="text-indigo-200 text-sm">Manage customer orders</p>
       </div>
+
+      {liveAlert?.severity === "danger" && (
+        <div className="mx-2 rounded-lg border-2 border-red-500 bg-red-600 p-4 text-white shadow-xl md:mx-0">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-black uppercase">Urgent order alert</p>
+              <p className="mt-1 text-lg font-black">{liveAlert.title}</p>
+              <p className="mt-1 text-sm text-red-50">{liveAlert.message}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLiveAlert(null)}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-red-700 hover:bg-red-800"
+              aria-label="Dismiss urgent order alert"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="mx-2 md:mx-0 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm overflow-x-auto [scrollbar-width:none]">

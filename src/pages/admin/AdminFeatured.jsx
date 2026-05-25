@@ -3,6 +3,9 @@ import { Star, Plus, ChevronLeft, ChevronRight, X, Search, ArrowLeft, ArrowRight
 import { API_ENDPOINTS } from "../../constants/apiEndpoints.js";
 import { apiRequest } from "../../services/api.js";
 
+const PREVIEW_FEATURED_LIMIT = 4;
+const PREVIEW_AD_LIMIT = 4;
+
 const AdminFeatured = () => {
   const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
   const [ads, setAds] = useState([]);
@@ -19,8 +22,8 @@ const AdminFeatured = () => {
   const loadData = async () => {
     try {
       const [featuredRes, adsRes] = await Promise.all([
-        apiRequest(API_ENDPOINTS.public.featuredRestaurants),
-        apiRequest(API_ENDPOINTS.public.ads),
+        apiRequest(API_ENDPOINTS.public.featuredRestaurants, { skipAuth: true }),
+        apiRequest(API_ENDPOINTS.public.ads, { skipAuth: true }),
       ]);
       setFeaturedRestaurants(featuredRes.data || []);
       setAds(adsRes.data || []);
@@ -41,7 +44,7 @@ const AdminFeatured = () => {
 
   const loadRestaurants = async () => {
     try {
-      const response = await apiRequest("/api/restaurants?page=1&limit=100");
+      const response = await apiRequest("/api/restaurants?page=1&limit=100", { skipAuth: true });
       const data = Array.isArray(response.data) ? response.data : (response.data?.data || []);
       setAllRestaurants(data);
       setFilteredRestaurants(data);
@@ -256,15 +259,28 @@ const AdminFeatured = () => {
               </button>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] pb-2">
-              {featuredRestaurants.map((r) => (
+              {featuredRestaurants.slice(0, PREVIEW_FEATURED_LIMIT).map((r) => (
                 <div key={r?.id} className="flex items-center gap-2 bg-indigo-50 rounded-xl px-3 py-2 shrink-0">
-                  <img src={r?.imageUrl || ""} alt="" className="w-8 h-8 rounded-lg object-cover bg-slate-200" />
+                  {r?.imageUrl ? (
+                    <img src={r.imageUrl} alt="" loading="lazy" decoding="async" className="w-8 h-8 rounded-lg object-cover bg-slate-200" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-slate-200" />
+                  )}
                   <span className="text-xs font-semibold text-slate-800 max-w-[80px] truncate">{r?.name}</span>
                   <button onClick={() => r?.id && removeFromFeatured(r.id)} className="w-5 h-5 rounded-full bg-rose-100 flex items-center justify-center text-rose-500">
                     <X className="h-3 w-3" />
                   </button>
                 </div>
               ))}
+              {featuredRestaurants.length > PREVIEW_FEATURED_LIMIT && (
+                <button
+                  type="button"
+                  onClick={() => setShowFeaturePanel(true)}
+                  className="shrink-0 rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-600"
+                >
+                  +{featuredRestaurants.length - PREVIEW_FEATURED_LIMIT}
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -287,7 +303,11 @@ const AdminFeatured = () => {
                 .map((r) => (
                   <div key={r.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50">
                     <div className="flex items-center gap-2">
-                      <img src={r.imageUrl || ""} alt="" className="w-8 h-8 rounded-lg object-cover bg-slate-200" />
+                      {r.imageUrl ? (
+                        <img src={r.imageUrl} alt="" loading="lazy" decoding="async" className="w-8 h-8 rounded-lg object-cover bg-slate-200" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-lg bg-slate-200" />
+                      )}
                       <div>
                         <p className="text-xs font-semibold text-slate-800">{r.name}</p>
                         <p className="text-[10px] text-slate-500">{r.city}</p>
@@ -328,14 +348,27 @@ const AdminFeatured = () => {
 
         {ads.filter(Boolean).length > 0 && (
           <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] pb-2">
-            {ads.filter(Boolean).map((ad) => (
+            {ads.filter(Boolean).slice(0, PREVIEW_AD_LIMIT).map((ad) => (
               <div key={ad?.id} className="relative w-28 h-16 rounded-lg overflow-hidden shrink-0 border border-slate-200">
-                <img src={ad?.imageUrl || ""} alt="" className="w-full h-full object-cover" />
+                {ad?.imageUrl ? (
+                  <img src={ad.imageUrl} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-slate-200" />
+                )}
                 <button onClick={() => ad?.id && removeAd(ad.id)} className="absolute top-1 right-1 w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center text-white">
                   <X className="h-3 w-3" />
                 </button>
               </div>
             ))}
+            {ads.filter(Boolean).length > PREVIEW_AD_LIMIT && (
+              <button
+                type="button"
+                onClick={() => setShowAdPanel(true)}
+                className="h-16 shrink-0 rounded-lg bg-slate-100 px-3 text-xs font-black text-slate-600"
+              >
+                +{ads.filter(Boolean).length - PREVIEW_AD_LIMIT}
+              </button>
+            )}
           </div>
         )}
 

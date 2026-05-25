@@ -70,4 +70,11 @@ const onChatNotification = (handler) => {
   return () => activeSocket.off("chat:notification", handler);
 };
 
-export { getChatSocket, joinChatRoom, leaveChatRoom, onChatNotification, onSocketMessage, sendSocketMessage };
+const onAdminOrderAlert = (handler) => {
+  const activeSocket = getChatSocket();
+  activeSocket.on("admin:order-alert", handler);
+
+  return () => activeSocket.off("admin:order-alert", handler);
+};
+
+export { getChatSocket, joinChatRoom, leaveChatRoom, onAdminOrderAlert, onChatNotification, onSocketMessage, sendSocketMessage };

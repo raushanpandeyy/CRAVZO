@@ -3,6 +3,7 @@ import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { createPersistedOrder, serializeOrder } from "../services/orderCheckoutService.js";
 import { notifyOrderCreated, notifyOrderStatusChanged, notifyRiderNewOrder, notifyVendorNewOrder } from "../services/notificationService.js";
+import { notifyAdminOrderCreated, notifyAdminOrderStatusChanged } from "../services/adminOrderAlertService.js";
 import { logger } from "../utils/logger.js";
 import { createOrderSchema } from "../validators/orderValidators.js";
 
@@ -56,6 +57,7 @@ const createOrder = async (req, res) => {
 
   runNotificationTask(notifyOrderCreated(order));
   runNotificationTask(notifyVendorNewOrder(order));
+  notifyAdminOrderCreated(order);
 
   res.status(201).json(
     apiResponse({
@@ -437,6 +439,7 @@ const updateOrderStatus = async (req, res) => {
           actorRole: req.user.role,
         }),
       );
+      notifyAdminOrderStatusChanged({ order: updatedOrder, actorRole: req.user.role });
       return;
     }
 
@@ -530,6 +533,7 @@ const updateOrderStatus = async (req, res) => {
       actorRole: req.user.role,
     }),
   );
+  notifyAdminOrderStatusChanged({ order: updatedOrder, actorRole: req.user.role });
 
   if (req.user.role === "RIDER" && (status === updatedOrder.status)) {
     runNotificationTask(

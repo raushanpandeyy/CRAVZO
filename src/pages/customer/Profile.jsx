@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Camera, LogOut, Mail, Phone, Save, User } from "lucide-react";
+import { Bell, Camera, LogOut, Mail, Phone, Save, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { getStoredUser } from "../../services/authService.js";
 import { useAuth } from "../../hooks/useAuth.js";
+import { ensureFcmToken } from "../../firebase/notificationService.js";
 import { getProfile, updateProfile, uploadImage } from "../../services/userService.js";
 
 const fallbackAvatar =
@@ -24,6 +25,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [enablingNotifications, setEnablingNotifications] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -108,6 +110,29 @@ const Profile = () => {
     navigate("/");
   };
 
+  const handleEnableNotifications = async () => {
+    setEnablingNotifications(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const token = await ensureFcmToken({ forcePrompt: true });
+      if (token) {
+        setMessage("Notifications enabled successfully.");
+      } else if (!("Notification" in window)) {
+        setError("This browser does not support web notifications.");
+      } else if (Notification.permission === "denied") {
+        setError("Notifications are blocked. Enable them from your browser site settings.");
+      } else {
+        setError("Notifications could not be enabled on this device.");
+      }
+    } catch (requestError) {
+      setError(requestError.message || "Failed to enable notifications.");
+    } finally {
+      setEnablingNotifications(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F4F7FB] px-3 py-3 sm:px-8 sm:py-8">
       <div className="mx-auto max-w-5xl space-y-6">
@@ -122,6 +147,14 @@ const Profile = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              <button
+                onClick={handleEnableNotifications}
+                disabled={enablingNotifications}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white/10 px-4 py-3 text-sm font-black text-white transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-xl sm:bg-amber-50 sm:px-5 sm:font-semibold sm:text-amber-700 sm:hover:bg-amber-100"
+              >
+                <Bell className="h-4 w-4" />
+                {enablingNotifications ? "Enabling..." : "Notifications"}
+              </button>
               <button
                 onClick={handleSave}
                 disabled={saving || loading}

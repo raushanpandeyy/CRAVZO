@@ -6,7 +6,6 @@ import { LogOut, MessageCircle, ShoppingCart, User as UserIcon } from "lucide-re
 import {cravzologo} from "../../assets/images/logos.js";
 import { useAuth } from "../../hooks/useAuth.js";
 import { useChatNotifications } from "../../hooks/useChatNotifications.js";
-import { useNotifications } from "../../hooks/useNotifications.js";
 import { getAddresses } from "../../services/addressService.js";
 import { deleteCookie, getCookie, setCookie } from "../../utils/cookies.js";
 
@@ -22,7 +21,6 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { notifications, unreadCount, getChatPath, markAllRead, markNotificationRead } = useChatNotifications(user);
-  useNotifications(user);
 
   const syncCartCount = () => {
     try {

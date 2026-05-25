@@ -2,9 +2,15 @@ import crypto from "crypto";
 
 import { env } from "../config/env.js";
 import { createPersistedOrder, prepareOrderDraft, serializeOrder } from "../services/orderCheckoutService.js";
+import { notifyAdminOrderCreated } from "../services/adminOrderAlertService.js";
+import { notifyOrderCreated, notifyVendorNewOrder } from "../services/notificationService.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { createCheckoutOrderSchema, createOrderSchema, verifyPaymentOrderSchema } from "../validators/orderValidators.js";
+
+const runNotificationTask = (task) => {
+  task.catch(() => {});
+};
 
 const razorpayBaseUrl = "https://api.razorpay.com/v1";
 
@@ -70,6 +76,10 @@ const createCODOrder = async (req, res) => {
     paymentStatus: "PENDING", // 🔥 COD = unpaid
     notes,
   });
+
+  runNotificationTask(notifyOrderCreated(order));
+  runNotificationTask(notifyVendorNewOrder(order));
+  notifyAdminOrderCreated(order);
 
   res.status(201).json({
     success: true,
@@ -150,6 +160,10 @@ const verifyAndCreatePaidOrder = async (req, res) => {
     gatewayPaymentId: razorpayPaymentId,
     gatewaySignature: razorpaySignature,
   });
+
+  runNotificationTask(notifyOrderCreated(order));
+  runNotificationTask(notifyVendorNewOrder(order));
+  notifyAdminOrderCreated(order);
 
   res.status(201).json(
     apiResponse({

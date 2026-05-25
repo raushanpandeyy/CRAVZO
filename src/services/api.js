@@ -3,6 +3,7 @@ import { API_BASE_URL, API_ENDPOINTS } from "../constants/apiEndpoints.js";
 const getStoredToken = () => localStorage.getItem("cravzoAuthToken");
 
 async function apiRequest(path, options = {}) {
+  const { skipAuth = false, ...fetchOptions } = options;
   const headers = new Headers(options.headers || {});
 
   if (!headers.has("Content-Type") && options.body) {
@@ -11,7 +12,7 @@ async function apiRequest(path, options = {}) {
 
   const token = getStoredToken();
 
-  if (token && !headers.has("Authorization")) {
+  if (!skipAuth && token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
@@ -23,7 +24,7 @@ async function apiRequest(path, options = {}) {
 
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
-      ...options,
+      ...fetchOptions,
       headers,
       credentials: "include",
       signal: controller.signal,

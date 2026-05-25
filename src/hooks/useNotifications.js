@@ -5,6 +5,7 @@ import { ensureFcmToken, setupForegroundNotifications } from "../firebase/notifi
 const useNotifications = (user) => {
   useEffect(() => {
     if (!user?.isLoggedIn) return undefined;
+    if (user.accountType === "admin") return undefined;
 
     let unsubscribe = () => {};
     let cancelled = false;
@@ -12,7 +13,7 @@ const useNotifications = (user) => {
     const setupNotifications = async () => {
       try {
         unsubscribe = await setupForegroundNotifications();
-        if (!cancelled) {
+        if (!cancelled && Notification.permission === "granted") {
           await ensureFcmToken();
         }
       } catch (error) {
