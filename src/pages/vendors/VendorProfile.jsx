@@ -42,12 +42,14 @@ const DAYS_OF_WEEK = [
 // IMAGE OPTIMIZATION
 // ======================
 
+const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'%3E%3Crect fill='%23f1f5f9' width='600' height='400'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='20' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
+
 const getOptimizedImage = (
   url,
   width = 600,
   height = 400
 ) => {
-  if (!url) return "";
+  if (!url) return FALLBACK_IMG;
 
   if (url.includes("cloudinary.com")) {
     const parts = url.split("/upload/");

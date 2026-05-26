@@ -41,6 +41,20 @@ export const getFeaturedRestaurants = async (req, res) => {
     },
   });
 
+  const restaurantIds = featured.map((f) => f.restaurantId).filter(Boolean);
+  if (restaurantIds.length > 0) {
+    const restaurants = await prisma.restaurant.findMany({
+      where: { id: { in: restaurantIds } },
+      select: { id: true, imageUrl: true },
+    });
+    const restaurantMap = Object.fromEntries(restaurants.map((r) => [r.id, r.imageUrl]));
+    for (const f of featured) {
+      if (!f.imageUrl && restaurantMap[f.restaurantId]) {
+        f.imageUrl = restaurantMap[f.restaurantId];
+      }
+    }
+  }
+
   await setCache(cacheKey, featured, CACHE_TTL);
 
   return res
@@ -73,11 +87,16 @@ export const getAds = async (req, res) => {
 };
 
 export const addFeaturedRestaurant = async (req, res) => {
-  const { restaurantId, name, imageUrl } = req.body;
+  const { restaurantId, name } = req.body;
 
   if (!restaurantId || !name) {
     return res.status(400).json(apiResponse({ message: "Restaurant ID and name are required" }));
   }
+
+  const restaurant = await prisma.restaurant.findUnique({
+    where: { id: restaurantId },
+    select: { imageUrl: true },
+  });
 
   const maxPosition = await prisma.featuredRestaurant.findFirst({
     orderBy: { position: "desc" },
@@ -88,7 +107,7 @@ export const addFeaturedRestaurant = async (req, res) => {
     data: {
       restaurantId,
       name,
-      imageUrl: imageUrl || null,
+      imageUrl: restaurant?.imageUrl || null,
       position: (maxPosition?.position ?? -1) + 1,
     },
   });

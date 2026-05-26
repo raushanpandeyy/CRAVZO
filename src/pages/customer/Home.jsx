@@ -22,8 +22,10 @@ const HeroSection = lazy(() => import("./HeroSection.jsx"));
 const Citywise = lazy(() => import("./Citywise.jsx"));
 const DishCarousel = lazy(() => import("./DishesGallery.jsx"));
 
+const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
+
 const getOptimizedImage = (url, width = 400) => {
-  if (!url) return "https://via.placeholder.com/400x200?text=No+Image";
+  if (!url) return FALLBACK_IMG;
   if (url.includes("cloudinary.com")) {
     const parts = url.split("/upload/");
     if (parts.length === 2) {
@@ -38,7 +40,7 @@ const getOptimizedRestaurantImage = (
   width = 450
 ) => {
   if (!url) {
-    return "https://via.placeholder.com/400x300?text=No+Image";
+    return FALLBACK_IMG;
   }
 
   if (url.includes("cloudinary.com")) {
@@ -94,13 +96,16 @@ const MobileSectionHeader = ({ title, subtitle }) => (
 
 // CSS duplicates and leak protection image component
 const LazyImage = ({ src, alt, className, width = 450 }) => {
+  const [imgError, setImgError] = useState(false);
+  const imgSrc = imgError ? FALLBACK_IMG : getOptimizedRestaurantImage(src, width);
   return (
     <img
-      src={getOptimizedRestaurantImage(src, width)}
+      src={imgSrc}
       alt={alt}
       className={className}
       loading="lazy"
       decoding="async"
+      onError={() => setImgError(true)}
     />
   );
 };
@@ -168,7 +173,7 @@ const MobileNearbyMiniCard = ({ restaurant, index }) => {
     >
       <div className="relative h-20 w-full overflow-hidden rounded-xl">
         <LazyImage
-          src={getOptimizedRestaurantImage(dishImage, 200)}
+          src={dishImage}
           alt={dish?.name || restaurant.name}
           className="h-full w-full object-cover"
           width={150}
@@ -358,7 +363,7 @@ const Home = () => {
             </a>
           ) : (
             <img 
-              src="https://via.placeholder.com/400x200?text=Your+Ad+Here" 
+              src={FALLBACK_IMG} 
               alt="Advertisement" 
               className="w-full h-full object-cover"
               loading="lazy"
@@ -410,7 +415,7 @@ const Home = () => {
                 >
                   <div className="h-[85px] w-full overflow-hidden rounded-t-lg">
                     <LazyImage
-                      src={getOptimizedRestaurantImage(restaurant.imageUrl, 150)}
+                      src={restaurant.imageUrl}
                       alt={restaurant.name}
                       className="h-full w-full object-cover"
                       width={110}
@@ -445,6 +450,21 @@ const Home = () => {
             )}
           </div>
         </section>
+
+        {/* Nearby Mini Cards - Dish Preview */}
+        {restaurants.length > 0 && (
+          <section className="relative py-2 border-t border-indigo-100">
+            <div className="px-4 mb-2">
+              <h2 className="text-base font-bold text-indigo-700">Popular Dishes Nearby</h2>
+              <p className="text-xs font-semibold text-indigo-400">Quick bites</p>
+            </div>
+            <div className="flex gap-3 overflow-x-auto px-4 [scrollbar-width:none] pb-2 snap-x">
+              {restaurants.slice(0, 10).map((restaurant, index) => (
+                <MobileNearbyMiniCard key={restaurant.id} restaurant={restaurant} index={index} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       {/* DESKTOP VIEW */}

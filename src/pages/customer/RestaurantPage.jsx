@@ -8,12 +8,14 @@ import { getRestaurantById } from "../../services/foodService.js";
 import { getRestaurantReviews, saveReview } from "../../services/reviewService.js";
 
 
+const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
+
 const getOptimizedImage = (
   url,
   width = 600,
   height = 400
 ) => {
-  if (!url) return "";
+  if (!url) return FALLBACK_IMG;
 
   if (url.includes("cloudinary.com")) {
     const parts = url.split("/upload/");
@@ -237,6 +239,7 @@ const RestaurantPage = () => {
 )}
               alt={restaurant.name}
               className="h-full w-full object-cover"
+              onError={(e) => { e.target.src = FALLBACK_IMG; }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
           </div>
@@ -316,6 +319,7 @@ const RestaurantPage = () => {
                     alt={dish.name}
                     loading="lazy"
                     className="h-full w-full rounded-2xl object-cover"
+                    onError={(e) => { e.target.src = FALLBACK_IMG; }}
                   />
 
                   {!cartItem ? (

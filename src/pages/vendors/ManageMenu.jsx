@@ -11,9 +11,11 @@ import { uploadImage } from "../../services/userService.js";
 
 const categories = ["Main Course", "Starters", "Thali", "Beverages", "Desserts", "Biryani", "Sides"];
 
+const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect fill='%23f1f5f9' width='150' height='150'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='14' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
+
 // Helper function to force images to load as WebP/AVIF via CDN parameters (e.g., Cloudinary, NextGen CDNs)
 const optimizeImageUrl = (url) => {
-  if (!url) return "";
+  if (!url) return FALLBACK_IMG;
   // Check if it's a Cloudinary URL to apply auto format (WebP/AVIF) and auto quality
   if (url.includes("res.cloudinary.com")) {
     return url.replace("/upload/", "/upload/f_auto,q_auto/");

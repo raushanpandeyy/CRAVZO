@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useState } from "react";
 import { Star } from "lucide-react";
 import { Link } from "react-router-dom";
+
+const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
 const formatPrice = (value) => {
   if (typeof value === "number") {
@@ -11,11 +13,14 @@ const formatPrice = (value) => {
 };
 
 const DishCard = ({ dish }) => {
+  const [imgError, setImgError] = useState(false);
+
   if (!dish) {
     return null;
   }
 
   const destination = dish.restaurantId ? `/restaurant/${dish.restaurantId}` : `/dish/${encodeURIComponent(dish.name)}`;
+  const imgSrc = imgError ? FALLBACK_IMG : (dish.imageUrl || dish.image || FALLBACK_IMG);
 
   return (
     <Link
@@ -24,8 +29,9 @@ const DishCard = ({ dish }) => {
     >
       <div>
         <img
-          src={dish.imageUrl || dish.image}
+          src={imgSrc}
           alt={dish.name || "Dish"}
+          onError={() => setImgError(true)}
           className="h-40 w-full object-cover"
         />
       </div>
