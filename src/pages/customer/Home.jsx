@@ -85,6 +85,27 @@ const formatDistance = (distance) => {
   return `${Number(distance).toFixed(1)} km away`;
 };
 
+const getDishFallbackImage = (dish, restaurant) => {
+  const text = `${dish?.name || ""} ${dish?.category || ""} ${restaurant?.cuisine || ""}`.toLowerCase();
+
+  if (text.includes("biryani")) return biryaniplate;
+  if (text.includes("burger")) return burger;
+  if (text.includes("dosa") || text.includes("idli") || text.includes("south")) return dosa;
+  if (text.includes("momo")) return momos;
+  if (text.includes("chinese") || text.includes("noodle") || text.includes("manchurian")) return chinese;
+  if (text.includes("thali")) return indianthali;
+  if (text.includes("roll")) return rolls;
+  if (text.includes("paratha")) return parathe;
+  if (text.includes("chaat")) return Chaat;
+  if (text.includes("ice")) return icecream;
+  if (text.includes("snack") || text.includes("fries")) return Snacks;
+  if (text.includes("salad")) return salad;
+  if (text.includes("cake") || text.includes("dessert") || text.includes("sweet")) return cake;
+  if (text.includes("north")) return northindian;
+
+  return restaurant?.imageUrl || FALLBACK_IMG;
+};
+
 const MobileSectionHeader = ({ title, subtitle }) => (
   <div className="flex items-end justify-between px-4">
     <div>
@@ -161,8 +182,8 @@ const MobileRestaurantCard = ({ restaurant, index }) => {
 };
 
 const MobileNearbyMiniCard = ({ restaurant, index }) => {
-  const dish = restaurant.menuPreview?.[0];
-  const dishImage = dish?.imageUrl || restaurant.imageUrl;
+  const dish = restaurant.dish || restaurant.menuPreview?.[0];
+  const dishImage = dish?.imageUrl || getDishFallbackImage(dish, restaurant);
   const deliveryTime = restaurant.deliveryTime || `${20 + (index % 4) * 5}-${30 + (index % 4) * 5} min`;
   const price = dish?.price ? Math.floor(Number(dish.price)) : null;
 
@@ -185,7 +206,7 @@ const MobileNearbyMiniCard = ({ restaurant, index }) => {
         )}
       </div>
       <div className="px-2 py-1.5">
-        <p className="line-clamp-1 text-[11px] font-extrabold text-slate-800">{restaurant.name}</p>
+        <p className="line-clamp-1 text-[11px] font-extrabold text-slate-800">{dish?.name || restaurant.name}</p>
         <p className="mt-0.5 text-[10px] font-semibold text-indigo-600">{deliveryTime}</p>
       </div>
     </Link>
@@ -399,35 +420,29 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Featured Restaurant - Swipeable cards with lightning icon */}
-        {(featuredRestaurants.length > 0) && (
+        {/* Popular Dishes Nearby */}
+        {restaurants.length > 0 && (
           <section className="relative py-3 border-b border-indigo-100">
             <div className="px-4 mb-2">
-              <h2 className="text-base font-bold text-indigo-700">Featured Restaurants</h2>
-              <p className="text-xs font-semibold text-indigo-400">Swipe to see more</p>
+              <h2 className="text-base font-bold text-indigo-700">Popular Dishes Nearby</h2>
+              <p className="text-xs font-semibold text-indigo-400">Quick bites</p>
             </div>
             <div className="flex gap-3 overflow-x-auto px-4 [scrollbar-width:none] pb-2 snap-x">
-              {featuredRestaurants.slice(0, 7).map((restaurant) => (
-                <Link
-                  key={restaurant.id}
-                  to={`/restaurant/${restaurant.id}`}
-                  className="min-w-[110px] h-[135px] rounded-xl overflow-hidden shrink-0 active:scale-98 transition-transform flex flex-col border-2 border-indigo-200 snap-start"
-                >
-                  <div className="h-[85px] w-full overflow-hidden rounded-t-lg">
-                    <LazyImage
-                      src={restaurant.imageUrl}
-                      alt={restaurant.name}
-                      className="h-full w-full object-cover"
-                      width={110}
-                      loading="lazy"
-                    />
-                  </div>
-                  <div className="flex-1 bg-indigo-50 px-2 py-1.5 flex items-center justify-center gap-1">
-                    <p className="text-xs font-bold text-indigo-700 text-center line-clamp-1">{restaurant.name}</p>
-                    <Zap className="h-3 w-3 text-amber-500 fill-amber-500 shrink-0" />
-                  </div>
-                </Link>
-              ))}
+              {restaurants
+                .flatMap((restaurant) =>
+                  (restaurant.menuPreview?.length ? restaurant.menuPreview : [null]).map((dish) => ({
+                    ...restaurant,
+                    dish,
+                  }))
+                )
+                .slice(0, 10)
+                .map((restaurant, index) => (
+                  <MobileNearbyMiniCard
+                    key={`${restaurant.id}-${restaurant.dish?.id || "restaurant"}`}
+                    restaurant={restaurant}
+                    index={index}
+                  />
+                ))}
             </div>
           </section>
         )}
@@ -451,20 +466,6 @@ const Home = () => {
           </div>
         </section>
 
-        {/* Nearby Mini Cards - Dish Preview */}
-        {restaurants.length > 0 && (
-          <section className="relative py-2 border-t border-indigo-100">
-            <div className="px-4 mb-2">
-              <h2 className="text-base font-bold text-indigo-700">Popular Dishes Nearby</h2>
-              <p className="text-xs font-semibold text-indigo-400">Quick bites</p>
-            </div>
-            <div className="flex gap-3 overflow-x-auto px-4 [scrollbar-width:none] pb-2 snap-x">
-              {restaurants.slice(0, 10).map((restaurant, index) => (
-                <MobileNearbyMiniCard key={restaurant.id} restaurant={restaurant} index={index} />
-              ))}
-            </div>
-          </section>
-        )}
       </div>
 
       {/* DESKTOP VIEW */}
