@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   approveRider,
   approveVendor,
+  createRestaurantForVendor,
   getAdminOverview,
   getPendingRiders,
   getPendingVendors,
@@ -28,6 +29,7 @@ adminRouter.get("/users", asyncHandler(listUsers));
 adminRouter.get("/users/:userId", asyncHandler(getUserDetails));
 adminRouter.get("/users/:userId/orders", asyncHandler(getUserOrders));
 adminRouter.get("/restaurants", asyncHandler(listRestaurants));
+adminRouter.post("/restaurants", asyncHandler(createRestaurantForVendor));
 adminRouter.patch("/users/:userId/status", asyncHandler(updateUserStatus));
 adminRouter.patch("/restaurants/:restaurantId/status", asyncHandler(updateRestaurantStatus));
 adminRouter.get("/vendors/pending", asyncHandler(getPendingVendors));

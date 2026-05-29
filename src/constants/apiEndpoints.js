@@ -69,6 +69,7 @@ export const API_ENDPOINTS = {
     user: (id) => `${BASE}/admin/users/${id}`,
     userOrders: (id) => `${BASE}/admin/users/${id}/orders`,
     restaurants: (params) => withQuery(`${BASE}/admin/restaurants`, params),
+    createRestaurant: `${BASE}/admin/restaurants`,
     userStatus: (id) => `${BASE}/admin/users/${id}/status`,
     restaurantStatus: (id) => `${BASE}/admin/restaurants/${id}/status`,
     pendingVendors: `${BASE}/admin/vendors/pending`,

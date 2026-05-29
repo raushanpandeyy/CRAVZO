@@ -1,12 +1,54 @@
+import bcrypt from "bcryptjs";
+import { z } from "zod";
+
 import { prisma } from "../config/database.js";
 import { ROLES } from "../constants/roles.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import { invalidatePublicRestaurantCache } from "../utils/publicCache.js";
 import { sanitizeUser } from "../utils/userResponse.js";
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 8;
 const MAX_LIMIT = 25;
+
+const adminMenuItemSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().max(1000).optional().nullable(),
+  category: z.string().trim().min(2).max(80),
+  imageUrl: z.string().trim().url().optional().nullable(),
+  price: z.coerce.number().positive().max(100000),
+  isVeg: z.boolean().optional(),
+  status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+});
+
+const adminCreateRestaurantSchema = z.object({
+  owner: z.object({
+    name: z.string().trim().min(2).max(120),
+    email: z.string().trim().email(),
+    phone: z.string().trim().min(10).max(15),
+    password: z.string().min(6).max(100),
+  }),
+  restaurant: z.object({
+    name: z.string().trim().min(2).max(120),
+    description: z.string().trim().max(1000).optional().nullable(),
+    cuisine: z.string().trim().max(80).optional().nullable(),
+    phone: z.string().trim().min(10).max(15).optional().nullable(),
+    addressLine1: z.string().trim().min(3).max(200),
+    addressLine2: z.string().trim().max(200).optional().nullable(),
+    city: z.string().trim().min(2).max(80),
+    state: z.string().trim().min(2).max(80),
+    postalCode: z.string().trim().min(4).max(12).optional().nullable(),
+    imageUrl: z.string().trim().url().optional().nullable(),
+    status: z.enum(["DRAFT", "PENDING_APPROVAL", "ACTIVE", "INACTIVE", "REJECTED"]).optional(),
+    isOpen: z.boolean().optional(),
+    openingTime: z.string().trim().max(20).optional().nullable(),
+    closingTime: z.string().trim().max(20).optional().nullable(),
+    openDays: z.array(z.string().trim().min(1).max(20)).optional(),
+    bankDetails: z.record(z.string(), z.unknown()).optional().nullable(),
+  }),
+  menuItems: z.array(adminMenuItemSchema).max(100).optional(),
+});
 
 const parsePagination = (query) => {
   const page = Math.max(Number.parseInt(query.page, 10) || DEFAULT_PAGE, 1);
@@ -38,6 +80,26 @@ const parseDateRange = (query) => {
   }
 
   return Object.keys(createdAt).length ? createdAt : undefined;
+};
+
+const slugify = (value) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+const buildUniqueRestaurantSlug = async (name) => {
+  const baseSlug = slugify(name) || "restaurant";
+  let slug = baseSlug;
+  let suffix = 1;
+
+  while (await prisma.restaurant.findUnique({ where: { slug } })) {
+    suffix += 1;
+    slug = `${baseSlug}-${suffix}`;
+  }
+
+  return slug;
 };
 
 const buildOrderFilters = (query) => {
@@ -233,6 +295,109 @@ const listRestaurants = async (req, res) => {
         limit,
         total,
         totalPages: Math.ceil(total / limit) || 1,
+      },
+    }),
+  );
+};
+
+const createRestaurantForVendor = async (req, res) => {
+  const payload = adminCreateRestaurantSchema.parse(req.body);
+  const email = payload.owner.email.toLowerCase();
+  const ownerPhone = payload.owner.phone?.trim() || null;
+
+  const existingUser = await prisma.user.findFirst({
+    where: {
+      OR: [{ email }, ...(ownerPhone ? [{ phone: ownerPhone }] : [])],
+    },
+  });
+
+  if (existingUser) {
+    throw new ApiError(409, "A user already exists with this email or phone");
+  }
+
+  const passwordHash = await bcrypt.hash(payload.owner.password, 12);
+  const slug = await buildUniqueRestaurantSlug(payload.restaurant.name);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const vendor = await tx.user.create({
+      data: {
+        name: payload.owner.name.trim(),
+        email,
+        phone: ownerPhone,
+        passwordHash,
+        role: ROLES.VENDOR,
+        status: "ACTIVE",
+        onboardingSubmittedAt: new Date(),
+        vendorOnboarding: {
+          createdByAdminId: req.user.sub,
+          createdByAdmin: true,
+        },
+      },
+    });
+
+    const restaurant = await tx.restaurant.create({
+      data: {
+        vendorId: vendor.id,
+        name: payload.restaurant.name,
+        slug,
+        description: payload.restaurant.description || null,
+        cuisine: payload.restaurant.cuisine || null,
+        phone: payload.restaurant.phone || ownerPhone,
+        addressLine1: payload.restaurant.addressLine1,
+        addressLine2: payload.restaurant.addressLine2 || null,
+        city: payload.restaurant.city,
+        state: payload.restaurant.state,
+        postalCode: payload.restaurant.postalCode || null,
+        imageUrl: payload.restaurant.imageUrl || null,
+        status: payload.restaurant.status || "ACTIVE",
+        isOpen: payload.restaurant.isOpen ?? true,
+        openingTime: payload.restaurant.openingTime || null,
+        closingTime: payload.restaurant.closingTime || null,
+        openDays: payload.restaurant.openDays || [],
+        bankDetails: payload.restaurant.bankDetails || null,
+      },
+    });
+
+    const createdMenuItems = payload.menuItems?.length
+      ? await Promise.all(
+          payload.menuItems.map((item) =>
+            tx.menuItem.create({
+              data: {
+                restaurantId: restaurant.id,
+                name: item.name,
+                description: item.description || null,
+                category: item.category,
+                imageUrl: item.imageUrl || null,
+                price: item.price,
+                isVeg: Boolean(item.isVeg),
+                status: item.status || "ACTIVE",
+              },
+            }),
+          ),
+        )
+      : [];
+
+    return {
+      vendor,
+      restaurant,
+      menuItems: createdMenuItems,
+    };
+  });
+
+  await invalidatePublicRestaurantCache(result.restaurant.id);
+
+  res.status(201).json(
+    apiResponse({
+      message: "Restaurant account created successfully",
+      data: {
+        vendor: sanitizeUser(result.vendor),
+        restaurant: {
+          ...result.restaurant,
+          menuItems: result.menuItems.map((item) => ({
+            ...item,
+            price: Number(item.price),
+          })),
+        },
       },
     }),
   );
@@ -816,6 +981,7 @@ export const getUserOrders = async (req, res) => {
 export {
   approveRider,
   approveVendor,
+  createRestaurantForVendor,
   getAdminOverview,
   getPendingRiders,
   getPendingVendors,
