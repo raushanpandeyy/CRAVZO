@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiMapPin, FiChevronDown } from "react-icons/fi";
-import { LogOut, MessageCircle, ShoppingCart, User as UserIcon } from "lucide-react";
+import { ChevronDown, LogOut, MapPin, MessageCircle, ShoppingCart, User as UserIcon } from "lucide-react";
 
 import {cravzologo} from "../../assets/images/logos.js";
 import { useAuth } from "../../hooks/useAuth.js";
@@ -233,7 +232,7 @@ const Navbar = () => {
     <nav className="fixed top-0 left-0 w-full z-50 bg-transparent md:bg-indigo-900 text-slate-950 md:text-white font-sans">
       <div className="mx-auto flex w-full max-w-[1200px] items-center gap-3 px-4 py-2 md:hidden">
         <button type="button" onClick={navigateToUserHome} className="shrink-0">
-          <img src={cravzologo} alt="Cravzo Logo" className="h-9 w-9 rounded-xl object-cover" />
+          <img src={cravzologo} alt="Cravzo Logo" className="h-9 w-9 rounded-xl object-cover" width={36} height={36} />
         </button>
 
         <button
@@ -242,7 +241,7 @@ const Navbar = () => {
           className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2 text-left"
         >
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-indigo-800">
-            <FiMapPin />
+            <MapPin className="h-4 w-4" />
           </span>
           <span className="min-w-0">
             <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
@@ -283,7 +282,7 @@ const Navbar = () => {
 
       <div className="max-w-[1200px] mx-auto px-4 py-3 hidden md:flex md:flex-row md:justify-between items-center gap-3">
         <div onClick={navigateToUserHome} className="flex items-center gap-2 cursor-pointer">
-          <img src={cravzologo} alt="Cravzo Logo" className="h-10 md:h-12 rounded-2xl" />
+          <img src={cravzologo} alt="Cravzo Logo" className="h-10 md:h-12 rounded-2xl" width={48} height={48} />
           <span className="hidden md:block text-2xl font-bold uppercase">CRAVZO</span>
         </div>
 
@@ -293,7 +292,7 @@ const Navbar = () => {
           className="relative w-full rounded-full bg-white text-left md:w-auto"
         >
           <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-indigo-900">
-            <FiMapPin />
+            <MapPin className="h-4 w-4" />
           </span>
           <div className="w-full truncate pl-10 pr-4 py-2 text-sm text-indigo-900 md:w-[300px]">
             {displayAddress}
@@ -311,7 +310,7 @@ const Navbar = () => {
                 onClick={() => setIsOpen(!isOpen)}
                 className="bg-white text-indigo-900 px-5 py-2 rounded-full flex items-center gap-2 font-bold"
               >
-                Partner <FiChevronDown />
+                Partner <ChevronDown className="h-4 w-4" />
               </button>
 
               {isOpen && (

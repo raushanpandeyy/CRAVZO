@@ -63,9 +63,22 @@ const RestaurantPage = () => {
   const [savingReview, setSavingReview] = useState(false);
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("cravzoCart"));
+    const stored = localStorage.getItem("cravzoCart");
     if (stored) {
-      setCart(stored);
+      try {
+        const parsedCart = JSON.parse(stored);
+        // Ensure it's an array
+        if (Array.isArray(parsedCart)) {
+          setCart(parsedCart);
+        } else {
+          setCart([]);
+          localStorage.removeItem("cravzoCart");
+        }
+      } catch (error) {
+        console.error("Failed to parse cart from localStorage:", error);
+        setCart([]);
+        localStorage.removeItem("cravzoCart");
+      }
     }
 
     const loadRestaurant = async () => {
@@ -115,12 +128,12 @@ const RestaurantPage = () => {
   };
 
   const addToCart = (dish) => {
-    const existing = cart.find((item) => item.id === dish.id);
+    const existing = safeCart.find((item) => item.id === dish.id);
     if (existing) {
       increase(dish.id);
     } else {
       updateCart([
-        ...cart,
+        ...safeCart,
         {
           ...dish,
           quantity: 1,
@@ -132,23 +145,24 @@ const RestaurantPage = () => {
   };
 
   const increase = (dishId) => {
-    updateCart(cart.map((item) => (item.id === dishId ? { ...item, quantity: item.quantity + 1 } : item)));
+    updateCart(safeCart.map((item) => (item.id === dishId ? { ...item, quantity: item.quantity + 1 } : item)));
   };
 
   const decrease = (dishId) => {
     updateCart(
-      cart
+      safeCart
         .map((item) => (item.id === dishId ? { ...item, quantity: item.quantity - 1 } : item))
         .filter((item) => item.quantity > 0),
     );
   };
 
-  const itemTotal = cart.reduce((acc, item) => acc + getPrice(item.price) * item.quantity, 0);
+  const safeCart = Array.isArray(cart) ? cart : [];
+  const itemTotal = safeCart.reduce((acc, item) => acc + getPrice(item.price) * item.quantity, 0);
   const deliveryFee = itemTotal > 500 ? 0 : 40;
   const packagingFee = Math.round(itemTotal * 0.03);
   const taxes = Math.round(itemTotal * 0.18);
   const grandTotal = itemTotal + deliveryFee + packagingFee + taxes;
-  const cartItemCount = cart.reduce((total, item) => total + Number(item.quantity || 0), 0);
+  const cartItemCount = safeCart.reduce((total, item) => total + Number(item.quantity || 0), 0);
 
   const goToCheckout = () => {
     window.scrollTo(0, 0);
@@ -297,7 +311,7 @@ const RestaurantPage = () => {
             </div>
 
             {menuItems.map((dish) => {
-            const cartItem = cart.find((item) => item.id === dish.id);
+            const cartItem = safeCart.find((item) => item.id === dish.id);
 
             return (
               <article
@@ -415,7 +429,7 @@ const RestaurantPage = () => {
               Cart ({cartItemCount})
             </h2>
 
-            {cart.map((item) => (
+            {safeCart.map((item) => (
               <div key={item.id} className="mb-3 flex justify-between gap-3 text-sm">
                 <span className="font-semibold text-slate-600">{item.name} x {item.quantity}</span>
                 <span className="font-bold text-slate-950">{formatCurrency(getPrice(item.price) * item.quantity)}</span>

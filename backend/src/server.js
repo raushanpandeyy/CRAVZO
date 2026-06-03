@@ -13,7 +13,8 @@ await connectRedis();
 const { app } = await import("./app.js");
 const server = http.createServer(app);
 
-attachChatSocket(server);
+// Fix #5: attachChatSocket is now async (sets up Redis pub/sub adapter)
+await attachChatSocket(server);
 
 server.listen(PORT, () => {
   console.log(`CRAVZO backend running on port ${PORT}`);

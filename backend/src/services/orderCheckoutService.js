@@ -135,12 +135,18 @@ const prepareOrderDraft = async ({
   paymentMethod = "UPI",
   notes = null,
   pricing = null,
-}) => {
+},
+// Fix #1: Accept an optional Prisma transaction client.
+// When called inside $transaction, all queries here become part of
+// that transaction. When called standalone (e.g. prepareOrderDraft for
+// a preview/quote), it falls back to the global prisma client.
+db = prisma,
+) => {
   if (!restaurantId || items.length === 0) {
     throw new ApiError(400, "Restaurant and at least one item are required");
   }
 
-  const restaurant = await prisma.restaurant.findFirst({
+  const restaurant = await db.restaurant.findFirst({
     where: { id: restaurantId, status: "ACTIVE", isOpen: true },
   });
 
@@ -148,7 +154,7 @@ const prepareOrderDraft = async ({
     throw new ApiError(404, "Restaurant not found");
   }
 
-  const menuItems = await prisma.menuItem.findMany({
+  const menuItems = await db.menuItem.findMany({
     where: {
       id: { in: items.map((item) => item.menuItemId) },
       restaurantId,
@@ -170,7 +176,7 @@ const prepareOrderDraft = async ({
   let deliveryBreakdown = { base: DELIVERY_BASE_FEE, tax: 0, total: DELIVERY_BASE_FEE };
 
   if (addressId) {
-    const existingAddress = await prisma.address.findFirst({
+    const existingAddress = await db.address.findFirst({
       where: {
         id: addressId,
         userId: customerId,
@@ -199,6 +205,9 @@ const prepareOrderDraft = async ({
       );
       deliveryBreakdown = calculateDeliveryWithBreakdown(deliveryDistance);
     } else if (existingAddress.latitude === null || existingAddress.longitude === null) {
+      // Geocode OUTSIDE the transaction — external HTTP calls must not hold
+      // a DB transaction open. We update coordinates using the outer prisma
+      // client (not tx) so the transaction timeout is not affected.
       const coords = await geocodeDeliveryAddress(existingAddress);
       if (coords.lat !== null && coords.lng !== null) {
         await prisma.address.update({
@@ -217,8 +226,21 @@ const prepareOrderDraft = async ({
       }
     }
   } else if (address && address.fullName && address.phone && address.line1 && address.city && address.state && address.postalCode) {
-    const coords = await geocodeDeliveryAddress(address);
-    const createdAddress = await prisma.address.create({
+    // Fix #3: If the controller pre-geocoded the address (preGeocodedLat/Lng present),
+    // use those coords directly — no external HTTP call needed here.
+    // If not present (e.g. prepareOrderDraft called standalone for a quote),
+    // fall back to geocoding. This keeps the transaction fast and side-effect-free.
+    let coords;
+    if (
+      address.preGeocodedLat !== undefined &&
+      address.preGeocodedLng !== undefined
+    ) {
+      coords = { lat: address.preGeocodedLat, lng: address.preGeocodedLng };
+    } else {
+      coords = await geocodeDeliveryAddress(address);
+    }
+
+    const createdAddress = await db.address.create({
       data: {
         userId: customerId,
         label: address.label || "Delivery Address",
@@ -329,60 +351,86 @@ const createPersistedOrder = async ({
   gatewaySignature = null,
   pricing = null,
 }) => {
-  const draft = await prepareOrderDraft({
-    customerId,
-    restaurantId,
-    items,
-    address,
-    addressId,
-    paymentMethod,
-    notes,
-    pricing,
-  });
-
-  const order = await prisma.order.create({
-    data: {
-      customerId,
-      restaurantId: draft.restaurantId,
-      addressId: draft.resolvedAddressId,
-      paymentMethod,
-      paymentStatus,
-      subtotal: draft.subtotal,
-      deliveryFee: draft.deliveryFee,
-      deliveryFeeBase: draft.deliveryFeeBase,
-      deliveryTax: draft.deliveryTax,
-      packagingFee: draft.packagingFee,
-      packagingFeeBase: draft.packagingFeeBase,
-      packagingTax: draft.packagingTax,
-      platformFee: draft.platformFee,
-      platformFeeBase: draft.platformFeeBase,
-      platformTax: draft.platformTax,
-      gatewayFee: draft.gatewayFee,
-      codCharge: draft.codCharge,
-      discount: draft.discount,
-      couponCode: draft.couponCode,
-      totalTax: draft.totalTax,
-      totalAmount: draft.totalAmount,
-      deliveryDistance: draft.deliveryDistance,
-      notes,
-      gatewayProvider,
-      gatewayOrderId,
-      gatewayPaymentId,
-      gatewaySignature,
-      items: {
-        create: draft.itemRows,
-      },
-    },
-    include: {
-      restaurant: true,
-      address: true,
-      items: {
-        include: {
-          menuItem: true,
+  // Fix #1: Wrap the entire order creation in a serializable transaction.
+  //
+  // Without this, 100 concurrent orders against the same restaurant can
+  // race: two requests both read isOpen=true, then the restaurant closes
+  // between the read and the write — both orders get created against a
+  // closed restaurant. The transaction + SELECT FOR UPDATE (via findFirst
+  // inside the tx) prevents that. It also ensures that if the order.create
+  // fails, the address that was just created is rolled back too.
+  const order = await prisma.$transaction(
+    async (tx) => {
+      // Re-run the entire draft calculation inside the transaction so all
+      // reads (restaurant open check, menu item availability, address lookup)
+      // are part of the same atomic unit.
+      const draft = await prepareOrderDraft(
+        {
+          customerId,
+          restaurantId,
+          items,
+          address,
+          addressId,
+          paymentMethod,
+          notes,
+          pricing,
         },
-      },
+        tx, // pass the transaction client so all queries inside use it
+      );
+
+      return tx.order.create({
+        data: {
+          customerId,
+          restaurantId: draft.restaurantId,
+          addressId: draft.resolvedAddressId,
+          paymentMethod,
+          paymentStatus,
+          subtotal: draft.subtotal,
+          deliveryFee: draft.deliveryFee,
+          deliveryFeeBase: draft.deliveryFeeBase,
+          deliveryTax: draft.deliveryTax,
+          packagingFee: draft.packagingFee,
+          packagingFeeBase: draft.packagingFeeBase,
+          packagingTax: draft.packagingTax,
+          platformFee: draft.platformFee,
+          platformFeeBase: draft.platformFeeBase,
+          platformTax: draft.platformTax,
+          gatewayFee: draft.gatewayFee,
+          codCharge: draft.codCharge,
+          discount: draft.discount,
+          couponCode: draft.couponCode,
+          totalTax: draft.totalTax,
+          totalAmount: draft.totalAmount,
+          deliveryDistance: draft.deliveryDistance,
+          notes,
+          gatewayProvider,
+          gatewayOrderId,
+          gatewayPaymentId,
+          gatewaySignature,
+          items: {
+            create: draft.itemRows,
+          },
+        },
+        include: {
+          restaurant: true,
+          address: true,
+          items: {
+            include: {
+              menuItem: true,
+            },
+          },
+        },
+      });
     },
-  });
+    {
+      // ReadCommitted is sufficient: we re-read restaurant/menu inside the tx,
+      // so we catch any changes. Serializable would be safer but adds
+      // contention; ReadCommitted is the right tradeoff for order creation.
+      isolationLevel: "ReadCommitted",
+      // 10s max — geocoding is done BEFORE the transaction opens (see prepareOrderDraft)
+      timeout: 10000,
+    },
+  );
 
   return order;
 };

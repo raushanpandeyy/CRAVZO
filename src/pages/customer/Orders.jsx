@@ -1,14 +1,41 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Clock3, MessageCircle, X } from "lucide-react";
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Clock3, MessageCircle, Star, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import {cart} from "../../assets/images/logos.js";
+import { cart } from "../../assets/images/logos.js";
 import SearchBar from "../../components/common/Searchbar.jsx";
+import OrderProgressBar from "../../components/OrderProgressBar.jsx";
 import { cancelOrder, getMyOrders } from "../../services/orderService.js";
 
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(0)}`;
 const OrderChatModal = lazy(() => import("../../components/OrderChatModal.jsx"));
+const OrderFeedbackModal = lazy(() => import("../../components/OrderFeedbackModal.jsx"));
+
 const riderChatClosedStatuses = ["DELIVERED", "CANCELLED", "REJECTED"];
+const SUBMITTED_KEY = "cravzo_feedback_submitted";
+const DISMISSED_KEY = "cravzo_feedback_dismissed";
+
+// Returns Set of order IDs the user has already submitted feedback for
+const getSubmittedIds = () => {
+  try { return new Set(JSON.parse(localStorage.getItem(SUBMITTED_KEY) || "[]")); }
+  catch { return new Set(); }
+};
+
+// Returns Set of order IDs the user has dismissed the feedback prompt for
+const getDismissedIds = () => {
+  try { return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) || "[]")); }
+  catch { return new Set(); }
+};
+
+// Mark an order as dismissed so the popup never auto-shows again
+const markDismissed = (orderId) => {
+  const ids = getDismissedIds();
+  ids.add(orderId);
+  localStorage.setItem(DISMISSED_KEY, JSON.stringify([...ids]));
+};
+
+// Auto-polling interval for active orders (ms)
+const POLL_INTERVAL_MS = 15000;
 
 export default function Orders() {
   const navigate = useNavigate();
@@ -19,22 +46,74 @@ export default function Orders() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [chatOrder, setChatOrder] = useState(null);
+  const [feedbackOrder, setFeedbackOrder] = useState(null);
+  const [submittedIds, setSubmittedIds] = useState(getSubmittedIds);
+  const [dismissedIds, setDismissedIds] = useState(getDismissedIds);
 
-  const loadOrders = async () => {
+  // Track whether we've already auto-shown the popup this session
+  const autoPopupShownRef = useRef(false);
+  const pollingRef = useRef(null);
+
+  const loadOrders = async (silent = false) => {
     try {
       const data = await getMyOrders();
-      setOrders(data);
+      // Handle both paginated response { data, meta } and plain array (backwards compat)
+      const orders = Array.isArray(data) ? data : (data?.data ?? data ?? []);
+      setOrders(Array.isArray(orders) ? orders : []);
+      return Array.isArray(orders) ? orders : [];
     } catch (requestError) {
-      console.error("Failed to load orders", requestError);
-      setError(requestError.message || "Failed to load orders");
+      if (!silent) {
+        console.error("Failed to load orders", requestError);
+        setError(requestError.message || "Failed to load orders");
+      }
+      return null;
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
+  // Initial load — auto-show popup only once per session for the most recent unrated delivery
   useEffect(() => {
-    loadOrders();
+    const init = async () => {
+      const data = await loadOrders(false);
+      if (!data || autoPopupShownRef.current) return;
+
+      const submitted = getSubmittedIds();
+      const dismissed = getDismissedIds();
+
+      // Find the most recent DELIVERED order that has neither been submitted nor dismissed
+      const pending = data.find(
+        (o) => o.status === "DELIVERED" && !submitted.has(o.id) && !dismissed.has(o.id),
+      );
+
+      if (pending) {
+        autoPopupShownRef.current = true;
+        setTimeout(() => setFeedbackOrder(pending), 800);
+      }
+    };
+
+    init();
   }, []);
+
+  // Auto-poll while active orders exist — update cards silently
+  useEffect(() => {
+    const activeStatuses = ["PENDING", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
+    const hasActive = orders.some((o) => activeStatuses.includes(o.status));
+
+    if (hasActive) {
+      pollingRef.current = setInterval(async () => {
+        const fresh = await loadOrders(true);
+        if (!fresh) return;
+        // Keep selectedOrder in sync if open
+        setSelectedOrder((prev) => {
+          if (!prev) return prev;
+          return fresh.find((o) => o.id === prev.id) || prev;
+        });
+      }, POLL_INTERVAL_MS);
+    }
+
+    return () => clearInterval(pollingRef.current);
+  }, [orders]);
 
   const cancellableStatuses = ["PENDING", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP"];
 
@@ -43,11 +122,10 @@ export default function Orders() {
     event.stopPropagation();
     setMessage("");
     setError("");
-
     try {
       await cancelOrder(orderId);
       setMessage("Order cancelled successfully.");
-      await loadOrders();
+      await loadOrders(false);
     } catch (requestError) {
       setError(requestError.message || "Failed to cancel order");
     }
@@ -66,14 +144,54 @@ export default function Orders() {
   );
 
   const getOrderItemsTotal = (order) =>
-    order.items?.reduce((total, item) => total + Number(item.unitPrice || item.price || 0) * Number(item.quantity || 1), 0) || 0;
+    order.items?.reduce(
+      (total, item) => total + Number(item.unitPrice || item.price || 0) * Number(item.quantity || 1),
+      0,
+    ) || 0;
 
-  const canChatWithRider = (order) => Boolean(order.rider?.id) && !riderChatClosedStatuses.includes(order.status);
+  const canChatWithRider = (order) =>
+    Boolean(order.rider?.id) && !riderChatClosedStatuses.includes(order.status);
 
   const openRiderChat = (event, order) => {
     event.preventDefault();
     event.stopPropagation();
     setChatOrder(order);
+  };
+
+  const openFeedback = (event, order) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setFeedbackOrder(order);
+  };
+
+  // Called when user submits feedback — mark submitted, update state
+  const handleFeedbackSubmitted = () => {
+    const updated = getSubmittedIds();
+    setSubmittedIds(new Set(updated));
+    setFeedbackOrder(null);
+  };
+
+  // Called when user taps "Skip for now" — mark dismissed so popup never auto-shows again
+  const handleFeedbackDismissed = (orderId) => {
+    markDismissed(orderId);
+    setDismissedIds(getDismissedIds());
+    setFeedbackOrder(null);
+  };
+
+  // An order "needs feedback" only if delivered AND not yet submitted
+  // (dismissed ones still show the Rate button so user can come back later)
+  const needsFeedback = (order) =>
+    order.status === "DELIVERED" && !submittedIds.has(order.id);
+
+  const statusBadgeClass = (status) => {
+    switch (status) {
+      case "DELIVERED": return "bg-emerald-600";
+      case "CANCELLED":
+      case "REJECTED": return "bg-red-600";
+      case "OUT_FOR_DELIVERY": return "bg-blue-600";
+      case "PENDING": return "bg-amber-500";
+      default: return "bg-indigo-950";
+    }
   };
 
   return (
@@ -88,13 +206,22 @@ export default function Orders() {
       </div>
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
-        {message ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
-        {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+        {message ? (
+          <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div>
+        ) : null}
+        {error ? (
+          <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+        ) : null}
+
         <div className="flex flex-col gap-3 rounded-[28px] border border-indigo-900 bg-indigo-950 p-5 text-white shadow-xl shadow-indigo-950/15 sm:rounded-3xl sm:border-slate-100 sm:bg-white sm:text-slate-950 sm:shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-indigo-200 sm:hidden">Order history</p>
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-indigo-200 sm:hidden">
+              Order history
+            </p>
             <h1 className="text-2xl font-black sm:text-3xl sm:text-slate-950">My Orders</h1>
-            <p className="mt-1 text-sm text-indigo-100 sm:text-slate-500">Tap any order card to see the full bill.</p>
+            <p className="mt-1 text-sm text-indigo-100 sm:text-slate-500">
+              Tap any order card to see the full bill and live status.
+            </p>
           </div>
           <div className="inline-flex items-center gap-2 text-sm font-bold text-indigo-100 sm:text-indigo-700">
             <Clock3 className="w-5 h-5" />
@@ -116,20 +243,29 @@ export default function Orders() {
                   key={order.id}
                   className="group overflow-hidden rounded-[28px] border border-slate-100 bg-white text-left shadow-sm transition-all duration-200 active:scale-[0.99] hover:shadow-md sm:rounded-3xl"
                 >
+                  {/* Restaurant image */}
                   <div className="relative h-32 overflow-hidden sm:h-40">
                     <img
                       src={order.restaurant?.imageUrl || cart}
                       alt={order.restaurant?.name || "Order"}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <span className="absolute left-3 top-3 rounded-full bg-indigo-950 px-3 py-1 text-xs font-black text-white">
-                      {order.status}
+                    <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-black text-white ${statusBadgeClass(order.status)}`}>
+                      {order.status.replace(/_/g, " ")}
                     </span>
+                    {/* Feedback badge on delivered orders */}
+                    {needsFeedback(order) && (
+                      <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-3 py-1 text-xs font-black text-amber-950">
+                        Rate
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-3 p-4">
                     <div>
-                      <h2 className="line-clamp-1 text-lg font-black text-slate-950">{order.restaurant?.name || "Restaurant"}</h2>
+                      <h2 className="line-clamp-1 text-lg font-black text-slate-950">
+                        {order.restaurant?.name || "Restaurant"}
+                      </h2>
                       <p className="mt-1 line-clamp-1 text-sm text-slate-500">
                         {order.items?.map((item) => item.menuItem?.name).filter(Boolean).join(", ")}
                       </p>
@@ -161,8 +297,19 @@ export default function Orders() {
                             Rider
                           </button>
                         ) : null}
+                        {/* Feedback button on delivered orders */}
+                        {needsFeedback(order) ? (
+                          <button
+                            type="button"
+                            onClick={(event) => openFeedback(event, order)}
+                            className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-3 py-2 text-xs font-black text-amber-950"
+                          >
+                            <Star className="h-3.5 w-3.5" />
+                            Rate
+                          </button>
+                        ) : null}
                         <span className="inline-flex items-center gap-1 text-xs font-black text-indigo-700">
-                          View Bill <ArrowRight className="w-4 h-4" />
+                          View <ArrowRight className="w-4 h-4" />
                         </span>
                       </div>
                     </div>
@@ -186,14 +333,19 @@ export default function Orders() {
         )}
       </div>
 
+      {/* ── Order Detail Modal ── */}
       {selectedOrder ? (
         <div className="fixed inset-0 z-[80] flex items-end bg-slate-950/45 px-3 pb-3 sm:items-center sm:justify-center sm:p-6">
-          <div className="max-h-[86vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-700">Order Bill</p>
-                <h2 className="mt-1 text-2xl font-black text-slate-950">{selectedOrder.restaurant?.name || "Restaurant"}</h2>
-                <p className="mt-1 text-sm text-slate-500">{new Date(selectedOrder.createdAt).toLocaleString()}</p>
+                <h2 className="mt-1 text-2xl font-black text-slate-950">
+                  {selectedOrder.restaurant?.name || "Restaurant"}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {new Date(selectedOrder.createdAt).toLocaleString()}
+                </p>
               </div>
               <button
                 type="button"
@@ -205,6 +357,12 @@ export default function Orders() {
               </button>
             </div>
 
+            {/* ── Order Progress Bar ── */}
+            <div className="mb-4">
+              <OrderProgressBar status={selectedOrder.status} />
+            </div>
+
+            {/* ── Order Items ── */}
             <div className="space-y-3">
               {selectedOrder.items?.map((item) => (
                 <div key={item.id} className="flex justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-sm">
@@ -213,16 +371,23 @@ export default function Orders() {
                     <p className="mt-1 text-xs text-slate-500">Qty {item.quantity || 1}</p>
                   </div>
                   <p className="font-black text-slate-950">
-                    {formatCurrency(Number(item.unitPrice || item.price || 0) * Number(item.quantity || 1))}
+                    {formatCurrency(
+                      Number(item.unitPrice || item.price || 0) * Number(item.quantity || 1),
+                    )}
                   </p>
                 </div>
               ))}
             </div>
 
+            {/* ── Bill Summary ── */}
             <div className="mt-4 space-y-2 rounded-3xl bg-indigo-950 p-4 text-white">
               <div className="flex justify-between text-sm text-indigo-100">
                 <span>Items total</span>
-                <span>{formatCurrency(getOrderItemsTotal(selectedOrder) || selectedOrder.totalAmount)}</span>
+                <span>
+                  {formatCurrency(
+                    getOrderItemsTotal(selectedOrder) || selectedOrder.totalAmount,
+                  )}
+                </span>
               </div>
               <div className="flex justify-between text-sm text-indigo-100">
                 <span>Payment</span>
@@ -236,13 +401,19 @@ export default function Orders() {
               </div>
             </div>
 
+            {/* ── Action Buttons ── */}
             <button
               type="button"
-              onClick={() => navigate(selectedOrder.restaurant?.id ? `/restaurant/${selectedOrder.restaurant.id}` : "/")}
+              onClick={() =>
+                navigate(
+                  selectedOrder.restaurant?.id ? `/restaurant/${selectedOrder.restaurant.id}` : "/",
+                )
+              }
               className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-700 px-4 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95"
             >
               Open Restaurant <ArrowRight className="h-4 w-4" />
             </button>
+
             {canChatWithRider(selectedOrder) ? (
               <button
                 type="button"
@@ -253,10 +424,31 @@ export default function Orders() {
                 Chat with Rider
               </button>
             ) : null}
+
+            {/* Feedback button inside modal for delivered orders */}
+            {needsFeedback(selectedOrder) ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  setSelectedOrder(null);
+                  openFeedback(event, selectedOrder);
+                }}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-400 px-4 py-3 text-sm font-black text-amber-950 transition-all duration-200 active:scale-95"
+              >
+                <Star className="h-4 w-4" />
+                Rate your experience
+              </button>
+            ) : submittedIds.has(selectedOrder.id) ? (
+              <div className="mt-3 flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
+                <Star className="h-4 w-4 fill-emerald-500 text-emerald-500" />
+                You've rated this order
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
 
+      {/* ── Rider Chat Modal ── */}
       {chatOrder ? (
         <Suspense fallback={<div className="fixed inset-0 z-[90] bg-slate-950/40" />}>
           <OrderChatModal
@@ -267,6 +459,17 @@ export default function Orders() {
             participantName={chatOrder.rider?.name || "Assigned rider"}
             disabled={!canChatWithRider(chatOrder)}
             disabledReason="Rider chat is available only while the order is active."
+          />
+        </Suspense>
+      ) : null}
+
+      {/* ── Feedback Modal ── */}
+      {feedbackOrder ? (
+        <Suspense fallback={<div className="fixed inset-0 z-[90] bg-slate-950/40" />}>
+          <OrderFeedbackModal
+            order={feedbackOrder}
+            onClose={() => handleFeedbackDismissed(feedbackOrder.id)}
+            onSubmitted={handleFeedbackSubmitted}
           />
         </Suspense>
       ) : null}

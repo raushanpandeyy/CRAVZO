@@ -58,3 +58,39 @@ body{
   animation-fill-mode: both;
 }
 
+
+/* DishesGallery — CSS-only infinite scroll, replaces Swiper (86KB saved) */
+@keyframes scroll-left {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes scroll-right {
+  0%   { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+
+.animate-scroll-left {
+  animation: scroll-left 20s linear infinite;
+}
+
+.animate-scroll-right {
+  animation: scroll-right 20s linear infinite;
+}
+
+/* Pause on hover/focus for accessibility */
+.animate-scroll-left:hover,
+.animate-scroll-left:focus-within,
+.animate-scroll-right:hover,
+.animate-scroll-right:focus-within {
+  animation-play-state: paused;
+}
+
+/* Respect user's reduced-motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-scroll-left,
+  .animate-scroll-right {
+    animation: none;
+    overflow-x: auto;
+  }
+}

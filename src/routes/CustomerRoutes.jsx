@@ -6,6 +6,7 @@ import Navbar from '../components/common/Navbar.jsx';
 import Footer from '../components/common/Footer.jsx';
 import MobileBottomNav from '../components/common/MobileBottomNav.jsx';
 import CookiesConsent from '../components/CookiesConsent.jsx';
+import ErrorBoundary from '../components/common/ErrorBoundary.jsx';
 
 // Lazy Loaded Auth Components
 const SignIn = lazy(() => import('../components/common/SignIn.jsx'));
@@ -73,7 +74,11 @@ function CustomerRoutes() {
             <Route path="/restaurants" element={<RestaurantListingPage />} />
             <Route path="/dish/:dishName" element={<DishPage />} />
             <Route path="/city/:cityName" element={<Citywise />} />
-            <Route path="/restaurant/:id" element={<RestaurantPage />} />
+            <Route path="/restaurant/:id" element={
+              <ErrorBoundary>
+                <RestaurantPage />
+              </ErrorBoundary>
+            } />
             <Route path="/checkout" element={<CheckoutPage />} />
 
             {/* ================= ACCOUNT ROUTES ================= */}

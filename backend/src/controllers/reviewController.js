@@ -1,7 +1,14 @@
 import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import { deleteCache, getCache, setCache } from "../utils/cache.js";
 import { upsertReviewSchema } from "../validators/reviewValidators.js";
+
+// Fix #8: Cache restaurant reviews.
+// listRestaurantReviews is called on every restaurant page load with no cache.
+// Reviews don't change often — 2-minute TTL is a good tradeoff.
+const REVIEW_CACHE_TTL = 120; // 2 minutes
+const reviewCacheKey = (restaurantId) => `reviews:restaurant:${restaurantId}`;
 
 const serializeReview = (review) => ({
   id: review.id,
@@ -30,7 +37,9 @@ const listMyReviews = async (req, res) => {
       userId: req.user.sub,
     },
     include: {
-      restaurant: true,
+      restaurant: {
+        select: { id: true, name: true, imageUrl: true },
+      },
     },
     orderBy: {
       createdAt: "desc",
@@ -46,29 +55,40 @@ const listMyReviews = async (req, res) => {
 };
 
 const listRestaurantReviews = async (req, res) => {
+  const { restaurantId } = req.params;
+  const cacheKey = reviewCacheKey(restaurantId);
+
+  // Fix #8: Serve from Redis if available
+  const cached = await getCache(cacheKey);
+  if (cached) {
+    return res.status(200).json(
+      apiResponse({
+        message: "Restaurant reviews fetched successfully",
+        data: cached,
+      }),
+    );
+  }
+
   const reviews = await prisma.review.findMany({
-    where: {
-      restaurantId: req.params.restaurantId,
-    },
+    where: { restaurantId },
     include: {
       user: {
-        select: {
-          id: true,
-          name: true,
-          avatarUrl: true,
-        },
+        select: { id: true, name: true, avatarUrl: true },
       },
-      restaurant: true,
+      restaurant: {
+        select: { id: true, name: true, imageUrl: true },
+      },
     },
-    orderBy: {
-      createdAt: "desc",
-    },
+    orderBy: { createdAt: "desc" },
   });
+
+  const serialized = reviews.map(serializeReview);
+  await setCache(cacheKey, serialized, REVIEW_CACHE_TTL);
 
   res.status(200).json(
     apiResponse({
       message: "Restaurant reviews fetched successfully",
-      data: reviews.map(serializeReview),
+      data: serialized,
     }),
   );
 };
@@ -77,10 +97,7 @@ const upsertReview = async (req, res) => {
   const { restaurantId, rating, comment = null } = upsertReviewSchema.parse(req.body);
 
   const restaurant = await prisma.restaurant.findFirst({
-    where: {
-      id: restaurantId,
-      status: "ACTIVE",
-    },
+    where: { id: restaurantId, status: "ACTIVE" },
   });
 
   if (!restaurant) {
@@ -88,31 +105,20 @@ const upsertReview = async (req, res) => {
   }
 
   const existingReview = await prisma.review.findFirst({
-    where: {
-      userId: req.user.sub,
-      restaurantId,
-    },
+    where: { userId: req.user.sub, restaurantId },
     select: { id: true },
   });
 
   const review = existingReview
     ? await prisma.review.update({
-        where: {
-          id: existingReview.id,
-        },
+        where: { id: existingReview.id },
         data: {
           rating,
           comment: comment?.trim() || null,
         },
         include: {
-          restaurant: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              avatarUrl: true,
-            },
-          },
+          restaurant: { select: { id: true, name: true, imageUrl: true } },
+          user: { select: { id: true, name: true, avatarUrl: true } },
         },
       })
     : await prisma.review.create({
@@ -123,16 +129,13 @@ const upsertReview = async (req, res) => {
           comment: comment?.trim() || null,
         },
         include: {
-          restaurant: true,
-          user: {
-            select: {
-              id: true,
-              name: true,
-              avatarUrl: true,
-            },
-          },
+          restaurant: { select: { id: true, name: true, imageUrl: true } },
+          user: { select: { id: true, name: true, avatarUrl: true } },
         },
       });
+
+  // Fix #8: Invalidate the reviews cache for this restaurant on write
+  await deleteCache(reviewCacheKey(restaurantId));
 
   res.status(200).json(
     apiResponse({
@@ -144,28 +147,22 @@ const upsertReview = async (req, res) => {
 
 const deleteReview = async (req, res) => {
   const review = await prisma.review.findFirst({
-    where: {
-      id: req.params.reviewId,
-      userId: req.user.sub,
-    },
+    where: { id: req.params.reviewId, userId: req.user.sub },
   });
 
   if (!review) {
     throw new ApiError(404, "Review not found");
   }
 
-  await prisma.review.delete({
-    where: {
-      id: req.params.reviewId,
-    },
-  });
+  await prisma.review.delete({ where: { id: req.params.reviewId } });
+
+  // Fix #8: Invalidate cache on delete
+  await deleteCache(reviewCacheKey(review.restaurantId));
 
   res.status(200).json(
     apiResponse({
       message: "Review deleted successfully",
-      data: {
-        reviewId: req.params.reviewId,
-      },
+      data: { reviewId: req.params.reviewId },
     }),
   );
 };

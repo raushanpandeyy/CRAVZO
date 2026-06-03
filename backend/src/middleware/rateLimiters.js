@@ -64,8 +64,24 @@ const paymentLimiter = rateLimit({
   message: createRateLimitMessage("Too many payment requests. Please try again later."),
 });
 
+// Fix #11: No rate limit on order creation is an abuse vector.
+// A script could place hundreds of orders in seconds, hammering the DB
+// and geocoding service. 5 orders per minute per user is more than enough
+// for any legitimate customer.
+const orderLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Key by authenticated user ID, not IP (users can share IPs on mobile networks)
+  keyGenerator: (req) => req.user?.sub || req.ip,
+  store: createStore("rl:order:"),
+  message: createRateLimitMessage("Too many orders placed. Please wait a minute before trying again."),
+});
+
 export {
   loginLimiter,
+  orderLimiter,
   otpLimiter,
   otpVerifyLimiter,
   passwordResetLimiter,

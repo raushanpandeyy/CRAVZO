@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import AccessPending from "./components/common/AccessPending";
 import AppLoader from "./components/common/AppLoader";
+import InstallAppPrompt from "./components/InstallAppPrompt";
 import { useAuth } from "./hooks/useAuth";
 import { useNotifications } from "./hooks/useNotifications";
 
@@ -54,28 +55,34 @@ const App = () => {
     }
 
     return (
-      <Suspense fallback={<AppLoader />}>
-        {(() => {
-          switch (user.accountType) {
-            case "rider":
-              return <RiderRoutes />;
-            case "vendor":
-              return <VendorRoutes />;
-            case "admin":
-              return <AdminRoutes />;
-            case "customer":
-            default:
-              return <CustomerRoutes />;
-          }
-        })()}
-      </Suspense>
+      <>
+        <Suspense fallback={<AppLoader />}>
+          {(() => {
+            switch (user.accountType) {
+              case "rider":
+                return <RiderRoutes />;
+              case "vendor":
+                return <VendorRoutes />;
+              case "admin":
+                return <AdminRoutes />;
+              case "customer":
+              default:
+                return <CustomerRoutes />;
+            }
+          })()}
+        </Suspense>
+        <InstallAppPrompt />
+      </>
     );
   }
 
   return (
-    <Suspense fallback={<AppLoader />}>
-      <CustomerRoutes />
-    </Suspense>
+    <>
+      <Suspense fallback={<AppLoader />}>
+        <CustomerRoutes />
+      </Suspense>
+      <InstallAppPrompt />
+    </>
   );
 };
 

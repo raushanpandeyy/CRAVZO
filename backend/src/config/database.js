@@ -4,6 +4,29 @@ import { PrismaClient } from "@prisma/client";
 import { env } from "./env.js";
 import { logger } from "../utils/logger.js";
 
+// Fix #4: Configure connection pool explicitly.
+// Default Prisma pool = cpuCount connections (typically 3-5).
+// With 1000 concurrent requests that is nowhere near enough.
+// connection_limit=20 handles concurrent load on a single instance.
+// pool_timeout=20 ensures requests fail fast instead of queuing forever.
+const getDatabaseUrl = () => {
+  const base = env.DATABASE_URL || "";
+  if (!base) return base;
+  try {
+    const url = new URL(base);
+    if (!url.searchParams.has("connection_limit")) {
+      url.searchParams.set("connection_limit", "20");
+    }
+    if (!url.searchParams.has("pool_timeout")) {
+      url.searchParams.set("pool_timeout", "20");
+    }
+    return url.toString();
+  } catch {
+    // If URL parsing fails, return original and let Prisma handle it
+    return base;
+  }
+};
+
 const globalForPrisma = globalThis;
 const prismaLogLevels =
   env.NODE_ENV === "development"
@@ -21,6 +44,11 @@ const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
     log: prismaLogLevels,
+    datasources: {
+      db: {
+        url: getDatabaseUrl(),
+      },
+    },
   });
 
 if (!globalForPrisma.prismaLogEventsAttached) {

@@ -28,109 +28,118 @@ export default defineConfig({
         scope: '/',
         start_url: '/',
         icons: [
-          {
-            src: '/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: '/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          },
-          {
-            src: '/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ]
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+        ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
+        // Only precache the HTML shell + CSS + fonts — not large images/icons
+        globPatterns: ['**/*.{html,css,woff2}'],
+        // Exclude oversized public files from SW precache
+        globIgnores: [
+          '**/favicon.svg',
+          '**/cravzologo.png',
+          '**/icon-512.png',
+          '**/node_modules/**',
+        ],
+        maximumFileSizeToCacheInBytes: 500 * 1024, // 500KB
         runtimeCaching: [
+          // JS chunks — cache as they're fetched (StaleWhileRevalidate)
+          {
+            urlPattern: /\/assets\/.*\.js$/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'js-chunks',
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 7 },
+            },
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
           },
           {
             urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'gstatic-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
           },
           {
             urlPattern: /^https:\/\/res\.cloudinary\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'cloudinary-images-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
+              expiration: { maxEntries: 120, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
           },
+          // API — network first, fall back to cache, 5s timeout on bad connection
           {
             urlPattern: /\/api\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 5
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              },
-              networkTimeoutSeconds: 10
-            }
-          }
-        ]
-      }
-    })
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 5 },
+              cacheableResponse: { statuses: [0, 200] },
+              networkTimeoutSeconds: 5,
+            },
+          },
+        ],
+      },
+    }),
   ],
   build: {
     target: 'esnext',
     cssCodeSplit: true,
-    chunkSizeWarningLimit: 800,
+    // Treeshake aggressively
+    modulePreload: { polyfill: false },
+    chunkSizeWarningLimit: 300,
     rollupOptions: {
+      treeshake: {
+        // Do NOT disable moduleSideEffects globally — React depends on them
+        // for its internal singleton (window.__REACT__, dispatcher, etc.)
+        preset: 'recommended',
+      },
       output: {
+        // Fine-grained manual chunks so each route only loads what it needs
         manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('lucide-react') || id.includes('react-icons')) {
-              return 'vendor-icons';
-            }
-            if (id.includes('recharts') || id.includes('chart.js') || id.includes('d3')) {
-              return 'vendor-charts';
-            }
-            if (id.includes('swiper')) {
-              return 'vendor-swiper';
-            }
-            return 'vendor-core';
-          }
-        }
-      }
-    }
-  }
+          // Firebase — loaded dynamically, keep in own chunk
+          if (id.includes('firebase')) return 'vendor-firebase';
+
+          // Recharts — only Rider pages need it
+          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
+
+          // Leaflet — only RiderMap needs it
+          if (id.includes('leaflet')) return 'vendor-map';
+
+          // socket.io — chat and admin only
+          if (id.includes('socket.io') || id.includes('engine.io')) return 'vendor-socket';
+
+          // React core — always needed, keep react + react-dom + scheduler + router
+          // all in ONE chunk to prevent duplicate React instance error
+          if (
+            id.includes('/node_modules/react/') ||
+            id.includes('/node_modules/react-dom/') ||
+            id.includes('/node_modules/scheduler/') ||
+            id.includes('/node_modules/react-router') ||
+            id.includes('/node_modules/react-is/')
+          ) return 'vendor-react';
+
+          // lucide icons — shared UI
+          if (id.includes('lucide-react')) return 'vendor-icons';
+
+          // Everything else in node_modules (zod, date-fns, etc.)
+          if (id.includes('node_modules')) return 'vendor-misc';
+        },
+      },
+    },
+  },
 })

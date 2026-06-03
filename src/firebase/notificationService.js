@@ -1,5 +1,3 @@
-import { deleteToken, getToken, onMessage } from "firebase/messaging";
-
 import { apiRequest } from "../services/api.js";
 import { getFirebaseMessaging, getFirebasePublicConfig, hasFirebaseConfig } from "./firebase.js";
 
@@ -80,7 +78,7 @@ const showForegroundNotification = (payload) => {
 const setupForegroundNotifications = async (handler) => {
   const messaging = await getFirebaseMessaging();
   if (!messaging) return () => {};
-
+  const { onMessage } = await import("firebase/messaging");
   return onMessage(messaging, (payload) => {
     showForegroundNotification(payload);
     window.dispatchEvent(new CustomEvent("cravzo:fcm-message", { detail: payload }));
@@ -111,6 +109,7 @@ const ensureFcmToken = async ({ forcePrompt = false } = {}) => {
   if (!messaging || !vapidKey) return null;
 
   const serviceWorkerRegistration = await registerMessagingServiceWorker();
+  const { getToken } = await import("firebase/messaging");
   const token = await getToken(messaging, {
     vapidKey,
     serviceWorkerRegistration,
@@ -136,6 +135,7 @@ const unregisterFcmToken = async () => {
   }
 
   if (messaging) {
+    const { deleteToken } = await import("firebase/messaging");
     await deleteToken(messaging).catch(() => {});
   }
 

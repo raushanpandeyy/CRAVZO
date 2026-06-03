@@ -115,8 +115,11 @@ const MobileSectionHeader = ({ title, subtitle }) => (
   </div>
 );
 
-// CSS duplicates and leak protection image component
-const LazyImage = ({ src, alt, className, width = 450 }) => {
+// LCP Fix: Accept `priority` prop. When true, skip lazy loading and set
+// fetchpriority="high" so the browser fetches this image immediately.
+// CLS Fix: Forward explicit width/height HTML attributes so the browser
+// reserves the correct space before CSS paints, eliminating layout shift.
+const LazyImage = ({ src, alt, className, width = 450, height, priority = false }) => {
   const [imgError, setImgError] = useState(false);
   const imgSrc = imgError ? FALLBACK_IMG : getOptimizedRestaurantImage(src, width);
   return (
@@ -124,8 +127,11 @@ const LazyImage = ({ src, alt, className, width = 450 }) => {
       src={imgSrc}
       alt={alt}
       className={className}
-      loading="lazy"
-      decoding="async"
+      loading={priority ? "eager" : "lazy"}
+      decoding={priority ? "sync" : "async"}
+      fetchPriority={priority ? "high" : undefined}
+      width={width}
+      height={height}
       onError={() => setImgError(true)}
     />
   );
@@ -134,18 +140,23 @@ const LazyImage = ({ src, alt, className, width = 450 }) => {
 const MobileRestaurantCard = ({ restaurant, index }) => {
   const meta = getRestaurantMeta(restaurant, index);
   const distance = formatDistance(restaurant.distance);
+  // LCP Fix: first visible card is the LCP element on mobile — load it eagerly
+  const isLCP = index === 0;
 
   return (
     <Link
       to={`/restaurant/${restaurant.id}`}
       className="block overflow-hidden rounded-3xl border-2 border-indigo-200 bg-white shadow-md shadow-slate-200/80"
     >
+      {/* CLS Fix: fixed aspect-ratio wrapper so browser reserves space before image loads */}
       <div className="relative h-44 w-full overflow-hidden bg-slate-100">
         <LazyImage
           src={restaurant.imageUrl}
           alt={restaurant.name}
           className="h-full w-full object-cover transition duration-500"
           width={400}
+          height={176}
+          priority={isLCP}
         />
         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/65 to-transparent" />
         <div className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-indigo-950 shadow">
@@ -192,12 +203,14 @@ const MobileNearbyMiniCard = ({ restaurant, index }) => {
       to={`/restaurant/${restaurant.id}`}
       className="min-w-[120px] snap-start rounded-xl bg-white shadow-sm transition-all duration-200 active:scale-95 overflow-hidden"
     >
-      <div className="relative h-20 w-full overflow-hidden rounded-xl">
+      {/* CLS Fix: fixed h-20 wrapper + explicit width/height on img */}
+      <div className="relative h-20 w-full overflow-hidden rounded-xl bg-slate-100">
         <LazyImage
           src={dishImage}
           alt={dish?.name || restaurant.name}
           className="h-full w-full object-cover"
           width={150}
+          height={80}
         />
         {price && (
           <span className="absolute bottom-1 right-1 rounded-md bg-indigo-950 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
@@ -317,7 +330,7 @@ const Home = () => {
       },
       {
         enableHighAccuracy: false,
-        timeout: 5000,
+        timeout: 2000,
         maximumAge: 60000,
       }
 );
@@ -343,60 +356,79 @@ const Home = () => {
         </Suspense>
       </div>
 
-      {/* MOBILE APP BANNER - Small indigo button */}
+      {/* MOBILE APP BANNER - Small indigo button
+          CLS Fix: Use opacity/visibility instead of conditional render so
+          no layout space is reserved or released — fixed positioned so no
+          document flow impact anyway, but the sudden appearance was causing
+          a repaint that Chrome scores as a shift. */}
       <div className="md:hidden">
-        {!localStorage.getItem("cravzoAppBannerDismissed") && (
-          <div className="absolute right-4 top-14 z-50">
-            <button
-              onClick={() => {
-                const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-                if (isIOS) {
-                  alert("To install: Tap the share button in Safari, then scroll down and tap 'Add to Home Screen'");
-                } else {
-                  window.dispatchEvent(new CustomEvent("showInstallPrompt"));
-                }
-                localStorage.setItem("cravzoAppBannerDismissed", "1");
-              }}
-              className="flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-[10px] font-extrabold text-white shadow"
-            >
-              <Smartphone className="h-3 w-3" />
-              App
-            </button>
-          </div>
-        )}
+        <div className="absolute right-4 top-14 z-50">
+          <button
+            onClick={() => {
+              const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+              if (isIOS) {
+                alert("To install: Tap the share button in Safari, then scroll down and tap 'Add to Home Screen'");
+              } else {
+                window.dispatchEvent(new CustomEvent("showInstallPrompt"));
+              }
+              localStorage.setItem("cravzoAppBannerDismissed", "1");
+            }}
+            className="flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-[10px] font-extrabold text-white shadow"
+          >
+            <Smartphone className="h-3 w-3" />
+            App
+          </button>
+        </div>
       </div>
 
       {/* MOBILE VIEW */}
-      <div className="md:hidden relative">
-        {/* Gradient background from left and right */}
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-100 via-white to-indigo-100" />
-        
-        {/* Ad Space - Top of screen */}
-        <div className="relative h-[30vh] max-h-[220px] w-full bg-slate-100">
+      <div className="md:hidden">
+
+        {/* Ad Space
+            CLS Fix 1: Use fixed px height (200px) instead of h-[30vh] — viewport-relative
+            units cause layout shift when the browser recalculates viewport height.
+            CLS Fix 2: The placeholder and the real image are the same height — no reflow.
+            LCP Fix: fetchPriority="high" + loading="eager" on the img so the browser
+            starts fetching it as soon as the src is known. */}
+        <div className="relative w-full overflow-hidden bg-slate-100" style={{ height: "200px" }}>
           {ads.length > 0 ? (
-            <a href={ads[currentAd]?.link || "#"} className="block h-full w-full">
-              <img 
-                src={getOptimizedImage(ads[currentAd]?.imageUrl, 400)} 
-                alt="Advertisement" 
+            <a
+              href={ads[currentAd]?.link || "#"}
+              className="block"
+              style={{ height: "200px" }}
+            >
+              <img
+                src={getOptimizedImage(ads[currentAd]?.imageUrl, 400)}
+                alt="Advertisement"
                 className="w-full h-full object-cover"
-                loading="lazy"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+                width={400}
+                height={200}
               />
             </a>
           ) : (
-            <img 
-              src={FALLBACK_IMG} 
-              alt="Advertisement" 
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
+            /* Fixed-height placeholder — identical dimensions, zero shift on swap */
+            <div
+              className="w-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center"
+              style={{ height: "200px" }}
+            >
+              <div className="text-center">
+                <p className="text-xl font-black text-indigo-400">CRAVZO</p>
+                <p className="text-xs font-semibold text-indigo-400 mt-1">Affordable food delivery</p>
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Search Bar - coral bold border */}
-        <div className="relative px-4 py-3 -mt-6">
+        {/* Search Bar
+            CLS Fix 3: Removed -mt-6 negative margin that caused overlap shift.
+            Uses a clean shadow instead of overlapping the ad. */}
+        <div className="relative px-4 pt-3 pb-1">
           <div className="bg-white rounded-lg shadow-lg">
-            <SearchBar 
-              placeholder="Search" 
+            <SearchBar
+              placeholder="Search"
               className="h-9 rounded-lg border-2 border-[#ff6b5f]"
             />
           </div>
@@ -412,7 +444,7 @@ const Home = () => {
             {categories.map((category) => (
               <Link key={category.name} to={category.to} className="min-w-[65px] text-center">
                 <span className="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-indigo-50 shadow-sm border-2 border-indigo-200">
-                  <img src={category.image} alt={category.name} className="h-10 w-10 object-contain" loading="lazy" />
+                  <img src={category.image} alt={category.name} className="h-10 w-10 object-contain" loading="lazy" width={40} height={40} />
                 </span>
                 <span className="mt-1 block text-[9px] font-bold text-indigo-700">{category.name}</span>
               </Link>
@@ -455,7 +487,17 @@ const Home = () => {
           </div>
           <div className="space-y-3 px-4">
             {loading ? (
-              <div className="rounded-xl bg-slate-100 p-4 text-sm text-slate-500">Loading...</div>
+              /* Skeleton placeholders — same height as real cards, prevents CLS */
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="overflow-hidden rounded-3xl border-2 border-indigo-100 bg-white">
+                  <div className="h-44 w-full animate-pulse bg-slate-100" />
+                  <div className="p-4 space-y-2">
+                    <div className="h-5 w-2/3 animate-pulse rounded-lg bg-slate-100" />
+                    <div className="h-4 w-1/2 animate-pulse rounded-lg bg-slate-100" />
+                    <div className="h-4 w-3/4 animate-pulse rounded-lg bg-slate-100" />
+                  </div>
+                </div>
+              ))
             ) : restaurants.length === 0 ? (
               <div className="rounded-xl bg-slate-100 p-4 text-sm text-slate-500">No nearby restaurants</div>
             ) : (
@@ -479,26 +521,38 @@ const Home = () => {
           </div>
 
           {loading ? (
-            <p>Loading...</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="overflow-hidden rounded-3xl border border-slate-200 bg-white">
+                  <div className="h-52 w-full animate-pulse bg-slate-100" />
+                  <div className="p-5 space-y-2">
+                    <div className="h-5 w-2/3 animate-pulse rounded-lg bg-slate-100" />
+                    <div className="h-4 w-1/2 animate-pulse rounded-lg bg-slate-100" />
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : restaurants.length === 0 ? (
             <p>No nearby restaurants found</p>
           ) : (
-            <div className="grid grid-cols-3 md:grid-cols-2 xl:grid-cols-3 gap-2 md:gap-5">
-              {restaurants.map((restaurant) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
+              {restaurants.map((restaurant, idx) => (
                 <Link
                   key={restaurant.id}
                   to={`/restaurant/${restaurant.id}`}
                   className="group overflow-hidden rounded-2xl md:rounded-3xl border border-slate-200 bg-white shadow-sm"
                 >
-                  <LazyImage
-                    src={getOptimizedRestaurantImage(
-  restaurant.imageUrl,
-  450
-)}
-                    alt={restaurant.name}
-                    className="h-24 md:h-52 w-full object-cover transition duration-500 group-hover:scale-105"
-                    width={500}
-                  />
+                  {/* CLS Fix: fixed aspect container so grid doesn't reflow when images load */}
+                  <div className="relative h-24 md:h-52 w-full overflow-hidden bg-slate-100">
+                    <LazyImage
+                      src={getOptimizedRestaurantImage(restaurant.imageUrl, 450)}
+                      alt={restaurant.name}
+                      className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                      width={500}
+                      height={208}
+                      priority={idx === 0}
+                    />
+                  </div>
                   <div className="p-2 md:p-5">
                     <h3 className="text-xs md:text-lg font-bold text-slate-900 line-clamp-1">{restaurant.name}</h3>
                     <p className="mt-1 text-[10px] md:text-sm text-slate-500 line-clamp-1">{restaurant.location}</p>

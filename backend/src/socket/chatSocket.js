@@ -1,8 +1,10 @@
 import { Server } from "socket.io";
+import { createAdapter } from "@socket.io/redis-adapter";
 
 import { prisma } from "../config/database.js";
 import { createMessageForRoom, assertCanAccessRoom } from "../controllers/chatController.js";
 import { notifyChatMessage } from "../services/notificationService.js";
+import { connectRedis } from "../config/redis.js";
 import { verifyToken } from "../utils/jwt.js";
 import { logger } from "../utils/logger.js";
 
@@ -13,6 +15,8 @@ const allowedOrigins = [
   "https://localhost:5173",
   "http://localhost:5174",
   "https://localhost:5174",
+  "http://localhost:4173",
+  "https://localhost:4173",
   "https://cravzo-nine.vercel.app",
 ];
 
@@ -75,7 +79,7 @@ const emitAdminOrderEvent = (event) => {
   }
 };
 
-const attachChatSocket = (server) => {
+const attachChatSocket = async (server) => {
   const io = new Server(server, {
     cors: {
       origin: allowedOrigins,
@@ -83,6 +87,29 @@ const attachChatSocket = (server) => {
     },
     transports: ["websocket", "polling"],
   });
+
+  // Fix #5: Wire the Redis pub/sub adapter so Socket.IO events are
+  // broadcast across ALL server instances (horizontal scaling).
+  //
+  // Without this, a chat message sent via instance-A is only visible to
+  // sockets connected to instance-A. Users on instance-B never receive it.
+  // The adapter uses two Redis clients: one publishes, one subscribes.
+  try {
+    const pubClient = await connectRedis();
+    if (pubClient) {
+      // Duplicate creates an independent connection for subscribe
+      const subClient = pubClient.duplicate();
+      await subClient.connect();
+      io.adapter(createAdapter(pubClient, subClient));
+      logger.info("Socket.IO Redis adapter attached — multi-instance ready");
+    } else {
+      logger.warn("Redis unavailable — Socket.IO running in single-instance mode (no pub/sub adapter)");
+    }
+  } catch (adapterError) {
+    // Non-fatal: fall back to in-memory adapter so the server still starts
+    logger.warn("Failed to attach Socket.IO Redis adapter", { error: adapterError.message });
+  }
+
   ioInstance = io;
 
   io.use(async (socket, next) => {
