@@ -242,17 +242,45 @@ const notifyRiderNewOrder = async (order) => {
   const title = "New Delivery Request!";
   const body = `Pickup from ${vendorName} - Earn ₹${Math.floor(order.deliveryFee || 33)}`;
 
-  const nearbyRiders = await prisma.user.findMany({
+  // Only notify riders who are:
+  // 1. Online and active
+  // 2. NOT already assigned to another active order (avoid spamming busy riders)
+  // 3. In the same city as the restaurant (if city info is available)
+  const restaurantCity = order.restaurant?.city?.trim().toLowerCase();
+
+  const busyRiderIds = (
+    await prisma.order.findMany({
+      where: {
+        riderId: { not: null },
+        status: { in: ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"] },
+        id: { not: order.id },
+      },
+      select: { riderId: true },
+    })
+  ).map((o) => o.riderId).filter(Boolean);
+
+  const availableRiders = await prisma.user.findMany({
     where: {
       role: "RIDER",
       status: "ACTIVE",
       isOnline: true,
+      id: { notIn: busyRiderIds.length ? busyRiderIds : ["__none__"] },
     },
-    select: { id: true },
+    select: { id: true, riderOnboarding: true },
   });
 
+  // Filter by city if restaurant city is known
+  const targetRiders = restaurantCity
+    ? availableRiders.filter((r) => {
+        const riderCity = r.riderOnboarding?.city?.trim().toLowerCase();
+        return !riderCity || riderCity === restaurantCity;
+      })
+    : availableRiders;
+
+  if (!targetRiders.length) return;
+
   await sendNotificationToUsers({
-    userIds: nearbyRiders.map((r) => r.id),
+    userIds: targetRiders.map((r) => r.id),
     title,
     body,
     data: {

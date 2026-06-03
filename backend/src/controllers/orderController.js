@@ -2,7 +2,7 @@ import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { createPersistedOrder, serializeOrder } from "../services/orderCheckoutService.js";
-import { notifyOrderCreated, notifyOrderStatusChanged, notifyRiderNewOrder, notifyVendorNewOrder } from "../services/notificationService.js";
+import { notifyOrderStatusChanged, notifyRiderNewOrder, notifyVendorNewOrder } from "../services/notificationService.js";
 import { notifyAdminOrderCreated, notifyAdminOrderStatusChanged } from "../services/adminOrderAlertService.js";
 import { logger } from "../utils/logger.js";
 import { createOrderSchema } from "../validators/orderValidators.js";
@@ -52,14 +52,7 @@ const createOrder = async (req, res) => {
     notes = null,
   } = createOrderSchema.parse(req.body);
 
-  // Fix #3: Geocoding was happening inside createPersistedOrder (hot path).
-  // With 100 concurrent orders this means 100 simultaneous HTTP calls to
-  // Nominatim/Google Maps — their free tier limit is 50 QPS, so orders
-  // start failing or hanging under load.
-  //
-  // Solution: pre-geocode the address HERE, before the transaction opens,
-  // and pass the resolved coords into createPersistedOrder.
-  // The transaction itself never touches an external HTTP service.
+  // Fix #3: Pre-geocode address before transaction opens
   let preGeocodedAddress = null;
   if (address && !addressId) {
     const { getLatLngFromAddress } = await import("../utils/geocode.js");
@@ -67,7 +60,6 @@ const createOrder = async (req, res) => {
       .filter(Boolean)
       .join(", ");
     const coords = await getLatLngFromAddress(fullAddress);
-    // Attach coords so orderCheckoutService skips the geocode call
     preGeocodedAddress = { ...address, preGeocodedLat: coords.lat, preGeocodedLng: coords.lng };
   }
 
@@ -82,8 +74,13 @@ const createOrder = async (req, res) => {
     notes,
   });
 
-  runNotificationTask(notifyOrderCreated(order));
+  // Send notifications after order is persisted.
+  // notifyVendorNewOrder sends the actionable "New Order Received!" alert.
+  // notifyRiderNewOrder alerts available riders in the same city.
+  // We do NOT call notifyOrderCreated here — it sends a duplicate "Order placed"
+  // to the vendor which notifyVendorNewOrder already covers with richer copy.
   runNotificationTask(notifyVendorNewOrder(order));
+  runNotificationTask(notifyRiderNewOrder(order));
   notifyAdminOrderCreated(order);
 
   res.status(201).json(
@@ -677,11 +674,11 @@ const updateOrderStatus = async (req, res) => {
   );
   notifyAdminOrderStatusChanged({ order: updatedOrder, actorRole: req.user.role });
 
-  if (req.user.role === "RIDER" && (status === updatedOrder.status)) {
-    runNotificationTask(
-      notifyRiderNewOrder(updatedOrder),
-    );
-  }
+  // NOTE: notifyRiderNewOrder is NOT called here.
+  // New order alerts to riders are sent only when an order is first created
+  // (createOrder) or when a rider claims an order (the canClaimOrder block above).
+  // Calling it here on every status update was a bug — it was blasting all
+  // online riders with notifications for every DELIVERED / CANCELLED etc.
 
   res.status(200).json(
     apiResponse({

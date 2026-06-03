@@ -18,7 +18,10 @@ const getServiceWorkerUrl = () => {
   const config = getFirebasePublicConfig();
   const params = new URLSearchParams();
 
-  Object.entries(config).forEach(([key, value]) => {
+  // Pass only the Firebase app config — NOT the VAPID key (that's only needed
+  // for getToken() in the main thread, not in the service worker itself)
+  const { vapidKey: _vapidKey, ...appConfig } = config;
+  Object.entries(appConfig).forEach(([key, value]) => {
     if (value) params.set(key, value);
   });
 
@@ -28,11 +31,18 @@ const getServiceWorkerUrl = () => {
 const registerMessagingServiceWorker = async () => {
   if (!("serviceWorker" in navigator)) return null;
 
-  // The service worker lives in public/, so we pass Firebase config through
-  // query params instead of exposing a generated file at build time.
-  return navigator.serviceWorker.register(getServiceWorkerUrl(), {
-    type: "module",
-  });
+  // Do NOT use type: "module" for service workers.
+  // Classic SW scripts (importScripts / CDN) work in all browsers.
+  // The firebase-messaging-sw.js in public/ uses CDN ESM imports which
+  // are supported without setting type:"module" on the registration itself.
+  try {
+    const existing = await navigator.serviceWorker.getRegistration("/firebase-messaging-sw.js");
+    if (existing) return existing;
+    return navigator.serviceWorker.register(getServiceWorkerUrl());
+  } catch (err) {
+    console.warn("SW registration failed:", err.message);
+    return null;
+  }
 };
 
 const saveFcmToken = (token) =>
@@ -78,12 +88,18 @@ const showForegroundNotification = (payload) => {
 const setupForegroundNotifications = async (handler) => {
   const messaging = await getFirebaseMessaging();
   if (!messaging) return () => {};
+
   const { onMessage } = await import("firebase/messaging");
-  return onMessage(messaging, (payload) => {
+
+  // onMessage returns an unsubscribe function
+  const unsubscribe = onMessage(messaging, (payload) => {
     showForegroundNotification(payload);
     window.dispatchEvent(new CustomEvent("cravzo:fcm-message", { detail: payload }));
     handler?.(payload);
   });
+
+  // Always return a callable cleanup function
+  return typeof unsubscribe === "function" ? unsubscribe : () => {};
 };
 
 const ensureFcmToken = async ({ forcePrompt = false } = {}) => {

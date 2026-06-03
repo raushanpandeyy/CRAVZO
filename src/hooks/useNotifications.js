@@ -5,16 +5,25 @@ import { ensureFcmToken, setupForegroundNotifications } from "../firebase/notifi
 const useNotifications = (user) => {
   useEffect(() => {
     if (!user?.isLoggedIn) return undefined;
+    // Admin uses socket-based alerts, not FCM
     if (user.accountType === "admin") return undefined;
 
-    let unsubscribe = () => {};
+    let unsubscribeFn = () => {};
     let cancelled = false;
 
     const setupNotifications = async () => {
       try {
-        unsubscribe = await setupForegroundNotifications();
-        if (!cancelled && Notification.permission === "granted") {
+        // Bug fix: always call ensureFcmToken regardless of current permission.
+        // If permission is "default", ensureFcmToken will request it (once).
+        // If permission is "granted", it just refreshes/registers the token.
+        // If permission is "denied", it returns null silently.
+        if (!cancelled) {
           await ensureFcmToken();
+        }
+
+        // Set up foreground message handler (shows notification when app is open)
+        if (!cancelled) {
+          unsubscribeFn = await setupForegroundNotifications();
         }
       } catch (error) {
         console.warn("FCM setup failed", error);
@@ -25,9 +34,11 @@ const useNotifications = (user) => {
 
     return () => {
       cancelled = true;
-      unsubscribe?.();
+      unsubscribeFn?.();
     };
-  }, [user]);
+  }, [user?.isLoggedIn, user?.accountType]);
+  // Depend on stable primitives, not the whole user object,
+  // so this doesn't re-run on every unrelated user update
 };
 
 export { useNotifications };
