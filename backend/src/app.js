@@ -26,6 +26,7 @@ app.use(
        "http://localhost:4173",
        "https://localhost:4173",
       "https://cravzo-nine.vercel.app",
+      "https://cravzo-mj3bnhl8p-raushan-pandeys-projects.vercel.app",
     ],
    credentials: true,
  })
