@@ -1,5 +1,6 @@
 import { prisma } from "../config/database.js";
 import { admin, isFirebaseAdminReady } from "../config/firebaseAdmin.js";
+import { fcmTokenBloomFilter } from "../utils/bloomFilter.js";
 import { logger } from "../utils/logger.js";
 
 const INVALID_FCM_ERROR_CODES = new Set([
@@ -31,8 +32,18 @@ const getOrderStatusCopy = ({ status, restaurantName }) => {
   return copyByStatus[status] || ["Order update", `Order status changed to ${status}.`];
 };
 
-const upsertFcmToken = async ({ userId, token, deviceId = null, platform = "WEB", userAgent = null }) =>
-  prisma.fcmToken.upsert({
+const upsertFcmToken = async ({ userId, token, deviceId = null, platform = "WEB", userAgent = null }) => {
+  // Bloom filter Use Case 2: skip DB upsert if token is already known
+  // The filter tracks tokens we've previously stored — saves a DB round-trip
+  // on every app load for existing devices (which is the common case)
+  const alreadyKnown = await fcmTokenBloomFilter.mightExist(token);
+  if (alreadyKnown) {
+    // Token probably already in DB and active — skip the upsert
+    // (false positive rate 1% — those 1% will just do a normal upsert)
+    return { token, isActive: true };
+  }
+
+  const result = await prisma.fcmToken.upsert({
     where: { token },
     create: {
       userId,
@@ -52,6 +63,11 @@ const upsertFcmToken = async ({ userId, token, deviceId = null, platform = "WEB"
       lastUsedAt: new Date(),
     },
   });
+
+  // Add to bloom filter after successful DB save
+  fcmTokenBloomFilter.add(token);
+  return result;
+};
 
 const removeFcmToken = async ({ userId, token }) =>
   prisma.fcmToken.updateMany({

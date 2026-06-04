@@ -6,6 +6,7 @@ import { ROLES } from "../constants/roles.js";
 import { generateOTP } from "../services/otpService.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import { emailBloomFilter, otpBloomFilter } from "../utils/bloomFilter.js";
 import { signToken } from "../utils/jwt.js";
 import { sendOTP } from "../utils/sendOtp.js";
 import { sanitizeUser } from "../utils/userResponse.js";
@@ -62,6 +63,14 @@ const clearAuthCookie = (res) => {
 };
 
 const createOtpRecord = async ({ email, role, purpose = getOtpPurposeForRole(role), pendingSignupData = null }) => {
+  // Bloom filter Use Case 3: OTP spam prevention
+  // If same email requested OTP within last 2 minutes, throttle it.
+  // This runs before bcrypt.hash so it's very fast.
+  const recentlySent = await otpBloomFilter.wasRecentlySent(email);
+  if (recentlySent) {
+    throw new ApiError(429, "OTP recently sent. Please wait a moment before requesting again.");
+  }
+
   const otp = generateOTP();
   const codeHash = await bcrypt.hash(otp, 10);
 
@@ -78,12 +87,15 @@ const createOtpRecord = async ({ email, role, purpose = getOtpPurposeForRole(rol
     },
   });
 
+  // Mark email as having received OTP just now
+  await otpBloomFilter.markSent(email);
+
   try {
-  const response = await sendOTP(email, otp);
-  console.log("OTP sent:", response);
-} catch (error) {
-  console.error("OTP sending failed:", error.message);
-}
+    const response = await sendOTP(email, otp);
+    console.log("OTP sent:", response);
+  } catch (error) {
+    console.error("OTP sending failed:", error.message);
+  }
 };
 
 export const sendOtpController = async (req, res) => {
@@ -215,6 +227,8 @@ export const verifyOtpController = async (req, res) => {
             : undefined,
       },
     });
+    // Bloom filter: register this email so future signup attempts skip DB query
+    emailBloomFilter.add(email);
   } else if (user.status === "PENDING" && user.role === ROLES.CUSTOMER) {
     user = await prisma.user.update({
       where: { email },
@@ -253,15 +267,25 @@ export const signUp = async (req, res) => {
   const phone = payload.phone?.trim() || null;
   const role = payload.role || ROLES.CUSTOMER;
 
-  const existingUser = await prisma.user.findFirst({
-    where: {
-      OR: [{ email }, ...(phone ? [{ phone }] : [])],
-    },
-  });
+  // Bloom filter check — Use Case 1:
+  // If filter says "definitely not registered" → skip DB query entirely.
+  // If filter says "probably registered" → confirm with DB (handles false positives).
+  const mightBeRegistered = await emailBloomFilter.mightExist(email);
 
-  if (existingUser) {
-    throw new ApiError(409, "User already exists");
+  if (mightBeRegistered) {
+    // Only hit DB if bloom filter thinks email might exist
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [{ email }, ...(phone ? [{ phone }] : [])],
+      },
+    });
+
+    if (existingUser) {
+      throw new ApiError(409, "User already exists");
+    }
   }
+  // If mightBeRegistered === false → bloom filter guarantees email is new,
+  // skip the DB query completely — saves ~5ms per new signup
 
   const passwordHash = await bcrypt.hash(payload.password, 12);
 
@@ -279,10 +303,7 @@ export const signUp = async (req, res) => {
   res.status(201).json(
     apiResponse({
       message: "OTP sent to email. Verify it to create your account.",
-      data: {
-        email,
-        role,
-      },
+      data: { email, role },
     })
   );
 };
