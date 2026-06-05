@@ -7,6 +7,7 @@ import {
   NEARBY_RESTAURANTS_CACHE_TTL_SECONDS,
   RESTAURANT_DETAIL_CACHE_TTL_SECONDS,
   RESTAURANT_LIST_CACHE_TTL_SECONDS,
+  buildNearbyCacheKey,
   invalidatePublicRestaurantCache,
 } from "../utils/publicCache.js";
 import { createRestaurantSchema, updateRestaurantSchema } from "../validators/restaurantValidators.js";
@@ -312,7 +313,7 @@ const getMyRestaurant = async (req, res) => {
 
 
 const getNearbyRestaurants = async (req, res) => {
-  const { lat, lng } = req.query;
+  const { lat, lng, radius } = req.query;
 
   if (!lat || !lng) {
     throw new ApiError(400, "User location required");
@@ -320,12 +321,12 @@ const getNearbyRestaurants = async (req, res) => {
 
   const userLat = parseFloat(lat);
   const userLng = parseFloat(lng);
-  const cacheKey = buildCacheKey("restaurants:nearby", {
-    lat,
-    lng,
-  });
-  const cachedResponse = await getCache(cacheKey);
+  // Default radius 3km, max 10km
+  const radiusKm = Math.min(parseFloat(radius) || 3, 10);
 
+  // Fix 8: Use rounded coordinate cache key (was causing 0% cache hit rate)
+  const cacheKey = buildNearbyCacheKey(lat, lng, radiusKm);
+  const cachedResponse = await getCache(cacheKey);
   if (cachedResponse) {
     return res.status(200).json(cachedResponse);
   }
@@ -363,20 +364,17 @@ const getNearbyRestaurants = async (req, res) => {
       menuItems: {
         where: { status: "ACTIVE" },
         take: 4,
-        select: {
-          id: true,
-          name: true,
-          price: true,
-          imageUrl: true,
-        },
+        select: { id: true, name: true, price: true, imageUrl: true },
       },
     },
   });
 
+  const { getNearbyRestaurantsService } = await import("../services/locationService.js");
   const nearby = getNearbyRestaurantsService(
     restaurants.map(serializeRestaurant),
     userLat,
-    userLng
+    userLng,
+    radiusKm,
   );
 
   const response = apiResponse({
@@ -385,7 +383,6 @@ const getNearbyRestaurants = async (req, res) => {
   });
 
   await setCache(cacheKey, response, NEARBY_RESTAURANTS_CACHE_TTL_SECONDS);
-
   return res.status(200).json(response);
 };
 
@@ -396,6 +393,134 @@ const slugify = (value) =>
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
+
+// ================= UNIFIED SEARCH =================
+// Single endpoint replacing 9 separate SearchBar API calls.
+// Returns restaurants + dish suggestions in one shot, with optional
+// location-based sorting. Cached in Redis for 60 seconds.
+const searchRestaurantsAndDishes = async (req, res) => {
+  const query = req.query.q?.trim();
+  const lat = parseFloat(req.query.lat) || null;
+  const lng = parseFloat(req.query.lng) || null;
+  const radiusKm = Math.min(parseFloat(req.query.radius) || 3, 10);
+
+  if (!query || query.length < 2) {
+    return res.status(200).json(
+      apiResponse({ message: "Search results", data: { restaurants: [], dishes: [] } })
+    );
+  }
+
+  const cacheKey = buildCacheKey("search", { q: query.toLowerCase(), lat, lng, radius: radiusKm });
+  const cached = await getCache(cacheKey);
+  if (cached) return res.status(200).json(cached);
+
+  const menuItemMatch = {
+    OR: [
+      { name: { contains: query, mode: "insensitive" } },
+      { category: { contains: query, mode: "insensitive" } },
+    ],
+  };
+
+  // Run restaurant search + dish search in parallel — 1 DB call each
+  const [restaurants, dishes] = await Promise.all([
+    prisma.restaurant.findMany({
+      where: {
+        status: "ACTIVE",
+        isOpen: true,
+        OR: [
+          { name: { contains: query, mode: "insensitive" } },
+          { cuisine: { contains: query, mode: "insensitive" } },
+          { city: { contains: query, mode: "insensitive" } },
+          { menuItems: { some: { status: "ACTIVE", ...menuItemMatch } } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        cuisine: true,
+        city: true,
+        imageUrl: true,
+        addressLine1: true,
+        latitude: true,
+        longitude: true,
+        menuItems: {
+          where: { status: "ACTIVE", ...menuItemMatch },
+          take: 3,
+          select: { id: true, name: true, price: true, imageUrl: true, category: true },
+        },
+      },
+      take: 15,
+    }),
+    prisma.menuItem.findMany({
+      where: {
+        status: "ACTIVE",
+        restaurant: { status: "ACTIVE", isOpen: true },
+        ...menuItemMatch,
+      },
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        price: true,
+        imageUrl: true,
+        restaurant: {
+          select: { id: true, name: true, city: true, latitude: true, longitude: true },
+        },
+      },
+      take: 10,
+    }),
+  ]);
+
+  // Sort by distance if user location provided
+  const withDistance = (items, getCoords) => {
+    if (!lat || !lng) return items;
+    return items
+      .map((item) => {
+        const { lat: rLat, lng: rLng } = getCoords(item);
+        if (!rLat || !rLng) return { ...item, distance: null };
+        const dLat = (rLat - lat) * Math.PI / 180;
+        const dLng = (rLng - lng) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 +
+          Math.cos(lat * Math.PI / 180) * Math.cos(rLat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+        const dist = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return { ...item, distance: Number(dist.toFixed(2)) };
+      })
+      .filter((item) => !item.distance || item.distance <= radiusKm)
+      .sort((a, b) => (a.distance ?? 99) - (b.distance ?? 99));
+  };
+
+  const sortedRestaurants = withDistance(restaurants, (r) => ({ lat: r.latitude, lng: r.longitude }));
+  const sortedDishes = withDistance(dishes, (d) => ({ lat: d.restaurant?.latitude, lng: d.restaurant?.longitude }));
+
+  const response = apiResponse({
+    message: "Search results",
+    data: {
+      restaurants: sortedRestaurants.slice(0, 8).map((r) => ({
+        id: r.id,
+        name: r.name,
+        cuisine: r.cuisine,
+        city: r.city,
+        imageUrl: r.imageUrl,
+        location: [r.addressLine1, r.city].filter(Boolean).join(", "),
+        distance: r.distance ?? null,
+        matchingDishes: r.menuItems,
+      })),
+      dishes: sortedDishes.slice(0, 8).map((d) => ({
+        id: d.id,
+        name: d.name,
+        category: d.category,
+        price: Number(d.price),
+        imageUrl: d.imageUrl,
+        restaurantId: d.restaurant?.id,
+        restaurantName: d.restaurant?.name,
+        distance: d.distance ?? null,
+      })),
+    },
+  });
+
+  await setCache(cacheKey, response, 60);
+  return res.status(200).json(response);
+};
 
 // ================= CREATE =================
 const createRestaurant = async (req, res) => {
@@ -483,7 +608,11 @@ const updateRestaurant = async (req, res) => {
   let lat = existingRestaurant.latitude;
   let lng = existingRestaurant.longitude;
 
-  if (addressChanged) {
+  // If vendor explicitly passed GPS coords (from "Use GPS" button), use those
+  if (typeof payload.latitude === "number" && typeof payload.longitude === "number") {
+    lat = payload.latitude;
+    lng = payload.longitude;
+  } else if (addressChanged) {
     const fullAddress = `${newAddressLine1}, ${newCity}, ${newState}, ${newPostalCode || ""}, India`;
     const coords = await getLatLngFromAddress(fullAddress);
     lat = coords.lat;
@@ -534,4 +663,5 @@ export {
   getMyRestaurant,
   listRestaurants,
   getNearbyRestaurants,
+  searchRestaurantsAndDishes,
 };

@@ -78,6 +78,8 @@ const useChatNotifications = (user) => {
   useEffect(() => {
     if (!getUserId(user)) return undefined;
 
+    // onChatNotification returns a sync unsubscribe function (not a Promise).
+    // The socket loads async internally but the returned cleanup is always sync.
     const unsubscribe = onChatNotification((notification) => {
       if (!notification?.roomId || notification.sender?.id === getUserId(user)) return;
 

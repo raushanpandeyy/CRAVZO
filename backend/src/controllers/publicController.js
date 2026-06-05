@@ -1,8 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../config/database.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { getCache, setCache, deleteCache } from "../utils/cache.js";
 
-const prisma = new PrismaClient();
+// Fix 2: Removed duplicate `new PrismaClient()` — was creating a second connection
+// pool (+20 DB connections) on top of the singleton in config/database.js
 
 const CACHE_TTL = 300;
 
@@ -41,25 +42,13 @@ export const getFeaturedRestaurants = async (req, res) => {
     },
   });
 
-  const restaurantIds = featured.map((f) => f.restaurantId).filter(Boolean);
-  if (restaurantIds.length > 0) {
-    const restaurants = await prisma.restaurant.findMany({
-      where: { id: { in: restaurantIds } },
-      select: { id: true, imageUrl: true },
-    });
-    const restaurantMap = Object.fromEntries(restaurants.map((r) => [r.id, r.imageUrl]));
-    for (const f of featured) {
-      if (!f.imageUrl && restaurantMap[f.restaurantId]) {
-        f.imageUrl = restaurantMap[f.restaurantId];
-      }
-    }
-  }
+  const result = featured;
 
-  await setCache(cacheKey, featured, CACHE_TTL);
+  await setCache(cacheKey, result, CACHE_TTL);
 
   return res
     .status(200)
-    .json(apiResponse({ data: featured, message: "Featured restaurants fetched successfully" }));
+    .json(apiResponse({ data: result, message: "Featured restaurants fetched successfully" }));
 };
 
 export const getAds = async (req, res) => {

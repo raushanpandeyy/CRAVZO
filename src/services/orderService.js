@@ -9,14 +9,34 @@ const createOrder = async (payload) => {
   return response.data;
 };
 
-const getMyOrders = async () => {
-  const response = await apiRequest("/api/orders/my");
-  return response.data || [];
+// Fix 13: Support cursor-based pagination. Backend already sends meta.nextCursor
+// but getMyOrders was ignoring it and always fetching page 1.
+// Now returns { orders, nextCursor, hasMore } so Orders.jsx can load more.
+const getMyOrders = async ({ cursor = null } = {}) => {
+  const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+  const response = await apiRequest(`/api/orders/my${params}`);
+  // Backwards compat: if response.data is a plain array (old shape) treat it as first page
+  if (Array.isArray(response.data)) {
+    return { orders: response.data, nextCursor: null, hasMore: false };
+  }
+  return {
+    orders: response.data?.data ?? [],
+    nextCursor: response.data?.meta?.nextCursor ?? null,
+    hasMore: response.data?.meta?.hasMore ?? false,
+  };
 };
 
-const getVendorOrders = async () => {
-  const response = await apiRequest("/api/orders/vendor");
-  return response.data || [];
+const getVendorOrders = async ({ cursor = null } = {}) => {
+  const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+  const response = await apiRequest(`/api/orders/vendor${params}`);
+  if (Array.isArray(response.data)) {
+    return { orders: response.data, nextCursor: null, hasMore: false };
+  }
+  return {
+    orders: response.data?.data ?? [],
+    nextCursor: response.data?.meta?.nextCursor ?? null,
+    hasMore: response.data?.meta?.hasMore ?? false,
+  };
 };
 
 const getRiderOrders = async () => {

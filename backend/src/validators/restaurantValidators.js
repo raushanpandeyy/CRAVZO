@@ -20,6 +20,9 @@ const restaurantPayloadSchema = z.object({
   closingTime: z.string().trim().max(20).optional().nullable(),
   openDays: z.array(z.string().trim().min(1).max(20)).optional(),
   bankDetails: z.record(z.string(), z.unknown()).optional().nullable(),
+  // Vendor GPS location — set via "Use GPS" button in profile
+  latitude: z.number().min(-90).max(90).optional().nullable(),
+  longitude: z.number().min(-180).max(180).optional().nullable(),
 });
 
 const createRestaurantSchema = restaurantPayloadSchema;

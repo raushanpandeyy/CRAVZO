@@ -169,42 +169,59 @@ const getMyOrders = async (req, res) => {
 };
 
 const getVendorOrders = async (req, res) => {
-  const orders = await prisma.order.findMany({
-    where: {
-      restaurant: {
-        vendorId: req.user.sub,
-      },
-    },
-    include: {
-      restaurant: true,
-      address: true,
-      customer: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
+  // Fix 7: Pagination added — a vendor with 1000+ orders was fetching everything
+  // in one shot. Using cursor-based pagination (same pattern as getMyOrders).
+  // Default page size = 50 for vendor dashboard (vendors need more context than customers).
+  const VENDOR_PAGE_SIZE = 50;
+  const cursor = req.query.cursor?.trim() || null;
+  const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+
+  const paginationArgs = cursor
+    ? { take: VENDOR_PAGE_SIZE, skip: 1, cursor: { id: cursor } }
+    : { take: VENDOR_PAGE_SIZE, skip: (page - 1) * VENDOR_PAGE_SIZE };
+
+  const where = { restaurant: { vendorId: req.user.sub } };
+
+  const [orders, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      include: {
+        restaurant: true,
+        address: true,
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+        rider: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            avatarUrl: true,
+          },
+        },
+        items: {
+          include: {
+            menuItem: true,
+          },
         },
       },
-      rider: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          avatarUrl: true,
-        },
+      orderBy: {
+        createdAt: "desc",
       },
-      items: {
-        include: {
-          menuItem: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+      ...paginationArgs,
+    }),
+    cursor
+      ? Promise.resolve(null)
+      : prisma.order.count({ where }),
+  ]);
+
+  const nextCursor = orders.length === VENDOR_PAGE_SIZE ? orders[orders.length - 1].id : null;
 
   res.status(200).json(
     apiResponse({
@@ -213,6 +230,11 @@ const getVendorOrders = async (req, res) => {
         ...serializeOrder(order),
         customer: sanitizeCustomerForNonAdmin(order.customer, req.user.role),
       })),
+      meta: {
+        nextCursor,
+        hasMore: nextCursor !== null,
+        ...(cursor ? {} : { page, pageSize: VENDOR_PAGE_SIZE, total }),
+      },
     }),
   );
 };

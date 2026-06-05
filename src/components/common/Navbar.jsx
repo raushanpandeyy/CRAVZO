@@ -58,7 +58,12 @@ const Navbar = () => {
 
       const cachedAddress = getCookie(DELIVERY_ADDRESS_COOKIE);
       if (cachedAddress) {
+        // Fix 3: Cookie is fresh — skip API call, show cached address immediately.
+        // API is only hit when the cookie is absent (first load or after 30-day expiry)
+        // or when the "addressesChange" event fires (user updates address in settings).
         setAddress(cachedAddress);
+        setIsLoadingAddress(false);
+        return;
       }
 
       setIsLoadingAddress(true);
@@ -83,6 +88,8 @@ const Navbar = () => {
     syncAddress();
 
     const handleAddressesChange = () => {
+      // Invalidate cookie so syncAddress re-fetches fresh data from API
+      deleteCookie(DELIVERY_ADDRESS_COOKIE);
       syncAddress();
     };
 

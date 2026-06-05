@@ -1,5 +1,7 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
-import { getMessaging, onBackgroundMessage } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-messaging-sw.js";
+// Service Workers do NOT support ES module `import` syntax unless registered
+// with `type: "module"`. Firebase must be loaded via importScripts() instead.
+importScripts("https://www.gstatic.com/firebasejs/12.13.0/firebase-app-compat.js");
+importScripts("https://www.gstatic.com/firebasejs/12.13.0/firebase-messaging-compat.js");
 
 const searchParams = new URL(self.location.href).searchParams;
 const firebaseConfig = {
@@ -12,11 +14,12 @@ const firebaseConfig = {
 };
 
 const hasFirebaseConfig = Object.values(firebaseConfig).every(Boolean);
-const firebaseApp = hasFirebaseConfig ? initializeApp(firebaseConfig) : null;
-const messaging = firebaseApp ? getMessaging(firebaseApp) : null;
 
-if (messaging) {
-  onBackgroundMessage(messaging, (payload) => {
+if (hasFirebaseConfig) {
+  firebase.initializeApp(firebaseConfig);
+  const messaging = firebase.messaging();
+
+  messaging.onBackgroundMessage((payload) => {
     const title = payload.notification?.title || payload.data?.title || "CRAVZO";
     const body = payload.notification?.body || payload.data?.body || "You have a new update.";
 

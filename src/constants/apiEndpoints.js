@@ -2,10 +2,10 @@
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
-// 🔥 API prefix (backend uses /api)
+//  API prefix (backend uses /api)
 const BASE = "/api";
 
-// 🔥 Helper: query params
+//  Helper: query params
 const withQuery = (path, params = {}) => {
   const searchParams = new URLSearchParams();
 

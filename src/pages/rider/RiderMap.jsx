@@ -1,3 +1,6 @@
+// Fix 9: Leaflet CSS moved here from main.jsx — was loading 4KB on every page
+// even when map isn't shown. Now loads only when RiderMap mounts.
+import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 
 const RiderMap = ({ pickup, drop, rider }) => {

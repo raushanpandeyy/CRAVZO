@@ -146,6 +146,27 @@ const logout = async () => {
 const loadCurrentUser = async () => {
   const token = localStorage.getItem(TOKEN_STORAGE_KEY);
 
+  // No token — clear and return null without hitting the network
+  if (!token) {
+    clearSession();
+    return null;
+  }
+
+  // Check if stored user is fresh enough (token is a JWT — decode expiry)
+  // to skip the /me call on app load when session is clearly still valid
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const expiresAt = payload.exp * 1000;
+    const storedUser = getStoredUser();
+
+    // If token expires in more than 10 minutes AND we have stored user → skip /me
+    if (storedUser && expiresAt - Date.now() > 10 * 60 * 1000) {
+      return storedUser;
+    }
+  } catch {
+    // JWT decode failed — proceed with /me call
+  }
+
   try {
     const response = await apiRequest(API_ENDPOINTS.auth.me);
     return persistSession({ user: response.data.user, token });

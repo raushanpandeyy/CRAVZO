@@ -19,3 +19,17 @@ await attachChatSocket(server);
 server.listen(PORT, () => {
   console.log(`CRAVZO backend running on port ${PORT}`);
 });
+
+// Keep-alive ping for Render free tier
+// Render spins down after 15min inactivity — self-ping every 14 min prevents cold starts
+if (env.NODE_ENV === "production" && env.RENDER_EXTERNAL_URL) {
+  const PING_INTERVAL_MS = 14 * 60 * 1000; // 14 minutes
+  setInterval(async () => {
+    try {
+      await fetch(`${env.RENDER_EXTERNAL_URL}/health`);
+      console.log("Keep-alive ping sent");
+    } catch {
+      // Ignore ping errors
+    }
+  }, PING_INTERVAL_MS);
+}

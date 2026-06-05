@@ -3,7 +3,7 @@ import { Clock3, Heart, MapPin, Minus, Plus, ShoppingBag, Star } from "lucide-re
 import { useNavigate, useParams } from "react-router-dom";
 
 import { useAuth } from "../../hooks/useAuth";
-import { addFavorite, getFavorites, removeFavorite } from "../../services/favoriteService.js";
+import { addFavorite, checkIsFavorite, removeFavorite } from "../../services/favoriteService.js";
 import { getRestaurantById } from "../../services/foodService.js";
 import { getRestaurantReviews, saveReview } from "../../services/reviewService.js";
 
@@ -21,7 +21,8 @@ const getOptimizedImage = (
     const parts = url.split("/upload/");
 
     if (parts.length === 2) {
-      return `${parts[0]}/upload/c_fill,w_${width},h_${height},q_auto,f_auto/${parts[1]}`;
+      // Fix 8: f_avif saves ~30% vs f_auto/WebP on modern browsers
+      return `${parts[0]}/upload/c_fill,w_${width},h_${height},q_auto,f_avif/${parts[1]}`;
     }
   }
 
@@ -55,7 +56,8 @@ const RestaurantPage = () => {
   const [restaurant, setRestaurant] = useState(null);
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [favoriteIds, setFavoriteIds] = useState([]);
+  // Fix 4: isFavorite is a simple boolean, not a module-level flag, so initialize as false
+  const [isFavorite, setIsFavorite] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
   const [message, setMessage] = useState("");
@@ -87,15 +89,17 @@ const RestaurantPage = () => {
       setReviewForm({ rating: 5, comment: "" });
 
       try {
-        const [restaurantData, reviewData, favorites] = await Promise.all([
+        const [restaurantData, reviewData, isFav] = await Promise.all([
           getRestaurantById(id),
           getRestaurantReviews(id),
-          user?.isLoggedIn ? getFavorites().catch(() => []) : Promise.resolve([]),
+          // Fix 4: checkIsFavorite — single boolean instead of full favorites list (~2KB saved)
+          // GET /api/favorites/check?restaurantId=X → { isFavorite: true/false }
+          user?.isLoggedIn ? checkIsFavorite(id).catch(() => false) : Promise.resolve(false),
         ]);
 
         setRestaurant(restaurantData);
         setReviews(reviewData);
-        setFavoriteIds(favorites.map((favorite) => favorite.restaurantId));
+        setIsFavorite(isFav);
 
         const myReview = reviewData.find((review) => review.user?.id === user?.id);
         if (myReview) {
@@ -156,20 +160,31 @@ const RestaurantPage = () => {
     );
   };
 
-  const safeCart = Array.isArray(cart) ? cart : [];
-  const itemTotal = safeCart.reduce((acc, item) => acc + getPrice(item.price) * item.quantity, 0);
-  const deliveryFee = itemTotal > 500 ? 0 : 40;
-  const packagingFee = Math.round(itemTotal * 0.03);
-  const taxes = Math.round(itemTotal * 0.18);
-  const grandTotal = itemTotal + deliveryFee + packagingFee + taxes;
-  const cartItemCount = safeCart.reduce((total, item) => total + Number(item.quantity || 0), 0);
+  const safeCart = useMemo(() => Array.isArray(cart) ? cart : [], [cart]);
+
+  // Memoize all cart totals — these were recalculating on every render including
+  // re-renders triggered by hover, scroll, and unrelated state changes
+  const { itemTotal, deliveryFee, packagingFee, taxes, grandTotal, cartItemCount } = useMemo(() => {
+    const itemTotal = safeCart.reduce((acc, item) => acc + getPrice(item.price) * item.quantity, 0);
+    const deliveryFee = itemTotal > 500 ? 0 : 40;
+    const packagingFee = Math.round(itemTotal * 0.03);
+    const taxes = Math.round(itemTotal * 0.18);
+    const grandTotal = itemTotal + deliveryFee + packagingFee + taxes;
+    const cartItemCount = safeCart.reduce((total, item) => total + Number(item.quantity || 0), 0);
+    return { itemTotal, deliveryFee, packagingFee, taxes, grandTotal, cartItemCount };
+  }, [safeCart]);
+
+  // cartMap: O(1) lookup by dish id — avoids O(n) .find() on every menu item render
+  const cartMap = useMemo(
+    () => new Map(safeCart.map((item) => [item.id, item])),
+    [safeCart]
+  );
 
   const goToCheckout = () => {
     window.scrollTo(0, 0);
     navigate("/checkout");
   };
 
-  const isFavorite = favoriteIds.includes(id);
   const averageRating = useMemo(() => {
     if (!reviews.length) return null;
     const total = reviews.reduce((sum, review) => sum + review.rating, 0);
@@ -187,11 +202,11 @@ const RestaurantPage = () => {
       setError("");
       if (isFavorite) {
         await removeFavorite(id);
-        setFavoriteIds((prev) => prev.filter((favoriteId) => favoriteId !== id));
+        setIsFavorite(false);
         setMessage("Restaurant removed from favorites.");
       } else {
         await addFavorite(id);
-        setFavoriteIds((prev) => [...prev, id]);
+        setIsFavorite(true);
         setMessage("Restaurant added to favorites.");
       }
     } catch (requestError) {
@@ -252,6 +267,10 @@ const RestaurantPage = () => {
   500
 )}
               alt={restaurant.name}
+              width={1200}
+              height={500}
+              loading="eager"
+              fetchpriority="high"
               className="h-full w-full object-cover"
               onError={(e) => { e.target.src = FALLBACK_IMG; }}
             />
@@ -311,7 +330,7 @@ const RestaurantPage = () => {
             </div>
 
             {menuItems.map((dish) => {
-            const cartItem = safeCart.find((item) => item.id === dish.id);
+            const cartItem = cartMap.get(dish.id);
 
             return (
               <article

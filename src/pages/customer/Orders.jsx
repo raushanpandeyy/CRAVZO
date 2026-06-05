@@ -1,11 +1,23 @@
-import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Clock3, MessageCircle, Star, X } from "lucide-react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Clock3, Loader2, MessageCircle, Star, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { cart } from "../../assets/images/logos.js";
 import SearchBar from "../../components/common/Searchbar.jsx";
 import OrderProgressBar from "../../components/OrderProgressBar.jsx";
 import { cancelOrder, getMyOrders } from "../../services/orderService.js";
+
+// Fix 14: Cloudinary image optimization helper — f_avif for ~30% smaller images
+const getOrderImage = (url, width = 400) => {
+  if (!url) return null;
+  if (url.includes("cloudinary.com")) {
+    const parts = url.split("/upload/");
+    if (parts.length === 2) {
+      return `${parts[0]}/upload/c_fill,w_${width},h_160,q_auto,f_avif/${parts[1]}`;
+    }
+  }
+  return url;
+};
 
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(0)}`;
 const OrderChatModal = lazy(() => import("../../components/OrderChatModal.jsx"));
@@ -95,22 +107,25 @@ export default function Orders() {
     init();
   }, []);
 
-  // Auto-poll while active orders exist — update cards silently
+  // Auto-poll while active orders exist — pauses when tab is hidden to save data/battery
   useEffect(() => {
     const activeStatuses = ["PENDING", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
     const hasActive = orders.some((o) => activeStatuses.includes(o.status));
 
-    if (hasActive) {
-      pollingRef.current = setInterval(async () => {
-        const fresh = await loadOrders(true);
-        if (!fresh) return;
-        // Keep selectedOrder in sync if open
-        setSelectedOrder((prev) => {
-          if (!prev) return prev;
-          return fresh.find((o) => o.id === prev.id) || prev;
-        });
-      }, POLL_INTERVAL_MS);
-    }
+    if (!hasActive) return;
+
+    const tick = async () => {
+      // Skip polling when tab is backgrounded — saves mobile data
+      if (document.visibilityState === "hidden") return;
+      const fresh = await loadOrders(true);
+      if (!fresh) return;
+      setSelectedOrder((prev) => {
+        if (!prev) return prev;
+        return fresh.find((o) => o.id === prev.id) || prev;
+      });
+    };
+
+    pollingRef.current = setInterval(tick, POLL_INTERVAL_MS);
 
     return () => clearInterval(pollingRef.current);
   }, [orders]);

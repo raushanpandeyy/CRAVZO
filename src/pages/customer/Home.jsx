@@ -5,9 +5,6 @@ import {
   IndianRupee,
   Star,
   Smartphone,
-  ChevronLeft,
-  ChevronRight,
-  Zap,
 } from "lucide-react";
 
 import SearchBar from "../../components/common/Searchbar.jsx";
@@ -17,6 +14,7 @@ import {
   icecream, Snacks, southindian, salad, northindian,
 } from "../../assets/images/foodimages.js";
 import { getNearbyRestaurants, listRestaurants } from "../../services/foodService.js";
+import { useUserLocation } from "../../hooks/useUserLocation.js";
 
 const HeroSection = lazy(() => import("./HeroSection.jsx"));
 const Citywise = lazy(() => import("./Citywise.jsx"));
@@ -35,24 +33,8 @@ const getOptimizedImage = (url, width = 400) => {
   return url;
 };
 
-const getOptimizedRestaurantImage = (
-  url,
-  width = 450
-) => {
-  if (!url) {
-    return FALLBACK_IMG;
-  }
-
-  if (url.includes("cloudinary.com")) {
-    const parts = url.split("/upload/");
-
-    if (parts.length === 2) {
-      return `${parts[0]}/upload/c_fill,w_${width},q_auto,f_avif/${parts[1]}`;
-    }
-  }
-
-  return url;
-};
+// Alias — same transform, kept for call-site clarity
+const getOptimizedRestaurantImage = (url, width = 450) => getOptimizedImage(url, width);
 
 const categories = [
   { name: "Burger", image: burger, to: "/dish/Burger" },
@@ -229,12 +211,14 @@ const MobileNearbyMiniCard = ({ restaurant, index }) => {
 const Home = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [locationError, setLocationError] = useState(false);
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
   const [featureEnabled, setFeatureEnabled] = useState(false);
   const [currentAd, setCurrentAd] = useState(0);
   const [ads, setAds] = useState([]);
+
+  // Shared location hook — no separate geolocation call, reuses sessionStorage cache
+  const { lat, lng, ready: locationReady } = useUserLocation();
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
 
@@ -270,9 +254,7 @@ const Home = () => {
   useEffect(() => {
     const cachedRestaurants = localStorage.getItem("cravzoHomeRestaurants");
     const enabled = localStorage.getItem("cravzoFeatureEnabled") === "true";
-
     setFeatureEnabled(enabled);
-
     if (cachedRestaurants) {
       try {
         setRestaurants(JSON.parse(cachedRestaurants));
@@ -283,66 +265,57 @@ const Home = () => {
 
   const ComponentLoader = () => <div className="animate-pulse bg-slate-200 h-40 rounded-2xl m-4" />;
 
+  // Restaurant fetch — uses shared location hook (no duplicate GPS call)
+  // 3km radius when location available, fallback to latest 20 restaurants
   useEffect(() => {
-    const loadRestaurants = async () => {
+    if (!locationReady) return; // wait for location resolution
+
+    const load = async () => {
+      // Fix 12: Mobile gets 10 restaurants (half the data), desktop gets 20.
+      // window.innerWidth check at fetch time so SSR/prerender stays safe.
+      const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
+      const limit = isMobile ? 10 : 20;
+
       try {
-        const data = await listRestaurants({ page: 1, limit: 20 });
-        const restaurantData = Array.isArray(data) ? data : (data?.data || []);
+        let restaurantData = [];
+        if (lat && lng) {
+          const res = await getNearbyRestaurants(lat, lng, 3);
+          restaurantData = Array.isArray(res) ? res : (res?.data || []);
+          // Respect the mobile limit even for nearby results
+          if (isMobile) restaurantData = restaurantData.slice(0, limit);
+        }
+        if (!restaurantData.length) {
+          const res = await listRestaurants({ page: 1, limit });
+          restaurantData = Array.isArray(res) ? res : (res?.data || []);
+        }
         setRestaurants(restaurantData);
-        localStorage.setItem("cravzoHomeRestaurants", JSON.stringify(restaurantData));
-      } catch (error) {
-        console.error("Failed to load restaurants", error);
+        // Fix: localStorage write is synchronous and blocks main thread (20 items × ~1KB).
+        // Defer to idle time so it doesn't compete with rendering.
+        const saveToCache = () => {
+          try { localStorage.setItem("cravzoHomeRestaurants", JSON.stringify(restaurantData)); } catch {}
+        };
+        if (typeof requestIdleCallback !== "undefined") {
+          requestIdleCallback(saveToCache, { timeout: 2000 });
+        } else {
+          setTimeout(saveToCache, 100);
+        }
+      } catch (err) {
+        console.error("Failed to load restaurants", err);
       } finally {
         setLoading(false);
       }
     };
 
-    if (!navigator.geolocation) {
-      setLocationError(true);
-      loadRestaurants();
-      return;
-    }
+    load();
+  }, [locationReady, lat, lng]);
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        try {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          const res = await getNearbyRestaurants(lat, lng);
-          const restaurantData = Array.isArray(res) ? res : (res?.data || []);
-          if (restaurantData.length > 0) {
-            setRestaurants(restaurantData);
-            localStorage.setItem("cravzoHomeRestaurants", JSON.stringify(restaurantData));
-          } else {
-            await loadRestaurants();
-          }
-        } catch (error) {
-          console.error("Failed to load nearby restaurants", error);
-          await loadRestaurants();
-        } finally {
-          setLoading(false);
-        }
-      },
-      (error) => {
-        console.error("Location error:", error.code, error.message);
-        setLocationError(true);
-        loadRestaurants();
-      },
-      {
-        enableHighAccuracy: false,
-        timeout: 2000,
-        maximumAge: 60000,
-      }
-);
-  }, []);
-
-  // Featured auto-scroll disabled - now swipeable
-
-  // Auto-scroll ads every 4 seconds
+  // Auto-scroll ads every 4 seconds — pauses when tab is hidden
   useEffect(() => {
     if (ads.length === 0) return;
     const interval = setInterval(() => {
-      setCurrentAd((prev) => (prev + 1) % ads.length);
+      if (document.visibilityState !== "hidden") {
+        setCurrentAd((prev) => (prev + 1) % ads.length);
+      }
     }, 4000);
     return () => clearInterval(interval);
   }, [ads.length]);

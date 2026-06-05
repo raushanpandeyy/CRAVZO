@@ -112,4 +112,22 @@ const deleteFavorite = async (req, res) => {
   );
 };
 
-export { createFavorite, deleteFavorite, listFavorites };
+// Fix 4: Lightweight check — returns single boolean instead of entire favorites list
+// GET /api/favorites/check?restaurantId=xxx → { isFavorite: true/false }
+const checkFavorite = async (req, res) => {
+  const { restaurantId } = req.query;
+  if (!restaurantId) {
+    return res.status(200).json(apiResponse({ message: "ok", data: { isFavorite: false } }));
+  }
+
+  const favorite = await prisma.favorite.findFirst({
+    where: { userId: req.user.sub, restaurantId },
+    select: { id: true },
+  });
+
+  res.status(200).json(
+    apiResponse({ message: "ok", data: { isFavorite: Boolean(favorite) } }),
+  );
+};
+
+export { createFavorite, deleteFavorite, listFavorites, checkFavorite };

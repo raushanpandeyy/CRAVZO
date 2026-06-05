@@ -388,60 +388,28 @@ const VendorProfile = () => {
         await saveVendorRestaurant(
           {
             name: form.name,
-
-            description:
-              form.description,
-
-            cuisine:
-              form.cuisine,
-
+            description: form.description,
+            cuisine: form.cuisine,
             phone: form.phone,
-
-            imageUrl:
-              form.imageUrl ||
-              null,
-
-            addressLine1:
-              form.addressLine1,
-
-            addressLine2:
-              form.addressLine2 ||
-              null,
-
+            imageUrl: form.imageUrl || null,
+            addressLine1: form.addressLine1,
+            addressLine2: form.addressLine2 || null,
             city: form.city,
-
-            state:
-              form.state,
-
-            postalCode:
-              form.postalCode,
-
-            fssaiNumber:
-              form.fssaiNumber || null,
-
+            state: form.state,
+            postalCode: form.postalCode,
+            fssaiNumber: form.fssaiNumber || null,
             status: "ACTIVE",
-
-            isOpen:
-              form.isOpen,
-
-            openingTime:
-              form.openingTime,
-
-            closingTime:
-              form.closingTime,
-
-            openDays:
-              form.openDays,
-
+            isOpen: form.isOpen,
+            openingTime: form.openingTime,
+            closingTime: form.closingTime,
+            openDays: form.openDays,
+            // Pass GPS coords if vendor used "Use GPS" button
+            ...(form._lat && form._lng ? { latitude: form._lat, longitude: form._lng } : {}),
             bankDetails:
-              form.bankDetails
-                .accountHolderName ||
-                form.bankDetails
-                  .bankName ||
-                form.bankDetails
-                  .accountNumber ||
-                form.bankDetails
-                  .ifsc
+              form.bankDetails.accountHolderName ||
+              form.bankDetails.bankName ||
+              form.bankDetails.accountNumber ||
+              form.bankDetails.ifsc
                 ? form.bankDetails
                 : null,
           },
@@ -714,7 +682,48 @@ const VendorProfile = () => {
           <h2 className="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2">
             <MapPin size={18} />
             Restaurant Address
+            <span className="ml-auto text-xs text-slate-400 font-normal">Required for customers to find you</span>
           </h2>
+
+          {/* GPS Location Button */}
+          <div className="mb-4 rounded-xl bg-indigo-50 p-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-bold text-indigo-900">Set Location from GPS</p>
+              <p className="text-xs text-indigo-600 mt-0.5">
+                {restaurant?.latitude && restaurant?.longitude
+                  ? `✓ Location set (${Number(restaurant.latitude).toFixed(4)}, ${Number(restaurant.longitude).toFixed(4)})`
+                  : "Location not set — customers won't find you in nearby search"}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!navigator.geolocation) {
+                  setError("GPS not available on this device.");
+                  return;
+                }
+                setMessage("");
+                setError("Getting your location...");
+                navigator.geolocation.getCurrentPosition(
+                  (pos) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      _lat: pos.coords.latitude,
+                      _lng: pos.coords.longitude,
+                    }));
+                    setError("");
+                    setMessage(`Location captured: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}. Save profile to apply.`);
+                  },
+                  () => setError("Could not get location. Allow GPS permission and try again."),
+                  { enableHighAccuracy: true, timeout: 8000 }
+                );
+              }}
+              className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-indigo-700 active:scale-95"
+            >
+              <MapPin className="inline h-4 w-4 mr-1" />
+              Use GPS
+            </button>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
