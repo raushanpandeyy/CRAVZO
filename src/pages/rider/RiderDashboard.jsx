@@ -69,7 +69,8 @@ const RiderDashboard = () => {
     setError("");
 
     try {
-      const data = await getRiderOrders();
+      const rawData = await getRiderOrders();
+      const data = Array.isArray(rawData) ? rawData : [];
       
       const currentAvailableIds = data.filter((order) => order.isAvailable).map((order) => order.id);
       
@@ -135,7 +136,9 @@ const RiderDashboard = () => {
 
   const handleAcceptOrder = async (orderId) => {
     try {
-      await updateOrderStatus(orderId, "ACCEPTED");
+      const order = orderRequest?.id === orderId ? orderRequest : orders.find(o => o.id === orderId);
+      const status = order?.status || "ACCEPTED";
+      await updateOrderStatus(orderId, status);
       setMessage("Order accepted successfully!");
       setShowRequest(false);
       setOrderRequest(null);
@@ -475,10 +478,10 @@ const RiderDashboard = () => {
                   lng: selectedOrder.restaurant?.longitude,
                 }}
                 drop={
-                  selectedOrder.status === "OUT_FOR_DELIVERY"
+                  selectedOrder.address?.latitude && selectedOrder.address?.longitude
                     ? {
-                      lat: selectedOrder.address?.latitude,
-                      lng: selectedOrder.address?.longitude,
+                      lat: selectedOrder.address.latitude,
+                      lng: selectedOrder.address.longitude,
                     }
                     : null
                 }

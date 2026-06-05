@@ -69,8 +69,7 @@ export default function Orders() {
   const loadOrders = async (silent = false) => {
     try {
       const data = await getMyOrders();
-      // Handle both paginated response { data, meta } and plain array (backwards compat)
-      const orders = Array.isArray(data) ? data : (data?.data ?? data ?? []);
+      const orders = Array.isArray(data) ? data : (data?.orders ?? data?.data ?? []);
       setOrders(Array.isArray(orders) ? orders : []);
       return Array.isArray(orders) ? orders : [];
     } catch (requestError) {
@@ -252,11 +251,10 @@ export default function Orders() {
           filteredOrders.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filteredOrders.map((order) => (
-                <button
-                  type="button"
+                <div
                   onClick={() => setSelectedOrder(order)}
                   key={order.id}
-                  className="group overflow-hidden rounded-[28px] border border-slate-100 bg-white text-left shadow-sm transition-all duration-200 active:scale-[0.99] hover:shadow-md sm:rounded-3xl"
+                  className="cursor-pointer group overflow-hidden rounded-[28px] border border-slate-100 bg-white text-left shadow-sm transition-all duration-200 active:scale-[0.99] hover:shadow-md sm:rounded-3xl"
                 >
                   {/* Restaurant image */}
                   <div className="relative h-32 overflow-hidden sm:h-40">
@@ -329,7 +327,7 @@ export default function Orders() {
                       </div>
                     </div>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           ) : (

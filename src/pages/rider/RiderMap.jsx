@@ -4,42 +4,34 @@ import "leaflet/dist/leaflet.css";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 
 const RiderMap = ({ pickup, drop, rider }) => {
-  // 🔍 Debug logs (MOST IMPORTANT)
-  console.log("Pickup:", pickup);
-  console.log("Drop:", drop);
-  console.log("Rider:", rider);
-
-  // 🛑 Safety check
-  if (!pickup?.lat || !pickup?.lng || !drop?.lat || !drop?.lng) {
-    console.log("❌ Missing coordinates:", {
-      pickupLat: pickup?.lat,
-      pickupLng: pickup?.lng,
-      dropLat: drop?.lat,
-      dropLng: drop?.lng,
-    });
-
+  if (!pickup?.lat || !pickup?.lng) {
     return <p>Loading map...</p>;
   }
 
+  const hasDrop = drop?.lat && drop?.lng;
+
+  const center = hasDrop
+    ? [(pickup.lat + drop.lat) / 2, (pickup.lng + drop.lng) / 2]
+    : [pickup.lat, pickup.lng];
+
   return (
     <MapContainer
-      center={[pickup.lat, pickup.lng]}
+      center={center}
       zoom={13}
       style={{ height: "400px", width: "100%" }}
     >
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-      {/* 📍 Restaurant */}
       <Marker position={[pickup.lat, pickup.lng]}>
         <Popup>Pickup Location</Popup>
       </Marker>
 
-      {/* 📍 Customer */}
-      <Marker position={[drop.lat, drop.lng]}>
-        <Popup>Delivery Location</Popup>
-      </Marker>
+      {hasDrop && (
+        <Marker position={[drop.lat, drop.lng]}>
+          <Popup>Delivery Location</Popup>
+        </Marker>
+      )}
 
-      {/* 🛵 Rider */}
       {rider?.lat && rider?.lng && (
         <Marker position={[rider.lat, rider.lng]}>
           <Popup>Your Location</Popup>

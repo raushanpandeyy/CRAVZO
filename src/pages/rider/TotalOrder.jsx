@@ -27,7 +27,8 @@ const RiderAnalytics = () => {
       try {
         setLoading(true);
 
-        const data = await getRiderOrders();
+        const rawData = await getRiderOrders();
+        const data = Array.isArray(rawData) ? rawData : [];
 
         setOrders(
           data.filter((order) => !order.isAvailable)

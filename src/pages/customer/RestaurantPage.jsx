@@ -270,7 +270,7 @@ const RestaurantPage = () => {
               width={1200}
               height={500}
               loading="eager"
-              fetchpriority="high"
+              fetchPriority="high"
               className="h-full w-full object-cover"
               onError={(e) => { e.target.src = FALLBACK_IMG; }}
             />

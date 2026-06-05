@@ -4,6 +4,7 @@ import { MapPin, Plus, CreditCard, Check, X, Tag, ChevronDown, ChevronUp, Trash2
 
 import { createAddress as saveAddress, getAddresses } from "../../services/addressService.js";
 import { getProfile } from "../../services/userService.js";
+import { getRestaurantById } from "../../services/foodService.js";
 import {
   createCODOrder,
   createRazorpayCheckoutOrder,
@@ -12,9 +13,13 @@ import {
   verifyRazorpayPaymentAndCreateOrder,
 } from "../../services/paymentService.js";
 
-const DELIVERY_BASE_FEE = 33;
-const DELIVERY_BASE_KM = 5;
-const DELIVERY_PER_KM_RATE = 10;
+const DELIVERY_SLABS = [
+  { maxKm: 1, fee: 20 },
+  { maxKm: 2, fee: 25 },
+  { maxKm: 4, fee: 33 },
+  { maxKm: 5, fee: 43 },
+  { maxKm: 6, fee: 53 },
+];
 const PLATFORM_FEE = 9;
 const PACKAGING_PERCENT = 0.04;
 const RAZORPAY_PERCENT = 0.02;
@@ -33,12 +38,20 @@ const emptyAddress = {
 const formatCurrency = (amount) => `₹${Math.floor(amount)}`;
 
 const calculateDeliveryFee = (distanceKm = 3) => {
-  const distance = distanceKm || 3;
-  if (distance <= DELIVERY_BASE_KM) {
-    return DELIVERY_BASE_FEE;
+  const distance = distanceKm || 0;
+  for (const slab of DELIVERY_SLABS) {
+    if (distance <= slab.maxKm) return slab.fee;
   }
-  const extraKm = distance - DELIVERY_BASE_KM;
-  return DELIVERY_BASE_FEE + extraKm * DELIVERY_PER_KM_RATE;
+  const lastSlab = DELIVERY_SLABS[DELIVERY_SLABS.length - 1];
+  return lastSlab.fee + Math.ceil(distance - lastSlab.maxKm) * 10;
+};
+
+const haversineKm = (lat1, lng1, lat2, lng2) => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
 const getPrice = (price) => {
@@ -283,11 +296,26 @@ const CheckoutPage = () => {
   const [paymentMethod, setPaymentMethod] = useState("UPI");
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [distanceKm, setDistanceKm] = useState(3);
+  const [restaurantCoords, setRestaurantCoords] = useState(null);
 
   useEffect(() => {
     const hydrateCheckout = async () => {
       const stored = JSON.parse(localStorage.getItem("cravzoCart"));
       if (stored) setCart(stored);
+
+      let restCoords = null;
+      const restaurantId = stored?.[0]?.restaurantId;
+      if (restaurantId) {
+        try {
+          const restaurant = await getRestaurantById(restaurantId);
+          if (restaurant?.latitude && restaurant?.longitude) {
+            restCoords = { lat: restaurant.latitude, lng: restaurant.longitude };
+            setRestaurantCoords(restCoords);
+          }
+        } catch {
+          // restaurant fetch failed, distance stays default
+        }
+      }
 
       try {
         const [addresses, user] = await Promise.all([getAddresses(), getProfile()]);
@@ -306,6 +334,9 @@ const CheckoutPage = () => {
             state: defaultAddress.state || "",
             postalCode: defaultAddress.postalCode || "",
           });
+          if (restCoords && defaultAddress.latitude && defaultAddress.longitude) {
+            setDistanceKm(haversineKm(restCoords.lat, restCoords.lng, defaultAddress.latitude, defaultAddress.longitude));
+          }
         }
       } catch (requestError) {
         setSavedAddresses([]);
@@ -343,6 +374,9 @@ const CheckoutPage = () => {
       state: savedAddress.state || "",
       postalCode: savedAddress.postalCode || "",
     });
+    if (restaurantCoords && savedAddress.latitude && savedAddress.longitude) {
+      setDistanceKm(haversineKm(restaurantCoords.lat, restaurantCoords.lng, savedAddress.latitude, savedAddress.longitude));
+    }
     setShowNewAddressForm(false);
   };
 

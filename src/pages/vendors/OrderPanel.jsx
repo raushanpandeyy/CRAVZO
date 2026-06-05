@@ -42,7 +42,7 @@ const OrderPanel = () => {
 
     try {
       const data = await getVendorOrders();
-      setOrders(data);
+      setOrders(Array.isArray(data?.orders) ? data.orders : []);
     } catch (requestError) {
       setError(requestError.message || "Failed to load vendor orders");
     } finally {

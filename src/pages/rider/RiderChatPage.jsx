@@ -32,7 +32,8 @@ const RiderChatPage = () => {
     const loadActiveOrders = async () => {
       try {
         const { getRiderOrders } = await import("../../services/orderService.js");
-        const orders = await getRiderOrders();
+        const rawOrders = await getRiderOrders();
+        const orders = Array.isArray(rawOrders) ? rawOrders : [];
         const active = orders.filter(
           (o) => !o.isAvailable && !["DELIVERED", "CANCELLED", "REJECTED"].includes(o.status)
         );
