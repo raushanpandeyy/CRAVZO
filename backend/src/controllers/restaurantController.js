@@ -410,9 +410,15 @@ const searchRestaurantsAndDishes = async (req, res) => {
     );
   }
 
+  // Only cache queries with 3+ characters — shorter queries are too granular
+  // and would pollute Redis with one-hit-wonder keys
+  const shouldCache = query.length >= 3;
   const cacheKey = buildCacheKey("search", { q: query.toLowerCase(), lat, lng, radius: radiusKm });
-  const cached = await getCache(cacheKey);
-  if (cached) return res.status(200).json(cached);
+
+  if (shouldCache) {
+    const cached = await getCache(cacheKey);
+    if (cached) return res.status(200).json(cached);
+  }
 
   const menuItemMatch = {
     OR: [
@@ -518,7 +524,11 @@ const searchRestaurantsAndDishes = async (req, res) => {
     },
   });
 
-  await setCache(cacheKey, response, 60);
+  // Short TTL for search results — 15s for short queries, 60s for longer ones
+  const searchTtl = query.length >= 3 ? 60 : 15;
+  if (shouldCache) {
+    await setCache(cacheKey, response, searchTtl);
+  }
   return res.status(200).json(response);
 };
 

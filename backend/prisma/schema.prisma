@@ -40,6 +40,7 @@ model User {
   @@index([status])
   @@index([role, status, createdAt])
   @@index([role, status, isOnline])
+  @@index([role, status, createdAt, id])
 }
 
 model Address {
@@ -99,6 +100,8 @@ model Restaurant {
   @@index([status, isOpen, createdAt])
   @@index([status, isOpen, city])
   @@index([city])
+  @@index([city, status, isOpen])
+  @@index([latitude, longitude])
 }
 
 model MenuItem {
@@ -118,6 +121,7 @@ model MenuItem {
 
   @@index([restaurantId, status, createdAt])
   @@index([restaurantId, status, category])
+  @@index([restaurantId, status, category, price])
 }
 
 model Order {
@@ -168,6 +172,8 @@ model Order {
   @@index([paymentMethod, createdAt])
   @@index([paymentStatus, createdAt])
   @@index([createdAt])
+  @@index([restaurantId, status, createdAt])
+  @@index([customerId, status, createdAt])
 }
 
 model OrderItem {

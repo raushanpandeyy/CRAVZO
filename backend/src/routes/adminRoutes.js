@@ -1,22 +1,24 @@
 import { Router } from "express";
 
+import { getAdminOverview } from "../controllers/adminController.js";
 import {
   approveRider,
   approveVendor,
-  createRestaurantForVendor,
-  getAdminOverview,
   getPendingRiders,
   getPendingVendors,
   getUserDetails,
   getUserOrders,
-  listRestaurants,
   listUsers,
   searchUserSupportDetails,
-  updateRestaurantStatus,
   updateUserStatus,
-} from "../controllers/adminController.js";
-import { authorize, authenticate } from "../middleware/authMiddleware.js";
+} from "../controllers/adminUserController.js";
+import {
+  createRestaurantForVendor,
+  listRestaurants,
+  updateRestaurantStatus,
+} from "../controllers/adminRestaurantController.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { authenticate, authorize } from "../middleware/authMiddleware.js";
 
 const adminRouter = Router();
 
