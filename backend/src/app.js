@@ -49,14 +49,16 @@ app.use(
 
 app.use(helmet());
 app.use(requestLogger);
-// Max order payload is ~2KB — keep a tight global limit
+// Larger body limit for image upload endpoints — must come BEFORE the global
+// limit so requests to /api/users/uploads/* and /api/chat/rooms/* don't get
+// rejected by the 100kb default
+app.use("/api/users/uploads", express.json({ limit: "10mb" }));
+app.use("/api/chat/rooms", express.json({ limit: "10mb" }));
+
+// Max order payload is ~2KB — keep a tight global limit for everything else
 app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 app.use(cookieParser());
-
-// Larger body limit only for image upload endpoints
-app.use("/api/users/uploads", express.json({ limit: "5mb" }));
-app.use("/api/chat/rooms", express.json({ limit: "5mb" }));
 
 app.get("/health", (_req, res) => {
   res.status(200).json({
