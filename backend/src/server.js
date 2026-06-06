@@ -16,6 +16,12 @@ const server = http.createServer(app);
 // Fix #5: attachChatSocket is now async (sets up Redis pub/sub adapter)
 await attachChatSocket(server);
 
+// Start background notification worker (Fix 1: Bull queue)
+const { startNotificationWorker } = await import("./services/notificationWorker.js");
+startNotificationWorker().catch((error) => {
+  console.error("Failed to start notification worker:", error.message);
+});
+
 server.listen(PORT, () => {
   console.log(`CRAVZO backend running on port ${PORT}`);
 });

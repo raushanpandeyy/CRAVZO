@@ -1,13 +1,14 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import {
-  Star,
+  BarChart3,
+  Headphones,
+  Image,
   ShoppingBag,
-  Users,
+  Star,
   Store,
   UserPlus,
-  Headphones,
-  BarChart3,
+  Users,
 } from "lucide-react";
 
 const navItems = [
@@ -18,6 +19,7 @@ const navItems = [
   { path: "/admin/pending", icon: UserPlus, label: "Pending" },
   { path: "/admin/support", icon: Headphones, label: "Support" },
   { path: "/admin/analytics", icon: BarChart3, label: "Stats" },
+  { path: "/admin/promotions", icon: Image, label: "Promos" },
 ];
 
 const AdminMobileNav = () => {

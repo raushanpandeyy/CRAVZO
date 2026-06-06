@@ -20,6 +20,7 @@ import { Loader2, MapPin, Search, Utensils, X } from "lucide-react";
 
 import { searchRestaurantsAndDishes } from "../../services/foodService.js";
 import { useUserLocation } from "../../hooks/useUserLocation.js";
+import useDebounce from "../../hooks/useDebounce.js";
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Crect fill='%23f1f5f9' width='120' height='120'/%3E%3C/svg%3E";
 
@@ -47,7 +48,6 @@ const SearchBar = ({
   const [results, setResults] = useState({ restaurants: [], dishes: [] });
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-  const debounceRef = useRef(null);
   const containerRef = useRef(null);
 
   const query = value !== undefined ? value : internalQuery;
@@ -65,6 +65,22 @@ const SearchBar = ({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  const debouncedSearch = useDebounce(async (q) => {
+    setLoading(true);
+    try {
+      const data = await searchRestaurantsAndDishes(
+        q,
+        locationReady && lat ? { lat, lng, radius: 3 } : {},
+      );
+      setResults(data);
+      setOpen(true);
+    } catch {
+      setResults({ restaurants: [], dishes: [] });
+    } finally {
+      setLoading(false);
+    }
+  }, 400);
+
   // Debounced search — fires ONE API call after 400ms idle
   useEffect(() => {
     const q = query.trim();
@@ -76,24 +92,7 @@ const SearchBar = ({
 
     if (!showResults) return; // Mobile: handled by navigation, not dropdown
 
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const data = await searchRestaurantsAndDishes(
-          q,
-          locationReady && lat ? { lat, lng, radius: 3 } : {},
-        );
-        setResults(data);
-        setOpen(true);
-      } catch {
-        setResults({ restaurants: [], dishes: [] });
-      } finally {
-        setLoading(false);
-      }
-    }, 400);
-
-    return () => clearTimeout(debounceRef.current);
+    debouncedSearch(q);
   }, [query, lat, lng, locationReady, showResults]);
 
   const handleChange = (e) => {

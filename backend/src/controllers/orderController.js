@@ -2,9 +2,7 @@ import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { createPersistedOrder, serializeOrder } from "../services/orderCheckoutService.js";
-import { notifyOrderStatusChanged, notifyRiderNewOrder, notifyVendorNewOrder } from "../services/notificationService.js";
-import { notifyAdminOrderCreated, notifyAdminOrderStatusChanged } from "../services/adminOrderAlertService.js";
-import { logger } from "../utils/logger.js";
+import { queueNotification } from "../services/notificationQueue.js";
 import { createOrderSchema } from "../validators/orderValidators.js";
 
 const ACTIVE_DELIVERY_STATUSES = ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
@@ -35,12 +33,6 @@ const getDistanceKm = (startLat, startLng, endLat, endLng) => {
 };
 
 const normalizeCity = (value) => value?.trim().toLowerCase() || "";
-
-const runNotificationTask = (task) => {
-  task.catch((error) => {
-    logger.warn("Push notification task failed", { error });
-  });
-};
 
 const createOrder = async (req, res) => {
   const {
@@ -74,14 +66,10 @@ const createOrder = async (req, res) => {
     notes,
   });
 
-  // Send notifications after order is persisted.
-  // notifyVendorNewOrder sends the actionable "New Order Received!" alert.
-  // notifyRiderNewOrder alerts available riders in the same city.
-  // We do NOT call notifyOrderCreated here — it sends a duplicate "Order placed"
-  // to the vendor which notifyVendorNewOrder already covers with richer copy.
-  runNotificationTask(notifyVendorNewOrder(order));
-  runNotificationTask(notifyRiderNewOrder(order));
-  notifyAdminOrderCreated(order);
+  // Queue notifications after order is persisted — background worker handles FCM
+  // This removes ~500ms of FCM send time from the request lifecycle
+  queueNotification("vendor-new-order", { order });
+  queueNotification("rider-new-order", { order });
 
   res.status(201).json(
     apiResponse({
@@ -356,7 +344,7 @@ const getRiderOrderSuggestions = async (req, res) => {
 
   const riderCity = rider.riderOnboarding?.city?.trim();
 
-  const [activeOrders, engagedRiderRows, candidateRiders] = await Promise.all([
+  const [activeOrders, engagedRiderRows] = await Promise.all([
     prisma.order.findMany({
       where: {
         riderId: null,
@@ -376,17 +364,37 @@ const getRiderOrderSuggestions = async (req, res) => {
       where: { riderId: { not: null }, status: { in: ACTIVE_DELIVERY_STATUSES } },
       select: { riderId: true },
     }),
-    prisma.user.findMany({
-      where: {
-        role: "RIDER",
-        status: "ACTIVE",
-        isOnline: true,
-        latitude: { not: null },
-        longitude: { not: null },
-      },
-      select: { id: true, latitude: true, longitude: true, riderOnboarding: true },
-    }),
   ]);
+
+  // Fix 2: Compute bounding box from restaurant locations to pre-filter riders at DB level.
+  // Without this, ALL online riders with lat/lng are fetched (~hundreds),
+  // and the JS loop does O(activeOrders × candidateRiders) haversine calculations.
+  // With bounding box, only riders near any active order restaurant are returned.
+  let latMin = -90, latMax = 90, lngMin = -180, lngMax = 180;
+  const restaurantCoords = activeOrders
+    .map((o) => o.restaurant)
+    .filter((r) => typeof r.latitude === "number" && typeof r.longitude === "number");
+  if (restaurantCoords.length > 0) {
+    const margin = 0.1; // ~11km margin
+    latMin = Math.min(...restaurantCoords.map((r) => r.latitude)) - margin;
+    latMax = Math.max(...restaurantCoords.map((r) => r.latitude)) + margin;
+    lngMin = Math.min(...restaurantCoords.map((r) => r.longitude)) - margin;
+    lngMax = Math.max(...restaurantCoords.map((r) => r.longitude)) + margin;
+  }
+
+  const candidateRiders = await prisma.user.findMany({
+    where: {
+      role: "RIDER",
+      status: "ACTIVE",
+      isOnline: true,
+      latitude: { not: null },
+      longitude: { not: null },
+      // Bounding box filter — eliminates riders far from any active order
+      latitude: { gte: latMin, lte: latMax },
+      longitude: { gte: lngMin, lte: lngMax },
+    },
+    select: { id: true, latitude: true, longitude: true, riderOnboarding: true },
+  });
 
   const engagedSet = new Set(engagedRiderRows.map((r) => r.riderId).filter(Boolean));
   const freeRiders = candidateRiders.filter(
@@ -541,13 +549,7 @@ const updateOrderStatus = async (req, res) => {
           },
         }),
       );
-      runNotificationTask(
-        notifyOrderStatusChanged({
-          order: updatedOrder,
-          actorRole: req.user.role,
-        }),
-      );
-      notifyAdminOrderStatusChanged({ order: updatedOrder, actorRole: req.user.role });
+      queueNotification("rider-rejected-order", { order: updatedOrder, actorRole: req.user.role });
       return;
     }
 
@@ -620,21 +622,20 @@ const updateOrderStatus = async (req, res) => {
         throw new ApiError(409, "This order was just claimed by another rider. Please try a different order.");
       }
 
-      // Fetch the full updated order to return and notify
-      const claimedOrder = await prisma.order.findUnique({
+      // Fix 5: Avoid duplicate full fetch — the initial fetch already has
+      // restaurant, address, customer, items. Just fetch rider data.
+      const riderData = await prisma.order.findUnique({
         where: { id: req.params.orderId },
-        include: {
-          restaurant: true,
-          address: true,
-          customer: { select: { id: true, name: true, email: true, phone: true } },
-          rider: { select: { id: true, name: true, email: true, phone: true, avatarUrl: true } },
-          items: { include: { menuItem: true } },
+        select: {
+          rider: {
+            select: { id: true, name: true, email: true, phone: true, avatarUrl: true },
+          },
         },
       });
 
-      runNotificationTask(notifyOrderStatusChanged({ order: claimedOrder, actorRole: req.user.role }));
-      notifyAdminOrderStatusChanged({ order: claimedOrder, actorRole: req.user.role });
-      runNotificationTask(notifyRiderNewOrder(claimedOrder));
+      const claimedOrder = { ...order, rider: riderData?.rider || null };
+
+      queueNotification("order-status-changed", { order: claimedOrder, actorRole: req.user.role });
 
       return res.status(200).json(
         apiResponse({
@@ -688,13 +689,8 @@ const updateOrderStatus = async (req, res) => {
     },
   });
 
-  runNotificationTask(
-    notifyOrderStatusChanged({
-      order: updatedOrder,
-      actorRole: req.user.role,
-    }),
-  );
-  notifyAdminOrderStatusChanged({ order: updatedOrder, actorRole: req.user.role });
+  // Queue notification — background worker handles FCM send
+  queueNotification("order-status-changed", { order: updatedOrder, actorRole: req.user.role });
 
   // NOTE: notifyRiderNewOrder is NOT called here.
   // New order alerts to riders are sent only when an order is first created

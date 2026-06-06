@@ -5,6 +5,18 @@ import { env } from "./env.js";
 const redisClient = env.REDIS_URL
   ? createClient({
       url: env.REDIS_URL,
+      socket: {
+        reconnectStrategy: (retries) => {
+          if (retries > 20) {
+            console.error("Redis: max reconnect attempts reached");
+            return new Error("Redis max reconnect attempts");
+          }
+          // Exponential backoff: 500ms, 1s, 2s, 4s, 8s... max 30s
+          const delay = Math.min(Math.pow(2, retries) * 500, 30000);
+          console.warn(`Redis: reconnecting in ${delay}ms (attempt ${retries})`);
+          return delay;
+        },
+      },
     })
   : null;
 
@@ -24,6 +36,7 @@ const connectRedis = async () => {
   }
 
   redisClient.on("error", (error) => {
+    if (error.code === "ECONNREFUSED" || error.code === "NR_CLOSED") return;
     console.error("Redis connection error:", error.message);
   });
 

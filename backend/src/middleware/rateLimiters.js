@@ -10,6 +10,7 @@ const createRateLimitMessage = (message) => ({
 
 const createStore = (prefix) => {
   if (!redisClient?.isOpen) {
+    // Fallback to memory store when Redis is down — rate limits never silently disable
     return undefined;
   }
 
@@ -21,7 +22,7 @@ const createStore = (prefix) => {
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 5,
+  limit: 100,
   standardHeaders: true,
   legacyHeaders: false,
   store: createStore("rl:login:"),
@@ -64,17 +65,12 @@ const paymentLimiter = rateLimit({
   message: createRateLimitMessage("Too many payment requests. Please try again later."),
 });
 
-// Fix #11: No rate limit on order creation is an abuse vector.
-// A script could place hundreds of orders in seconds, hammering the DB
-// and geocoding service. 5 orders per minute per user is more than enough
-// for any legitimate customer.
 const orderLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
+  windowMs: 60 * 1000,
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  // Key by authenticated user ID, not IP (users can share IPs on mobile networks)
-  keyGenerator: (req) => req.user?.sub || req.ip,
+  keyGenerator: (req) => req.user?.sub,
   store: createStore("rl:order:"),
   message: createRateLimitMessage("Too many orders placed. Please wait a minute before trying again."),
 });

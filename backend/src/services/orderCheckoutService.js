@@ -1,15 +1,16 @@
 import { prisma } from "../config/database.js";
+import { env } from "../config/env.js";
 import { ApiError } from "../utils/apiError.js";
 import { getLatLngFromAddress } from "../utils/geocode.js";
 
-const DELIVERY_BASE_FEE = 33;
-const DELIVERY_BASE_KM = 5;
-const DELIVERY_PER_KM_RATE = 10;
-const GST_RATE = 0.18;
-const PLATFORM_FEE = 9;
-const PACKAGING_PERCENT = 0.04;
-const RAZORPAY_PERCENT = 0.02;
-const COD_CHARGE = 5;
+const DELIVERY_BASE_FEE = env.DELIVERY_BASE_FEE;
+const DELIVERY_BASE_KM = env.DELIVERY_BASE_KM;
+const DELIVERY_PER_KM_RATE = env.DELIVERY_PER_KM_RATE;
+const GST_RATE = env.GST_RATE;
+const PLATFORM_FEE = env.PLATFORM_FEE;
+const PACKAGING_PERCENT = env.PACKAGING_PERCENT;
+const RAZORPAY_PERCENT = env.RAZORPAY_PERCENT;
+const COD_CHARGE = env.COD_CHARGE;
 
 const buildFullAddress = ({ line1, line2, city, state, postalCode }) =>
   [line1, line2, city, state, postalCode, "India"].filter(Boolean).join(", ");

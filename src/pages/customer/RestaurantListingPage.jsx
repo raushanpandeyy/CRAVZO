@@ -8,12 +8,13 @@
  * - Dish suggestions shown as quick-tap chips
  * - No duplicate API call on mount — only fetches when query changes
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Clock3, MapPin, Search, Star, Store, X } from "lucide-react";
 
 import { searchRestaurantsAndDishes, listRestaurants, getNearbyRestaurants } from "../../services/foodService.js";
 import { useUserLocation } from "../../hooks/useUserLocation.js";
+import useDebounce from "../../hooks/useDebounce.js";
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
@@ -100,7 +101,6 @@ const RestaurantListingPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mode, setMode] = useState(initialQ ? "search" : "nearby"); // "nearby" | "search"
-  const debounceRef = useRef(null);
 
   // Load nearby/default restaurants on first visit (no query)
   useEffect(() => {
@@ -132,6 +132,25 @@ const RestaurantListingPage = () => {
     load();
   }, [locationReady, lat, lng]);
 
+  const debouncedSearch = useDebounce(async (q) => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await searchRestaurantsAndDishes(
+        q,
+        locationReady && lat ? { lat, lng, radius: 3 } : {},
+      );
+      const combined = [
+        ...data.restaurants,
+      ].filter((r, i, arr) => arr.findIndex((x) => x.id === r.id) === i);
+      setRestaurants(combined);
+    } catch {
+      setError("Search failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, 350);
+
   // Search when query changes (debounced)
   useEffect(() => {
     const q = query.trim();
@@ -142,32 +161,10 @@ const RestaurantListingPage = () => {
     }
 
     setMode("search");
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const data = await searchRestaurantsAndDishes(
-          q,
-          locationReady && lat ? { lat, lng, radius: 3 } : {},
-        );
-        // Combine: restaurants with direct match + restaurants serving matching dishes
-        const combined = [
-          ...data.restaurants,
-          // Add dish-matched restaurants not already in list
-        ].filter((r, i, arr) => arr.findIndex((x) => x.id === r.id) === i);
-        setRestaurants(combined);
-      } catch {
-        setError("Search failed. Please try again.");
-      } finally {
-        setLoading(false);
-      }
-    }, 350);
+    debouncedSearch(q);
 
     // Sync query to URL
     setSearchParams(q ? { q } : {}, { replace: true });
-
-    return () => clearTimeout(debounceRef.current);
   }, [query, lat, lng, locationReady]);
 
   const handleClear = () => {

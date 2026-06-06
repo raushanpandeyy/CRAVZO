@@ -119,10 +119,27 @@
       crossorigin
     />
 
+    <!-- Preload font stylesheet (discoverable, not render-blocking) -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+    />
+
+    <!-- Non-blocking font load: "print" media defers, onload switches to "all" -->
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'; this.onload=null"
     />
+
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
 
     <!-- Cloudinary -->
     <link rel="preconnect" href="https://res.cloudinary.com" />
@@ -194,6 +211,9 @@
         }
       }
     </script>
+
+    <!-- Preload critical JS chunks (browser discovers main.jsx + deps before parsing them) -->
+    <link rel="modulepreload" href="/src/main.jsx" />
 
     <!-- Styles -->
     <link rel="stylesheet" href="./src/index.css" />

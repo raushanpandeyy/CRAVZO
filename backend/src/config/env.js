@@ -27,6 +27,15 @@ const envSchema = z.object({
   FIREBASE_PRIVATE_KEY: z.string().optional(),
   FIREBASE_SERVICE_ACCOUNT_BASE64: z.string().optional(),
 
+  // Pricing (Fix 6)
+  DELIVERY_BASE_FEE: z.coerce.number().default(33),
+  DELIVERY_BASE_KM: z.coerce.number().default(5),
+  DELIVERY_PER_KM_RATE: z.coerce.number().default(10),
+  GST_RATE: z.coerce.number().default(0.18),
+  PLATFORM_FEE: z.coerce.number().default(9),
+  PACKAGING_PERCENT: z.coerce.number().default(0.04),
+  RAZORPAY_PERCENT: z.coerce.number().default(0.02),
+  COD_CHARGE: z.coerce.number().default(5),
 });
 
 // Helper function jo sahi jagah se data uthayega

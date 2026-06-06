@@ -16,6 +16,7 @@ const AdminRestaurants = lazy(() => import("../pages/admin/AdminRestaurants.jsx"
 const AdminPending = lazy(() => import("../pages/admin/AdminPending.jsx"));
 const AdminAnalytics = lazy(() => import("../pages/admin/AdminAnalytics.jsx"));
 const AdminChatInbox = lazy(() => import("../components/AdminChatInbox.jsx"));
+const AdminPromotions = lazy(() => import("../pages/admin/AdminPromotions.jsx"));
 
 const AdminRoutes = () => {
   const navigate = useNavigate();
@@ -110,6 +111,7 @@ const AdminRoutes = () => {
             <Route path="/admin/pending" element={<AdminPending />} />
             <Route path="/admin/support" element={<AdminChatInbox />} />
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
+            <Route path="/admin/promotions" element={<AdminPromotions />} />
             <Route path="*" element={<Navigate to="/admin/featured" replace />} />
           </Routes>
         </Suspense>

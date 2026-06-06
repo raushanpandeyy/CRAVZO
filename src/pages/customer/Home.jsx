@@ -19,6 +19,7 @@ import { useUserLocation } from "../../hooks/useUserLocation.js";
 const HeroSection = lazy(() => import("./HeroSection.jsx"));
 const Citywise = lazy(() => import("./Citywise.jsx"));
 const DishCarousel = lazy(() => import("./DishesGallery.jsx"));
+import DishPromoCarousel from "../../components/DishPromoCarousel.jsx";
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
@@ -211,50 +212,15 @@ const MobileNearbyMiniCard = ({ restaurant, index }) => {
 const Home = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [featuredIndex, setFeaturedIndex] = useState(0);
-  const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
-  const [featureEnabled, setFeatureEnabled] = useState(false);
-  const [currentAd, setCurrentAd] = useState(0);
-  const [ads, setAds] = useState([]);
+  const [isDesktop, setIsDesktop] = useState(
+    typeof window !== "undefined" && window.innerWidth >= 768
+  );
 
   // Shared location hook — no separate geolocation call, reuses sessionStorage cache
   const { lat, lng, ready: locationReady } = useUserLocation();
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
-
-  useEffect(() => {
-    const fetchFeaturedAndAds = async () => {
-      try {
-        const [featuredRes, adsRes] = await Promise.all([
-          fetch(`${API_BASE}/api/public/featured-restaurants`, { credentials: "include" }),
-          fetch(`${API_BASE}/api/public/ads`, { credentials: "include" }),
-        ]);
-        const featuredData = await featuredRes.json();
-        const adsData = await adsRes.json();
-        setFeaturedRestaurants(featuredData.data || []);
-        setAds(adsData.data || []);
-      } catch (err) {
-        console.error("Failed to load featured/ads", err);
-      }
-    };
-
-    fetchFeaturedAndAds();
-
-    const handleUpdate = () => {
-      fetchFeaturedAndAds();
-    };
-    window.addEventListener("cravzoFeatureUpdate", handleUpdate);
-    window.addEventListener("cravzoAdsUpdate", handleUpdate);
-    return () => {
-      window.removeEventListener("cravzoFeatureUpdate", handleUpdate);
-      window.removeEventListener("cravzoAdsUpdate", handleUpdate);
-    };
-  }, []);
-
   useEffect(() => {
     const cachedRestaurants = localStorage.getItem("cravzoHomeRestaurants");
-    const enabled = localStorage.getItem("cravzoFeatureEnabled") === "true";
-    setFeatureEnabled(enabled);
     if (cachedRestaurants) {
       try {
         setRestaurants(JSON.parse(cachedRestaurants));
@@ -309,25 +275,23 @@ const Home = () => {
     load();
   }, [locationReady, lat, lng]);
 
-  // Auto-scroll ads every 4 seconds — pauses when tab is hidden
+  // Desktop detection — HeroSection images should NOT download on mobile
   useEffect(() => {
-    if (ads.length === 0) return;
-    const interval = setInterval(() => {
-      if (document.visibilityState !== "hidden") {
-        setCurrentAd((prev) => (prev + 1) % ads.length);
-      }
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [ads.length]);
+    const onResize = () => setIsDesktop(window.innerWidth >= 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   return (
     <div className="bg-slate-50 md:bg-transparent">
-      {/* DESKTOP HERO */}
-      <div className="hidden md:block">
-        <Suspense fallback={<ComponentLoader />}>
-          <HeroSection />
-        </Suspense>
-      </div>
+      {/* DESKTOP HERO — NOT rendered on mobile, saves 6 hidden image downloads (~200KB) */}
+      {isDesktop && (
+        <div>
+          <Suspense fallback={<ComponentLoader />}>
+            <HeroSection />
+          </Suspense>
+        </div>
+      )}
 
       {/* MOBILE APP BANNER - Small indigo button
           CLS Fix: Use opacity/visibility instead of conditional render so
@@ -357,54 +321,14 @@ const Home = () => {
       {/* MOBILE VIEW */}
       <div className="md:hidden">
 
-        {/* Ad Space
-            CLS Fix 1: Use fixed px height (200px) instead of h-[30vh] — viewport-relative
-            units cause layout shift when the browser recalculates viewport height.
-            CLS Fix 2: The placeholder and the real image are the same height — no reflow.
-            LCP Fix: fetchPriority="high" + loading="eager" on the img so the browser
-            starts fetching it as soon as the src is known. */}
-        <div className="relative w-full overflow-hidden bg-slate-100" style={{ height: "200px" }}>
-          {ads.length > 0 ? (
-            <a
-              href={ads[currentAd]?.link || "#"}
-              className="block"
-              style={{ height: "200px" }}
-            >
-              <img
-                src={getOptimizedImage(ads[currentAd]?.imageUrl, 400)}
-                alt="Advertisement"
-                className="w-full h-full object-cover"
-                loading="eager"
-                fetchPriority="high"
-                decoding="async"
-                width={400}
-                height={200}
-              />
-            </a>
-          ) : (
-            /* Fixed-height placeholder — identical dimensions, zero shift on swap */
-            <div
-              className="w-full bg-gradient-to-br from-indigo-100 to-indigo-200 flex items-center justify-center"
-              style={{ height: "200px" }}
-            >
-              <div className="text-center">
-                <p className="text-xl font-black text-indigo-400">CRAVZO</p>
-                <p className="text-xs font-semibold text-indigo-400 mt-1">Affordable food delivery</p>
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Dish Promotions — admin-controlled, 7s auto-slide carousel */}
+        <DishPromoCarousel />
 
-        {/* Search Bar
-            CLS Fix 3: Removed -mt-6 negative margin that caused overlap shift.
-            Uses a clean shadow instead of overlapping the ad. */}
-        <div className="relative px-4 pt-3 pb-1">
-          <div className="bg-white rounded-lg shadow-lg">
-            <SearchBar
-              placeholder="Search"
-              className="h-9 rounded-lg border-2 border-[#ff6b5f]"
-            />
-          </div>
+        <div className="px-4 pt-3 pb-1">
+          <SearchBar
+            placeholder="Search"
+            className="border-2 border-[#ff6b5f] rounded-xl"
+          />
         </div>
 
         {/* Categories - Eat what you love */}
@@ -424,7 +348,6 @@ const Home = () => {
             ))}
           </div>
         </section>
-
         {/* Popular Dishes Nearby */}
         {restaurants.length > 0 && (
           <section className="relative py-3 border-b border-indigo-100">

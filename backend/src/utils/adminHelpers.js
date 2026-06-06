@@ -43,15 +43,20 @@ const slugify = (value) =>
 
 const buildUniqueRestaurantSlug = async (prisma, name) => {
   const baseSlug = slugify(name) || "restaurant";
-  let slug = baseSlug;
-  let suffix = 1;
+  const existing = await prisma.restaurant.findMany({
+    where: { slug: { startsWith: baseSlug } },
+    select: { slug: true },
+  });
 
-  while (await prisma.restaurant.findUnique({ where: { slug } })) {
-    suffix += 1;
-    slug = `${baseSlug}-${suffix}`;
-  }
+  if (existing.length === 0) return baseSlug;
 
-  return slug;
+  const suffixes = existing
+    .map((e) => e.slug.replace(`${baseSlug}-`, ""))
+    .filter((s) => /^\d+$/.test(s))
+    .map(Number);
+
+  const maxSuffix = suffixes.length ? Math.max(...suffixes) : 0;
+  return maxSuffix === 0 ? `${baseSlug}-1` : `${baseSlug}-${maxSuffix + 1}`;
 };
 
 const buildOrderFilters = (query) => {
