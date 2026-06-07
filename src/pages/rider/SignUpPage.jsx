@@ -241,6 +241,7 @@ const RiderSignup = () => {
               value={form.password}
               onChange={(event) => updateForm("password", event.target.value)}
             />
+            <p className="-mt-2 text-xs text-slate-400">At least 8 characters</p>
 
             <button onClick={() => setStep(2)} className={riderPrimaryButtonClassName}>
               Continue

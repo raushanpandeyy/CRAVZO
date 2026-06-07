@@ -225,6 +225,7 @@ const LoginPage = () => {
                 onChange={(event) => setPassword(event.target.value)}
                 required
               />
+              <p className="-mt-2 text-xs text-slate-400">At least 8 characters</p>
 
               {showOtp ? (
                 <>

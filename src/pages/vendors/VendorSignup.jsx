@@ -279,6 +279,7 @@ export default function VendorSignup() {
                       onChange={(event) => updateForm("password", event.target.value)}
                       placeholder="Create password"
                     />
+                    <p className="text-xs text-slate-400">At least 8 characters</p>
                   </>
                 ) : null}
 
