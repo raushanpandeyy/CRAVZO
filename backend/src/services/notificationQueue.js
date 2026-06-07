@@ -7,7 +7,12 @@ let notificationQueue = null;
 const getNotificationQueue = () => {
   if (notificationQueue) return notificationQueue;
 
+  // Upstash Redis needs TLS for ioredis (Bull's internal driver)
+  const isUpstash = env.REDIS_URL?.startsWith("rediss://");
+  const redisOpts = isUpstash ? { tls: {}, keepAlive: 10000, noDelay: true } : { keepAlive: 10000, noDelay: true };
+
   notificationQueue = new Queue("notifications", env.REDIS_URL, {
+    redis: redisOpts,
     defaultJobOptions: {
       attempts: 3,
       backoff: { type: "exponential", delay: 2000 },
