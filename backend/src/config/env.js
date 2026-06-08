@@ -34,8 +34,8 @@ const envSchema = z.object({
   GST_RATE: z.coerce.number().default(0.18),
   FOOD_GST_RATE: z.coerce.number().default(0.05),
   DELIVERY_GST_RATE: z.coerce.number().default(0.18),
-  PLATFORM_FEE: z.coerce.number().default(10),
-  PACKAGING_PERCENT: z.coerce.number().default(0.04),
+   PLATFORM_FEE: z.coerce.number().default(0),
+   PACKAGING_PERCENT: z.coerce.number().default(0.01),
   RAZORPAY_PERCENT: z.coerce.number().default(0.02),
   COD_CHARGE: z.coerce.number().default(5),
 });

@@ -167,7 +167,7 @@ const RestaurantPage = () => {
   const { itemTotal, deliveryFee, packagingFee, taxes, grandTotal, cartItemCount } = useMemo(() => {
     const itemTotal = safeCart.reduce((acc, item) => acc + getPrice(item.price) * item.quantity, 0);
     const deliveryFee = itemTotal > 500 ? 0 : 40;
-    const packagingFee = Math.round(itemTotal * 0.03);
+    const packagingFee = Math.round(itemTotal * 0.01);
     const taxes = Math.round(itemTotal * 0.18);
     const grandTotal = itemTotal + deliveryFee + packagingFee + taxes;
     const cartItemCount = safeCart.reduce((total, item) => total + Number(item.quantity || 0), 0);

@@ -15,8 +15,8 @@ import {
 
 const FOOD_GST_RATE = 0.05;
 const DELIVERY_GST_RATE = 0.18;
-const PLATFORM_FEE = 10;
-const PACKAGING_PERCENT = 0.04;
+const PLATFORM_FEE = 0;
+const PACKAGING_PERCENT = 0.01;
 const RAZORPAY_PERCENT = 0.02;
 const COD_CHARGE = 5;
 const DELIVERY_SLABS = [
