@@ -262,7 +262,7 @@ const Cart = () => {
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-slate-900 truncate">{item.name}</p>
-                  <p className="text-sm text-slate-500">{formatCurrency(getPrice(item.price))} each</p>
+                  <p className="text-sm text-slate-500">{formatCurrency(getPrice(item.price))} each{item.size ? <span className="ml-2 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600">{item.size}</span> : null}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button

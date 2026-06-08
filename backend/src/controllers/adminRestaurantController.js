@@ -15,6 +15,7 @@ const adminMenuItemSchema = z.object({
   category: z.string().trim().min(2).max(80),
   imageUrl: z.string().trim().url().optional().nullable(),
   price: z.coerce.number().positive().max(100000),
+  size: z.enum(["S", "M", "L"]).optional().nullable(),
   isVeg: z.boolean().optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
@@ -178,6 +179,7 @@ const createRestaurantForVendor = async (req, res) => {
                 category: item.category,
                 imageUrl: item.imageUrl || null,
                 price: item.price,
+                size: item.size || null,
                 isVeg: Boolean(item.isVeg),
                 status: item.status || "ACTIVE",
               },

@@ -10,6 +10,7 @@ import {
 import { uploadImage } from "../../services/userService.js";
 
 const categories = ["Main Course", "Starters", "Thali", "Beverages", "Desserts", "Biryani", "Sides"];
+const SIZES = ["", "S", "M", "L"];
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect fill='%23f1f5f9' width='150' height='150'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='14' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
@@ -38,6 +39,7 @@ const ManageMenu = () => {
     price: "",
     category: "",
     imageUrl: "",
+    size: "",
     isVeg: false,
     status: "ACTIVE",
   });
@@ -85,6 +87,7 @@ const ManageMenu = () => {
       price: "",
       category: "",
       imageUrl: "",
+      size: "",
       isVeg: false,
       status: "ACTIVE",
     });
@@ -138,6 +141,7 @@ const ManageMenu = () => {
         price: Number(formData.price),
         category: formData.category,
         imageUrl: formData.imageUrl || null,
+        size: formData.size || null,
         isVeg: formData.isVeg,
         status: formData.status,
       });
@@ -158,6 +162,7 @@ const ManageMenu = () => {
       price: item.price.toString(),
       category: item.category,
       imageUrl: item.imageUrl || "",
+      size: item.size || "",
       isVeg: item.isVeg,
       status: item.status,
     });
@@ -183,6 +188,7 @@ const ManageMenu = () => {
         price: Number(formData.price),
         category: formData.category,
         imageUrl: formData.imageUrl || null,
+        size: formData.size || null,
         isVeg: formData.isVeg,
         status: formData.status,
       });
@@ -309,6 +315,15 @@ const ManageMenu = () => {
               </div>
 
               <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Size</label>
+                <select name="size" value={formData.size} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
+                  {SIZES.map((size) => (
+                    <option key={size} value={size}>{size || "Select Size"}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Dish Image</label>
                 <div className="rounded-lg border border-dashed border-gray-300 p-3 bg-white">
                   {formData.imageUrl ? (
@@ -389,7 +404,10 @@ const ManageMenu = () => {
                   
                   <div className="flex justify-between items-center mb-4">
                     <span className="font-extrabold text-base md:text-lg text-indigo-600">Rs {item.price}</span>
-                    <span className="text-[11px] font-medium text-gray-500 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md">{item.category}</span>
+                    <div className="flex items-center gap-1.5">
+                      {item.size ? <span className="text-[11px] font-bold text-indigo-500 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">{item.size}</span> : null}
+                      <span className="text-[11px] font-medium text-gray-500 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md">{item.category}</span>
+                    </div>
                   </div>
                 </div>
 

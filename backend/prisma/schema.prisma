@@ -112,6 +112,7 @@ model MenuItem {
   category     String
   imageUrl     String?
   price        Decimal        @db.Decimal(10, 2)
+  size         String?
   isVeg        Boolean        @default(false)
   status       MenuItemStatus @default(ACTIVE)
   createdAt    DateTime       @default(now())
@@ -183,6 +184,7 @@ model OrderItem {
   quantity   Int
   unitPrice  Decimal  @db.Decimal(10, 2)
   totalPrice Decimal  @db.Decimal(10, 2)
+  size       String?
   menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
   order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
 

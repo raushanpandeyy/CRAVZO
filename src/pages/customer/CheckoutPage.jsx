@@ -592,6 +592,7 @@ const CheckoutPage = () => {
         items: cart.map((item) => ({
           menuItemId: item.id,
           quantity: item.quantity,
+          size: item.size || null,
         })),
         addressId: resolvedAddressId,
         address,

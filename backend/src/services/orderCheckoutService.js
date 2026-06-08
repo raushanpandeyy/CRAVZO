@@ -116,16 +116,18 @@ const serializeOrder = (order) => ({
       }
     : null,
   address: order.address,
-  items: order.items?.map((item) => ({
+    items: order.items?.map((item) => ({
     id: item.id,
     quantity: item.quantity,
     unitPrice: Number(item.unitPrice),
     totalPrice: Number(item.totalPrice),
+    size: item.size,
     menuItem: item.menuItem
       ? {
           id: item.menuItem.id,
           name: item.menuItem.name,
           imageUrl: item.menuItem.imageUrl,
+          size: item.menuItem.size,
         }
       : null,
   })),
@@ -339,6 +341,7 @@ db = prisma,
         quantity: item.quantity,
         unitPrice: menuItem.price,
         totalPrice: Number(menuItem.price) * item.quantity,
+        size: item.size || menuItem.size || null,
       };
     }),
   };

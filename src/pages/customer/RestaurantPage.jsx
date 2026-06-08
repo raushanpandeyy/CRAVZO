@@ -340,7 +340,10 @@ const RestaurantPage = () => {
                 <div className="min-w-0 flex-1">
                   <h3 className="text-base font-black text-slate-950">{dish.name}</h3>
                   <p className="mt-1 text-sm font-extrabold text-slate-900">{formatCurrency(getPrice(dish.price))}</p>
-                  <p className="mt-1 text-xs font-bold uppercase tracking-wide text-indigo-700">{dish.category || "Special"}</p>
+                  <div className="mt-1 flex items-center gap-2">
+                    {dish.size ? <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600 border border-indigo-100">{dish.size}</span> : null}
+                    <p className="text-xs font-bold uppercase tracking-wide text-indigo-700">{dish.category || "Special"}</p>
+                  </div>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">
                     {dish.description || "Freshly prepared and packed with care."}
                   </p>

@@ -32,12 +32,14 @@ const emptyForm = {
   openDays: [...DAYS_OF_WEEK],
 };
 
+const SIZES = ["", "S", "M", "L"];
 const emptyMenuItem = {
   name: "",
   description: "",
   category: "",
   price: "",
   imageUrl: "",
+  size: "",
   isVeg: false,
   status: "ACTIVE",
 };
@@ -378,6 +380,11 @@ const AdminRestaurants = () => {
                           <option value="">Category</option>
                           {MENU_CATEGORIES.map((category) => (
                             <option key={category} value={category}>{category}</option>
+                          ))}
+                        </select>
+                        <select className="rounded-lg border border-slate-200 px-3 py-2 text-sm" value={item.size} onChange={(e) => handleMenuChange(index, "size", e.target.value)}>
+                          {SIZES.map((size) => (
+                            <option key={size} value={size}>{size || "Select Size"}</option>
                           ))}
                         </select>
                         <div className="flex items-center gap-3">

@@ -16,6 +16,7 @@ const orderAddressSchema = z.object({
 const orderItemSchema = z.object({
   menuItemId: z.string().trim().min(1),
   quantity: z.coerce.number().int().min(1).max(99),
+  size: z.string().trim().max(10).optional().nullable(),
 });
 
 const requireDeliveryAddress = (schema) =>
