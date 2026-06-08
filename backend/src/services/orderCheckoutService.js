@@ -7,6 +7,8 @@ const DELIVERY_BASE_FEE = env.DELIVERY_BASE_FEE;
 const DELIVERY_BASE_KM = env.DELIVERY_BASE_KM;
 const DELIVERY_PER_KM_RATE = env.DELIVERY_PER_KM_RATE;
 const GST_RATE = env.GST_RATE;
+const FOOD_GST_RATE = env.FOOD_GST_RATE || 0.05;
+const DELIVERY_GST_RATE = env.DELIVERY_GST_RATE || 0.18;
 const PLATFORM_FEE = env.PLATFORM_FEE;
 const PACKAGING_PERCENT = env.PACKAGING_PERCENT;
 const RAZORPAY_PERCENT = env.RAZORPAY_PERCENT;
@@ -22,28 +24,30 @@ const geocodeDeliveryAddress = async (address) => {
   return getLatLngFromAddress(buildFullAddress(address));
 };
 
-const calculateDeliveryFee = (distanceKm) => {
-  const distance = distanceKm || 3;
-  let baseFee;
-  if (distance <= DELIVERY_BASE_KM) {
-    baseFee = DELIVERY_BASE_FEE;
-  } else {
-    const extraKm = distance - DELIVERY_BASE_KM;
-    baseFee = DELIVERY_BASE_FEE + extraKm * DELIVERY_PER_KM_RATE;
+const DELIVERY_SLABS = [
+  { maxKm: 1, fee: 17 },
+  { maxKm: 2, fee: 23 },
+  { maxKm: 3, fee: 30 },
+  { maxKm: 4, fee: 35 },
+];
+
+const getDeliveryBaseFee = (distanceKm) => {
+  const distance = distanceKm || 1;
+  for (const slab of DELIVERY_SLABS) {
+    if (distance <= slab.maxKm) return slab.fee;
   }
-  return baseFee * (1 + GST_RATE);
+  const lastSlab = DELIVERY_SLABS[DELIVERY_SLABS.length - 1];
+  return lastSlab.fee + Math.ceil(distance - lastSlab.maxKm) * 10;
+};
+
+const calculateDeliveryFee = (distanceKm) => {
+  const baseFee = getDeliveryBaseFee(distanceKm);
+  return baseFee * (1 + DELIVERY_GST_RATE);
 };
 
 const calculateDeliveryWithBreakdown = (distanceKm) => {
-  const distance = distanceKm || 3;
-  let baseFee;
-  if (distance <= DELIVERY_BASE_KM) {
-    baseFee = DELIVERY_BASE_FEE;
-  } else {
-    const extraKm = distance - DELIVERY_BASE_KM;
-    baseFee = DELIVERY_BASE_FEE + extraKm * DELIVERY_PER_KM_RATE;
-  }
-  const tax = baseFee * GST_RATE;
+  const baseFee = getDeliveryBaseFee(distanceKm);
+  const tax = baseFee * DELIVERY_GST_RATE;
   return {
     base: baseFee,
     tax,
@@ -174,7 +178,8 @@ db = prisma,
 
   let resolvedAddressId = null;
   let deliveryDistance = null;
-  let deliveryBreakdown = { base: DELIVERY_BASE_FEE, tax: 0, total: DELIVERY_BASE_FEE };
+  const defaultBase = getDeliveryBaseFee(3);
+  let deliveryBreakdown = { base: defaultBase, tax: 0, total: defaultBase };
 
   if (addressId) {
     const existingAddress = await db.address.findFirst({
@@ -237,6 +242,11 @@ db = prisma,
       address.preGeocodedLng !== undefined
     ) {
       coords = { lat: address.preGeocodedLat, lng: address.preGeocodedLng };
+    } else if (
+      address.latitude !== undefined && address.latitude !== null &&
+      address.longitude !== undefined && address.longitude !== null
+    ) {
+      coords = { lat: address.latitude, lng: address.longitude };
     } else {
       coords = await geocodeDeliveryAddress(address);
     }
@@ -274,8 +284,9 @@ db = prisma,
   }
 
   const packagingFeeBase = subtotal * PACKAGING_PERCENT;
-  const packagingTax = packagingFeeBase * GST_RATE;
-  const platformFeeBase = PLATFORM_FEE / (1 + GST_RATE);
+  const foodGst = subtotal * FOOD_GST_RATE;
+  const packagingTax = packagingFeeBase * FOOD_GST_RATE;
+  const platformFeeBase = PLATFORM_FEE / (1 + DELIVERY_GST_RATE);
   const platformTax = PLATFORM_FEE - platformFeeBase;
 
   let discount = 0;
@@ -285,7 +296,7 @@ db = prisma,
     couponCode = pricing.couponCode || null;
   }
 
-  const subtotalBeforeExtra = subtotal + deliveryBreakdown.total + PLATFORM_FEE + packagingFeeBase + packagingTax;
+  const subtotalBeforeExtra = subtotal + deliveryBreakdown.total + PLATFORM_FEE + packagingFeeBase + packagingTax + foodGst;
   
   let gatewayFee = 0;
   let codCharge = 0;
@@ -295,13 +306,9 @@ db = prisma,
     codCharge = COD_CHARGE;
   }
 
-  const totalTax =
-    deliveryBreakdown.tax +
-    packagingTax +
-    platformTax +
-    (gatewayFee > 0 ? gatewayFee * (GST_RATE / (1 + GST_RATE)) : 0);
+  const totalTax = foodGst + packagingTax + deliveryBreakdown.tax + platformTax;
 
-  const totalAmount = subtotal + deliveryBreakdown.total + PLATFORM_FEE + packagingFeeBase + packagingTax + gatewayFee + codCharge - discount;
+  const totalAmount = subtotal + foodGst + packagingFeeBase + packagingTax + deliveryBreakdown.total + PLATFORM_FEE + gatewayFee + codCharge - discount;
 
   return {
     restaurantId,

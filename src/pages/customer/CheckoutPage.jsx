@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Plus, CreditCard, Check, X, Tag, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { MapPin, Plus, CreditCard, Check, X, Tag, ChevronDown, ChevronUp, Trash2, Receipt } from "lucide-react";
 
 import { createAddress as saveAddress, getAddresses } from "../../services/addressService.js";
 import { getProfile } from "../../services/userService.js";
@@ -13,17 +13,18 @@ import {
   verifyRazorpayPaymentAndCreateOrder,
 } from "../../services/paymentService.js";
 
-const DELIVERY_SLABS = [
-  { maxKm: 1, fee: 20 },
-  { maxKm: 2, fee: 25 },
-  { maxKm: 4, fee: 33 },
-  { maxKm: 5, fee: 43 },
-  { maxKm: 6, fee: 53 },
-];
-const PLATFORM_FEE = 9;
+const FOOD_GST_RATE = 0.05;
+const DELIVERY_GST_RATE = 0.18;
+const PLATFORM_FEE = 10;
 const PACKAGING_PERCENT = 0.04;
 const RAZORPAY_PERCENT = 0.02;
 const COD_CHARGE = 5;
+const DELIVERY_SLABS = [
+  { maxKm: 1, fee: 17 },
+  { maxKm: 2, fee: 23 },
+  { maxKm: 3, fee: 30 },
+  { maxKm: 4, fee: 35 },
+];
 
 const emptyAddress = {
   fullName: "",
@@ -33,12 +34,14 @@ const emptyAddress = {
   city: "",
   state: "",
   postalCode: "",
+  latitude: null,
+  longitude: null,
 };
 
 const formatCurrency = (amount) => `₹${Math.floor(amount)}`;
 
-const calculateDeliveryFee = (distanceKm = 3) => {
-  const distance = distanceKm || 0;
+const calculateDeliveryBase = (distanceKm) => {
+  const distance = distanceKm || 1;
   for (const slab of DELIVERY_SLABS) {
     if (distance <= slab.maxKm) return slab.fee;
   }
@@ -192,9 +195,8 @@ const PaymentOption = ({ icon: Icon, title, subtitle, isSelected, onSelect, badg
   </button>
 );
 
-const PricingSummary = ({ cart, deliveryFee, platformFee, packagingFee, razorpayFee, codCharge, discount }) => {
-  const itemTotal = cart.reduce((acc, item) => acc + getPrice(item.price) * item.quantity, 0);
-  const finalTotal = itemTotal + deliveryFee + platformFee + packagingFee + razorpayFee + codCharge - discount;
+const PricingSummary = ({ cart, itemTotal, deliveryAndTax, packagingFeeBase, razorpayFee, codCharge, discount, finalTotal, distanceKm, deliveryBase, deliveryGst, foodGst, packagingTax, platformFee, platformTax, cgst, sgst }) => {
+  const [showTax, setShowTax] = useState(false);
 
   return (
     <div className="space-y-3">
@@ -203,22 +205,54 @@ const PricingSummary = ({ cart, deliveryFee, platformFee, packagingFee, razorpay
         <span className="font-medium">{formatCurrency(itemTotal)}</span>
       </div>
 
-      <div className="flex justify-between text-sm">
-        <span className="text-slate-600">Delivery Fee</span>
-        <span className="font-medium">{formatCurrency(deliveryFee)}</span>
-      </div>
-
-      <div className="flex justify-between text-sm">
-        <span className="text-slate-600">Platform Fee</span>
-        <span className="font-medium">{formatCurrency(platformFee)}</span>
-      </div>
-
-      {packagingFee > 0 && (
+      {packagingFeeBase > 0 && (
         <div className="flex justify-between text-sm">
           <span className="text-slate-600">Packaging</span>
-          <span className="font-medium">{formatCurrency(packagingFee)}</span>
+          <span className="font-medium">{formatCurrency(packagingFeeBase)}</span>
         </div>
       )}
+
+      <div className="rounded-xl bg-slate-50">
+        <button
+          type="button"
+          onClick={() => setShowTax(!showTax)}
+          className="flex w-full items-center justify-between p-3 text-sm font-bold text-slate-800"
+        >
+          <span>Delivery & Tax</span>
+          <span className="flex items-center gap-1.5">
+            {formatCurrency(deliveryAndTax)}
+            {showTax ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </span>
+        </button>
+        {showTax && (
+          <div className="px-3 pb-3 space-y-1.5 text-xs text-slate-500 border-t border-slate-200 pt-2.5">
+            <div className="flex justify-between">
+              <span>Delivery ({distanceKm.toFixed(1)} km)</span>
+              <span>{formatCurrency(deliveryBase)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Food GST (5%)</span>
+              <span>{formatCurrency(foodGst + packagingTax)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Delivery GST (18%)</span>
+              <span>{formatCurrency(deliveryGst)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Platform Fee (incl. GST)</span>
+              <span>{formatCurrency(platformFee)}</span>
+            </div>
+            <div className="border-t border-slate-200 pt-1.5 mt-1.5 flex justify-between font-medium text-slate-600">
+              <span>CGST (50%)</span>
+              <span>{formatCurrency(cgst)}</span>
+            </div>
+            <div className="flex justify-between font-medium text-slate-600">
+              <span>SGST (50%)</span>
+              <span>{formatCurrency(sgst)}</span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {razorpayFee > 0 && (
         <div className="flex justify-between text-sm">
@@ -250,6 +284,73 @@ const PricingSummary = ({ cart, deliveryFee, platformFee, packagingFee, razorpay
 
       <p className="text-xs text-slate-400">All prices inclusive of taxes.</p>
     </div>
+  );
+};
+
+const InvoiceDownload = ({ cart, itemTotal, packagingFeeBase, foodGst, packagingTax, deliveryBase, deliveryGst, platformFee, platformBase, platformTax, totalTax, grandTotal, distanceKm }) => {
+  const handleDownload = () => {
+    const cgst = totalTax / 2;
+    const sgst = totalTax / 2;
+    const itemsHtml = cart.map((item, i) =>
+      `<tr><td style="padding:8px;border-bottom:1px solid #ddd">${i + 1}</td><td style="padding:8px;border-bottom:1px solid #ddd">${item.name}</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:center">${item.quantity}</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">₹${getPrice(item.price)}</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">₹${getPrice(item.price) * item.quantity}</td></tr>`
+    ).join("");
+
+    const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Invoice - Cravzo</title>
+<style>
+body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;padding:20px;color:#333}
+h1{text-align:center;color:#5b21b6;margin-bottom:4px}
+.sub{text-align:center;color:#666;font-size:14px;margin-bottom:30px}
+table{width:100%;border-collapse:collapse;margin:20px 0}
+th{background:#5b21b6;color:#fff;padding:10px;text-align:left}
+td{padding:8px;border-bottom:1px solid #eee}
+.totals td{padding:6px 8px;border:none}
+.grand td{font-size:18px;font-weight:bold;border-top:2px solid #5b21b6;padding-top:10px}
+.footer{text-align:center;margin-top:40px;color:#999;font-size:12px}
+.right{text-align:right}
+.center{text-align:center}
+</style></head><body>
+<h1>CRAVZO</h1>
+<p class="sub">Tax Invoice</p>
+<table>
+<tr><th>#</th><th>Item</th><th>Qty</th><th>Rate</th><th>Amount</th></tr>
+${itemsHtml}
+</table>
+<table class="totals">
+<tr><td><strong>Item Total</strong></td><td class="right">₹${Math.floor(itemTotal)}</td></tr>
+<tr><td>Packaging Charge</td><td class="right">₹${Math.floor(packagingFeeBase)}</td></tr>
+<tr><td style="padding-top:10px"><strong>Tax Breakdown</strong></td><td></td></tr>
+<tr><td style="padding-left:20px">Food GST (5% on items + packaging)</td><td class="right">₹${Math.floor(foodGst + packagingTax)}</td></tr>
+<tr><td style="padding-left:20px">Delivery GST (18% on ₹${deliveryBase})</td><td class="right">₹${Math.floor(deliveryGst)}</td></tr>
+<tr><td style="padding-left:20px">Platform Fee (₹${platformFee} incl. 18% GST)</td><td class="right">₹${Math.floor(platformFee)}</td></tr>
+<tr><td style="padding-left:20px">  Platform Base</td><td class="right">₹${platformBase.toFixed(2)}</td></tr>
+<tr><td style="padding-left:20px">  Platform GST @18%</td><td class="right">₹${Math.floor(platformTax)}</td></tr>
+<tr><td><strong>Total Tax (GST)</strong></td><td class="right"><strong>₹${Math.floor(totalTax)}</strong></td></tr>
+<tr><td style="padding-left:20px">  CGST (50%)</td><td class="right">₹${Math.floor(cgst)}</td></tr>
+<tr><td style="padding-left:20px">  SGST (50%)</td><td class="right">₹${Math.floor(sgst)}</td></tr>
+<tr class="grand"><td>Grand Total</td><td class="right">₹${Math.floor(grandTotal)}</td></tr>
+</table>
+<p class="footer">Distance: ${distanceKm ? distanceKm.toFixed(2) : "—"} km | Generated by Cravzo</p>
+</body></html>`;
+
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `cravzo-invoice-${Date.now()}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleDownload}
+      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/50 px-3 py-2 text-xs font-bold text-indigo-600 transition hover:bg-indigo-100 active:scale-95"
+    >
+      <Receipt className="h-3.5 w-3.5" />
+      Download Invoice
+    </button>
   );
 };
 
@@ -333,6 +434,8 @@ const CheckoutPage = () => {
             city: defaultAddress.city || "",
             state: defaultAddress.state || "",
             postalCode: defaultAddress.postalCode || "",
+            latitude: defaultAddress.latitude ?? null,
+            longitude: defaultAddress.longitude ?? null,
           });
           if (restCoords && defaultAddress.latitude && defaultAddress.longitude) {
             setDistanceKm(haversineKm(restCoords.lat, restCoords.lng, defaultAddress.latitude, defaultAddress.longitude));
@@ -373,6 +476,8 @@ const CheckoutPage = () => {
       city: savedAddress.city || "",
       state: savedAddress.state || "",
       postalCode: savedAddress.postalCode || "",
+      latitude: savedAddress.latitude ?? null,
+      longitude: savedAddress.longitude ?? null,
     });
     if (restaurantCoords && savedAddress.latitude && savedAddress.longitude) {
       setDistanceKm(haversineKm(restaurantCoords.lat, restaurantCoords.lng, savedAddress.latitude, savedAddress.longitude));
@@ -406,24 +511,49 @@ const CheckoutPage = () => {
   };
 
   const itemTotal = useMemo(() => cart.reduce((acc, item) => acc + getPrice(item.price) * item.quantity, 0), [cart]);
-  const deliveryFee = useMemo(() => Math.floor(calculateDeliveryFee(distanceKm)), [distanceKm]);
-  const packagingFee = useMemo(() => {
-    const base = itemTotal * PACKAGING_PERCENT;
-    return Math.floor(base);
-  }, [itemTotal]);
-  
-  const subtotalBeforeFees = useMemo(() => itemTotal + deliveryFee + PLATFORM_FEE + packagingFee - couponDiscount, [itemTotal, deliveryFee, packagingFee, couponDiscount]);
-  
+
+  const { deliveryBase, deliveryGst, deliveryTotal, packagingFeeBase, foodGst, packagingTax, platformFeeBase, platformTax, deliveryAndTax, totalTax, grandTotal, cgst, sgst } = useMemo(() => {
+    const dBase = calculateDeliveryBase(distanceKm);
+    const dGst = dBase * DELIVERY_GST_RATE;
+    const dTotal = dBase + dGst;
+    const pkgBase = Math.floor(itemTotal * PACKAGING_PERCENT);
+    const fGst = itemTotal * FOOD_GST_RATE;
+    const pkgTax = pkgBase * FOOD_GST_RATE;
+    const pf = PLATFORM_FEE;
+    const pfBase = PLATFORM_FEE / (1 + DELIVERY_GST_RATE);
+    const pfTax = PLATFORM_FEE - pfBase;
+    const dAndT = dTotal + fGst + pkgTax + pf;
+    const tTax = fGst + pkgTax + dGst + pfTax;
+    const gTotal = itemTotal + pkgBase + dAndT;
+    return {
+      deliveryBase: dBase,
+      deliveryGst: dGst,
+      deliveryTotal: dTotal,
+      packagingFeeBase: pkgBase,
+      foodGst: fGst,
+      packagingTax: pkgTax,
+      platformFeeBase: pfBase,
+      platformTax: pfTax,
+      deliveryAndTax: Math.floor(dAndT),
+      totalTax: tTax,
+      grandTotal: Math.floor(gTotal),
+      cgst: tTax / 2,
+      sgst: tTax / 2,
+    };
+  }, [itemTotal, distanceKm]);
+
+  const subtotalBeforeFees = useMemo(() => grandTotal - couponDiscount, [grandTotal, couponDiscount]);
+
   const razorpayFee = useMemo(() => {
     if (paymentMethod !== "UPI") return 0;
     return Math.floor(subtotalBeforeFees * RAZORPAY_PERCENT);
   }, [subtotalBeforeFees, paymentMethod]);
-  
+
   const codCharge = useMemo(() => {
     if (paymentMethod !== "COD") return 0;
     return COD_CHARGE;
   }, [paymentMethod]);
-  
+
   const finalTotal = useMemo(() => subtotalBeforeFees + razorpayFee + codCharge, [subtotalBeforeFees, razorpayFee, codCharge]);
 
   const preferredUpiId = profile?.paymentMethods?.upiIds?.[0] || "";
@@ -441,6 +571,8 @@ const CheckoutPage = () => {
       city: address.city,
       state: address.state,
       postalCode: address.postalCode,
+      lat: address.latitude,
+      lng: address.longitude,
       isDefault: savedAddresses.length === 0,
     });
 
@@ -466,9 +598,9 @@ const CheckoutPage = () => {
         paymentMethod,
         pricing: {
           itemTotal,
-          deliveryFee,
+          deliveryFee: deliveryTotal,
           platformFee: PLATFORM_FEE,
-          packagingFee,
+          packagingFee: packagingFeeBase,
           razorpayFee,
           codCharge,
           couponDiscount,
@@ -677,6 +809,24 @@ const CheckoutPage = () => {
                     value={address.postalCode}
                     onChange={(e) => handleAddressFieldChange("postalCode", e.target.value)}
                   />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      placeholder="Latitude (Google Maps)"
+                      type="number"
+                      step="any"
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      value={address.latitude ?? ""}
+                      onChange={(e) => handleAddressFieldChange("latitude", e.target.value ? Number(e.target.value) : null)}
+                    />
+                    <input
+                      placeholder="Longitude (Google Maps)"
+                      type="number"
+                      step="any"
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      value={address.longitude ?? ""}
+                      onChange={(e) => handleAddressFieldChange("longitude", e.target.value ? Number(e.target.value) : null)}
+                    />
+                  </div>
                   <label className="flex items-center gap-3 text-sm font-medium text-slate-600">
                     <input
                       type="checkbox"
@@ -750,12 +900,40 @@ const CheckoutPage = () => {
               <div className="mt-6 border-t border-slate-100 pt-4">
                 <PricingSummary
                   cart={cart}
-                  deliveryFee={deliveryFee}
-                  platformFee={PLATFORM_FEE}
-                  packagingFee={packagingFee}
+                  itemTotal={itemTotal}
+                  deliveryAndTax={deliveryAndTax}
+                  packagingFeeBase={packagingFeeBase}
                   razorpayFee={razorpayFee}
                   codCharge={codCharge}
                   discount={couponDiscount}
+                  finalTotal={finalTotal}
+                  distanceKm={distanceKm}
+                  deliveryBase={deliveryBase}
+                  deliveryGst={deliveryGst}
+                  foodGst={foodGst}
+                  packagingTax={packagingTax}
+                  platformFee={PLATFORM_FEE}
+                  platformTax={platformTax}
+                  cgst={cgst}
+                  sgst={sgst}
+                />
+              </div>
+
+              <div className="mt-3">
+                <InvoiceDownload
+                  cart={cart}
+                  itemTotal={itemTotal}
+                  packagingFeeBase={packagingFeeBase}
+                  foodGst={foodGst}
+                  packagingTax={packagingTax}
+                  deliveryBase={deliveryBase}
+                  deliveryGst={deliveryGst}
+                  platformFee={PLATFORM_FEE}
+                  platformBase={platformFeeBase}
+                  platformTax={platformTax}
+                  totalTax={totalTax}
+                  grandTotal={grandTotal}
+                  distanceKm={distanceKm}
                 />
               </div>
 

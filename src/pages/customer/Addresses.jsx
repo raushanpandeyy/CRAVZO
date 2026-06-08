@@ -388,6 +388,22 @@ export default function SavedAddresses() {
                   placeholder="Postal Code"
                   className="rounded-2xl border border-slate-200 px-4 py-3"
                 />
+                <input
+                  value={form.lat ?? ""}
+                  onChange={(event) => handleFieldChange("lat", event.target.value ? Number(event.target.value) : null)}
+                  placeholder="Latitude (Google Maps)"
+                  type="number"
+                  step="any"
+                  className="rounded-2xl border border-slate-200 px-4 py-3"
+                />
+                <input
+                  value={form.lng ?? ""}
+                  onChange={(event) => handleFieldChange("lng", event.target.value ? Number(event.target.value) : null)}
+                  placeholder="Longitude (Google Maps)"
+                  type="number"
+                  step="any"
+                  className="rounded-2xl border border-slate-200 px-4 py-3"
+                />
                 <select
                   value={form.label}
                   onChange={(event) => handleFieldChange("label", event.target.value)}

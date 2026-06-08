@@ -40,14 +40,22 @@ const listAddresses = async (req, res) => {
 
 const createAddress = async (req, res) => {
   const payload = createAddressSchema.parse(req.body);
-  const fullAddress = buildFullAddress({
-    line1: payload.line1.trim(),
-    line2: payload.line2?.trim(),
-    city: payload.city.trim(),
-    state: payload.state.trim(),
-    postalCode: payload.postalCode.trim(),
-  });
-  const { lat, lng } = await getLatLngFromAddress(fullAddress);
+
+  let lat = payload.lat ?? null;
+  let lng = payload.lng ?? null;
+
+  if (lat === null || lng === null) {
+    const fullAddress = buildFullAddress({
+      line1: payload.line1.trim(),
+      line2: payload.line2?.trim(),
+      city: payload.city.trim(),
+      state: payload.state.trim(),
+      postalCode: payload.postalCode.trim(),
+    });
+    const coords = await getLatLngFromAddress(fullAddress);
+    lat = coords.lat;
+    lng = coords.lng;
+  }
 
   const address = await prisma.$transaction(async (tx) => {
     const existingCount = await tx.address.count({
@@ -118,9 +126,15 @@ const updateAddress = async (req, res) => {
     nextAddressFields.state !== existingAddress.state ||
     nextAddressFields.postalCode !== existingAddress.postalCode;
 
-  const coords = addressChanged
-    ? await getLatLngFromAddress(buildFullAddress(nextAddressFields))
-    : { lat: existingAddress.latitude, lng: existingAddress.longitude };
+  const manualLat = payload.lat ?? null;
+  const manualLng = payload.lng ?? null;
+  const hasManualCoords = manualLat !== null && manualLng !== null;
+
+  const coords = hasManualCoords
+    ? { lat: manualLat, lng: manualLng }
+    : addressChanged
+      ? await getLatLngFromAddress(buildFullAddress(nextAddressFields))
+      : { lat: existingAddress.latitude, lng: existingAddress.longitude };
 
   const address = await prisma.$transaction(async (tx) => {
     const shouldBeDefault = payload.isDefault === true;
@@ -146,7 +160,7 @@ const updateAddress = async (req, res) => {
         ...(payload.city !== undefined ? { city: payload.city.trim() } : {}),
         ...(payload.state !== undefined ? { state: payload.state.trim() } : {}),
         ...(payload.postalCode !== undefined ? { postalCode: payload.postalCode.trim() } : {}),
-        ...(addressChanged ? { latitude: coords.lat, longitude: coords.lng } : {}),
+        ...(hasManualCoords || addressChanged ? { latitude: coords.lat, longitude: coords.lng } : {}),
         ...(payload.isDefault !== undefined ? { isDefault: payload.isDefault } : {}),
       },
     });

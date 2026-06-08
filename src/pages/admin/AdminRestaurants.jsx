@@ -18,6 +18,8 @@ const emptyForm = {
   cuisine: "",
   restaurantPhone: "",
   imageUrl: "",
+  latitude: null,
+  longitude: null,
   addressLine1: "",
   addressLine2: "",
   city: "",
@@ -188,6 +190,8 @@ const AdminRestaurants = () => {
             cuisine: form.cuisine || null,
             phone: form.restaurantPhone || form.ownerPhone || null,
             imageUrl: form.imageUrl || null,
+            latitude: form.latitude ?? null,
+            longitude: form.longitude ?? null,
             addressLine1: form.addressLine1,
             addressLine2: form.addressLine2 || null,
             city: form.city,
@@ -332,6 +336,8 @@ const AdminRestaurants = () => {
                   <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="City *" value={form.city} onChange={(e) => handleFormChange("city", e.target.value)} />
                   <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="State *" value={form.state} onChange={(e) => handleFormChange("state", e.target.value)} />
                   <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Postal code *" value={form.postalCode} onChange={(e) => handleFormChange("postalCode", e.target.value)} />
+                  <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Latitude (Google Maps)" type="number" step="any" value={form.latitude ?? ""} onChange={(e) => handleFormChange("latitude", e.target.value ? Number(e.target.value) : null)} />
+                  <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm" placeholder="Longitude (Google Maps)" type="number" step="any" value={form.longitude ?? ""} onChange={(e) => handleFormChange("longitude", e.target.value ? Number(e.target.value) : null)} />
                   <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700">
                     <input type="checkbox" checked={form.isOpen} onChange={(e) => handleFormChange("isOpen", e.target.checked)} />
                     Open for orders

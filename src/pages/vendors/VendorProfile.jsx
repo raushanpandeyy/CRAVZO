@@ -77,6 +77,8 @@ const emptyProfile = {
   city: "",
   state: "",
   postalCode: "",
+  latitude: null,
+  longitude: null,
   fssaiNumber: "",
   isOpen: true,
   openingTime: "09:00",
@@ -403,8 +405,8 @@ const VendorProfile = () => {
             openingTime: form.openingTime,
             closingTime: form.closingTime,
             openDays: form.openDays,
-            // Pass GPS coords if vendor used "Use GPS" button
-            ...(form._lat && form._lng ? { latitude: form._lat, longitude: form._lng } : {}),
+            latitude: form.latitude ?? form._lat ?? null,
+            longitude: form.longitude ?? form._lng ?? null,
             bankDetails:
               form.bankDetails.accountHolderName ||
               form.bankDetails.bankName ||
@@ -708,6 +710,8 @@ const VendorProfile = () => {
                   (pos) => {
                     setForm((prev) => ({
                       ...prev,
+                      latitude: pos.coords.latitude,
+                      longitude: pos.coords.longitude,
                       _lat: pos.coords.latitude,
                       _lng: pos.coords.longitude,
                     }));
@@ -789,6 +793,24 @@ const VendorProfile = () => {
                 )
               }
               placeholder="Postal Code"
+              className="rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+
+            <input
+              type="number"
+              step="any"
+              value={form.latitude ?? form._lat ?? ""}
+              onChange={(e) => handleInputChange("latitude", e.target.value ? Number(e.target.value) : null)}
+              placeholder="Latitude (Google Maps)"
+              className="rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+
+            <input
+              type="number"
+              step="any"
+              value={form.longitude ?? form._lng ?? ""}
+              onChange={(e) => handleInputChange("longitude", e.target.value ? Number(e.target.value) : null)}
+              placeholder="Longitude (Google Maps)"
               className="rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>

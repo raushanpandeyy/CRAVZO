@@ -182,7 +182,7 @@ const RestaurantPage = () => {
 
   const goToCheckout = () => {
     window.scrollTo(0, 0);
-    navigate("/checkout");
+    navigate("/cart");
   };
 
   const averageRating = useMemo(() => {

@@ -25,6 +25,7 @@ const DishesListingPage = lazy(() => import('../pages/customer/DishesListingPage
 const RestaurantListingPage = lazy(() => import('../pages/customer/RestaurantListingPage.jsx'));
 const Citywise = lazy(() => import('../pages/customer/Citywise.jsx'));
 const RestaurantPage = lazy(() => import('../pages/customer/RestaurantPage.jsx'));
+const Cart = lazy(() => import('../pages/customer/Cart.jsx'));
 const CheckoutPage = lazy(() => import('../pages/customer/CheckoutPage.jsx'));
 const PrivacyPolicy = lazy(() => import('../pages/customer/PrivacyPolicy.jsx'));
 const AboutUs = lazy(() => import('../pages/customer/AboutUs.jsx'));
@@ -50,6 +51,7 @@ function CustomerRoutes() {
   const hideMobileBottomNav = [
     '/signin',
     '/verify-otp',
+    '/cart',
     '/checkout'
   ].includes(location.pathname);
 
@@ -79,6 +81,7 @@ function CustomerRoutes() {
                 <RestaurantPage />
               </ErrorBoundary>
             } />
+            <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<CheckoutPage />} />
 
             {/* ================= ACCOUNT ROUTES ================= */}
