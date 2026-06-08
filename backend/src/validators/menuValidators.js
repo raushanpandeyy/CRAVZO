@@ -9,7 +9,16 @@ const menuItemPayloadSchema = z.object({
   category: z.string().trim().min(2).max(80),
   imageUrl: z.string().trim().url().optional().nullable(),
   price: z.coerce.number().positive().max(100000),
-  size: z.enum(["S", "M", "L"]).optional().nullable(),
+  sizes: z
+    .array(
+      z.object({
+        size: z.enum(["S", "M", "L"]),
+        price: z.coerce.number().positive().max(100000),
+      }),
+    )
+    .max(3)
+    .optional()
+    .nullable(),
   isVeg: z.boolean().optional(),
   status: menuItemStatusSchema.optional(),
 });

@@ -55,6 +55,7 @@ const RestaurantPage = () => {
   const { user } = useAuth();
   const [restaurant, setRestaurant] = useState(null);
   const [cart, setCart] = useState([]);
+  const [selectedSizes, setSelectedSizes] = useState({});
   const [loading, setLoading] = useState(true);
   // Fix 4: isFavorite is a simple boolean, not a module-level flag, so initialize as false
   const [isFavorite, setIsFavorite] = useState(false);
@@ -126,21 +127,35 @@ const RestaurantPage = () => {
     window.dispatchEvent(new Event("cartChange"));
   };
 
+  const getSizePrice = (dish, size) => {
+    if (size && dish.sizes && dish.sizes.length > 0) {
+      const entry = dish.sizes.find((s) => s.size === size);
+      if (entry) return Number(entry.price);
+    }
+    return getPrice(dish.price);
+  };
+
   const getPrice = (price) => {
     if (typeof price === "number") return price;
     return parseInt(price.toString().replace("Rs", "").replace("?", "").trim(), 10) || 0;
   };
 
   const addToCart = (dish) => {
-    const existing = safeCart.find((item) => item.id === dish.id);
+    const size = (dish.sizes && dish.sizes.length > 0) ? (selectedSizes[dish.id] || dish.sizes[0].size) : null;
+    const unitPrice = getSizePrice(dish, size);
+    const cartKey = size ? `${dish.id}-${size}` : dish.id;
+    const existing = safeCart.find((item) => item.cartKey === cartKey);
     if (existing) {
-      increase(dish.id);
+      increase(cartKey);
     } else {
       updateCart([
         ...safeCart,
         {
           ...dish,
+          cartKey,
           quantity: 1,
+          size,
+          price: unitPrice,
           restaurantId: restaurant.id,
           restaurantName: restaurant.name,
         },
@@ -148,14 +163,14 @@ const RestaurantPage = () => {
     }
   };
 
-  const increase = (dishId) => {
-    updateCart(safeCart.map((item) => (item.id === dishId ? { ...item, quantity: item.quantity + 1 } : item)));
+  const increase = (cartKey) => {
+    updateCart(safeCart.map((item) => (item.cartKey === cartKey ? { ...item, quantity: item.quantity + 1 } : item)));
   };
 
-  const decrease = (dishId) => {
+  const decrease = (cartKey) => {
     updateCart(
       safeCart
-        .map((item) => (item.id === dishId ? { ...item, quantity: item.quantity - 1 } : item))
+        .map((item) => (item.cartKey === cartKey ? { ...item, quantity: item.quantity - 1 } : item))
         .filter((item) => item.quantity > 0),
     );
   };
@@ -174,9 +189,8 @@ const RestaurantPage = () => {
     return { itemTotal, deliveryFee, packagingFee, taxes, grandTotal, cartItemCount };
   }, [safeCart]);
 
-  // cartMap: O(1) lookup by dish id — avoids O(n) .find() on every menu item render
   const cartMap = useMemo(
-    () => new Map(safeCart.map((item) => [item.id, item])),
+    () => new Map(safeCart.map((item) => [item.cartKey || item.id, item])),
     [safeCart]
   );
 
@@ -330,7 +344,11 @@ const RestaurantPage = () => {
             </div>
 
             {menuItems.map((dish) => {
-            const cartItem = cartMap.get(dish.id);
+            const hasSizes = dish.sizes && dish.sizes.length > 0;
+            const selectedSize = hasSizes ? (selectedSizes[dish.id] || dish.sizes[0].size) : null;
+            const displayPrice = hasSizes ? getSizePrice(dish, selectedSize) : getPrice(dish.price);
+            const cartKey = hasSizes ? `${dish.id}-${selectedSize}` : dish.id;
+            const cartItem = cartMap.get(cartKey);
 
             return (
               <article
@@ -339,9 +357,25 @@ const RestaurantPage = () => {
               >
                 <div className="min-w-0 flex-1">
                   <h3 className="text-base font-black text-slate-950">{dish.name}</h3>
-                  <p className="mt-1 text-sm font-extrabold text-slate-900">{formatCurrency(getPrice(dish.price))}</p>
+                  <p className="mt-1 text-sm font-extrabold text-slate-900">{formatCurrency(displayPrice)}</p>
                   <div className="mt-1 flex items-center gap-2">
-                    {dish.size ? <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600 border border-indigo-100">{dish.size}</span> : null}
+                    {hasSizes ? (
+                      <div className="flex gap-1">
+                        {dish.sizes.map((s) => (
+                          <button
+                            key={s.size}
+                            onClick={() => setSelectedSizes((prev) => ({ ...prev, [dish.id]: s.size }))}
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold border transition-all ${
+                              selectedSize === s.size
+                                ? "bg-indigo-600 text-white border-indigo-600"
+                                : "bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                            }`}
+                          >
+                            {s.size}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                     <p className="text-xs font-bold uppercase tracking-wide text-indigo-700">{dish.category || "Special"}</p>
                   </div>
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">
@@ -367,11 +401,11 @@ const RestaurantPage = () => {
                     </button>
                   ) : (
                     <div className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-indigo-700 px-2 py-1.5 text-white shadow-lg">
-                      <button onClick={() => decrease(dish.id)} className="rounded-full p-1 transition-all duration-200 active:scale-95" aria-label="Decrease item">
+                      <button onClick={() => decrease(cartKey)} className="rounded-full p-1 transition-all duration-200 active:scale-95" aria-label="Decrease item">
                         <Minus className="h-4 w-4" />
                       </button>
                       <span className="min-w-5 text-center text-sm font-black">{cartItem.quantity}</span>
-                      <button onClick={() => increase(dish.id)} className="rounded-full p-1 transition-all duration-200 active:scale-95" aria-label="Increase item">
+                      <button onClick={() => increase(cartKey)} className="rounded-full p-1 transition-all duration-200 active:scale-95" aria-label="Increase item">
                         <Plus className="h-4 w-4" />
                       </button>
                     </div>

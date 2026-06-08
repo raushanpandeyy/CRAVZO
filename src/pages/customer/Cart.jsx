@@ -36,10 +36,10 @@ const InvoiceDownload = ({ cart, itemTotal, packagingFeeBase, foodGst, packaging
     const cgst = totalTax / 2;
     const sgst = totalTax / 2;
     const itemsHtml = cart.map((item, i) =>
-      `<tr><td style="padding:8px;border-bottom:1px solid #ddd">${i + 1}</td><td style="padding:8px;border-bottom:1px solid #ddd">${item.name}</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:center">${item.quantity}</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">₹${getPrice(item.price)}</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">₹${getPrice(item.price) * item.quantity}</td></tr>`
-    ).join("");
+        `<tr><td style="padding:8px;border-bottom:1px solid #ddd">${i + 1}</td><td style="padding:8px;border-bottom:1px solid #ddd">${item.name}${item.size ? ` (${item.size})` : ""}</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:center">${item.quantity}</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">₹${getPrice(item.price)}</td><td style="padding:8px;border-bottom:1px solid #ddd;text-align:right">₹${getPrice(item.price) * item.quantity}</td></tr>`
+      ).join("");
 
-    const html = `<!DOCTYPE html>
+      const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>Invoice - Cravzo</title>
 <style>
 body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;padding:20px;color:#333}
@@ -261,8 +261,8 @@ const Cart = () => {
                   <img src={item.imageUrl} alt={item.name} className="h-16 w-16 rounded-2xl object-cover" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-slate-900 truncate">{item.name}</p>
-                  <p className="text-sm text-slate-500">{formatCurrency(getPrice(item.price))} each{item.size ? <span className="ml-2 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600">{item.size}</span> : null}</p>
+                  <p className="font-bold text-slate-900 truncate">{item.name} {item.size ? <span className="text-indigo-600">({item.size})</span> : null}</p>
+                  <p className="text-sm text-slate-500">{formatCurrency(getPrice(item.price))} each</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button

@@ -112,7 +112,7 @@ model MenuItem {
   category     String
   imageUrl     String?
   price        Decimal        @db.Decimal(10, 2)
-  size         String?
+  sizes        Json?
   isVeg        Boolean        @default(false)
   status       MenuItemStatus @default(ACTIVE)
   createdAt    DateTime       @default(now())

@@ -127,7 +127,7 @@ const serializeOrder = (order) => ({
           id: item.menuItem.id,
           name: item.menuItem.name,
           imageUrl: item.menuItem.imageUrl,
-          size: item.menuItem.size,
+          sizes: item.menuItem.sizes,
         }
       : null,
   })),
@@ -173,9 +173,19 @@ db = prisma,
     throw new ApiError(400, "Some cart items are no longer available");
   }
 
+  const getItemPrice = (menuItem, selectedSize) => {
+    if (selectedSize && menuItem.sizes) {
+      const sizes = Array.isArray(menuItem.sizes) ? menuItem.sizes : [];
+      const sizeEntry = sizes.find((s) => s.size === selectedSize);
+      if (sizeEntry) return Number(sizeEntry.price);
+    }
+    return Number(menuItem.price);
+  };
+
   const subtotal = items.reduce((sum, item) => {
     const menuItem = menuItems.find((entry) => entry.id === item.menuItemId);
-    return sum + Number(menuItem.price) * item.quantity;
+    const unitPrice = getItemPrice(menuItem, item.size);
+    return sum + unitPrice * item.quantity;
   }, 0);
 
   let resolvedAddressId = null;
@@ -336,12 +346,13 @@ db = prisma,
     resolvedAddressId,
     itemRows: items.map((item) => {
       const menuItem = menuItems.find((entry) => entry.id === item.menuItemId);
+      const unitPrice = getItemPrice(menuItem, item.size);
       return {
         menuItemId: item.menuItemId,
         quantity: item.quantity,
-        unitPrice: menuItem.price,
-        totalPrice: Number(menuItem.price) * item.quantity,
-        size: item.size || menuItem.size || null,
+        unitPrice,
+        totalPrice: unitPrice * item.quantity,
+        size: item.size || null,
       };
     }),
   };

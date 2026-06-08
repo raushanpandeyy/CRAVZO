@@ -32,14 +32,14 @@ const emptyForm = {
   openDays: [...DAYS_OF_WEEK],
 };
 
-const SIZES = ["", "S", "M", "L"];
+const ALL_SIZES = ["S", "M", "L"];
 const emptyMenuItem = {
   name: "",
   description: "",
   category: "",
   price: "",
   imageUrl: "",
-  size: "",
+  sizes: [],
   isVeg: false,
   status: "ACTIVE",
 };
@@ -173,6 +173,13 @@ const AdminRestaurants = () => {
       setError("Menu rows need item name, category and price.");
       return;
     }
+    const invalidSizes = validMenuItems.some((item) =>
+      item.sizes.some((s) => !s.size || !s.price),
+    );
+    if (invalidSizes) {
+      setError("Each size row needs a size selected and a price.");
+      return;
+    }
 
     setSaving(true);
 
@@ -211,6 +218,7 @@ const AdminRestaurants = () => {
             category: item.category,
             price: Number(item.price),
             imageUrl: item.imageUrl || null,
+            sizes: item.sizes.length > 0 ? item.sizes : undefined,
             isVeg: item.isVeg,
             status: item.status,
           })),
@@ -382,11 +390,53 @@ const AdminRestaurants = () => {
                             <option key={category} value={category}>{category}</option>
                           ))}
                         </select>
-                        <select className="rounded-lg border border-slate-200 px-3 py-2 text-sm" value={item.size} onChange={(e) => handleMenuChange(index, "size", e.target.value)}>
-                          {SIZES.map((size) => (
-                            <option key={size} value={size}>{size || "Select Size"}</option>
-                          ))}
-                        </select>
+                        <div className="md:col-span-2">
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Sizes &amp; Prices (optional)</label>
+                          <div className="flex gap-2">
+                            {ALL_SIZES.map((size) => {
+                              const entry = (item.sizes || []).find((s) => s.size === size);
+                              return (
+                                <label key={size} className="flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs cursor-pointer hover:border-indigo-300">
+                                  <input
+                                    type="checkbox"
+                                    checked={!!entry}
+                                    onChange={(e) => {
+                                      const current = [...(item.sizes || [])];
+                                      if (e.target.checked) {
+                                        current.push({ size, price: item.price || "" });
+                                      } else {
+                                        handleMenuChange(index, "sizes", current.filter((s) => s.size !== size));
+                                        return;
+                                      }
+                                      handleMenuChange(index, "sizes", current);
+                                    }}
+                                    className="rounded border-gray-300"
+                                  />
+                                  <span className="font-medium">{size}</span>
+                                  {entry && (
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      placeholder="Price"
+                                      className="w-16 border border-slate-200 rounded px-1 py-0.5 text-xs"
+                                      value={entry.price}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) => {
+                                        const current = [...(item.sizes || [])];
+                                        const idx = current.findIndex((s) => s.size === size);
+                                        if (idx >= 0) {
+                                          current[idx] = { ...current[idx], price: e.target.value };
+                                          handleMenuChange(index, "sizes", current);
+                                        }
+                                      }}
+                                    />
+                                  )}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
                         <div className="flex items-center gap-3">
                           <label className="flex items-center gap-2 text-sm text-slate-700">
                             <input type="checkbox" checked={item.isVeg} onChange={(e) => handleMenuChange(index, "isVeg", e.target.checked)} />
