@@ -12,16 +12,17 @@ body{
     -webkit-overflow-scrolling: touch;
 }
 
-/* Smooth scrolling for all overflow containers */
-* {
-    overscroll-behavior: contain;
-}
-
 [class*="overflow-y-auto"],
 [class*="overflow-x-auto"],
 [class*="overflow-auto"] {
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    touch-action: pan-y pinch-zoom;
+}
+
+body {
+    overscroll-behavior: contain;
 }
 
 img, a, button {
