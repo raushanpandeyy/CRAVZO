@@ -260,32 +260,15 @@ const Cart = () => {
         <div className="space-y-4">
           {cart.map((item) => (
             <div key={item.id} className="rounded-3xl bg-white p-5 shadow-sm transition-all">
-              <div className="flex items-center gap-4">
+              <div className="flex items-start gap-3">
                 {item.imageUrl && (
-                  <img src={item.imageUrl} alt={item.name} className="h-16 w-16 rounded-2xl object-cover" />
+                  <img src={item.imageUrl} alt={item.name} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-slate-900 truncate">{item.name} {item.size ? <span className="text-indigo-600">({item.size})</span> : null}</p>
                   <p className="text-sm text-slate-500">{formatCurrency(getPrice(item.price))} each</p>
-                  {item.selectedSideDishes && item.selectedSideDishes.length > 0 ? (
-                    <p className="text-xs text-amber-600 mt-0.5">
-                      + {item.selectedSideDishes.map((sd) => `${sd.name} (${formatCurrency(Number(sd.price))})`).join(", ")}
-                    </p>
-                  ) : null}
-                  <input
-                    type="text"
-                    placeholder="Add note for restaurant (extra spicy, no onion, etc.)"
-                    className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                    value={item.notes || ""}
-                    onChange={(e) => {
-                      const updated = cart.map((ci) =>
-                        ci.id === item.id ? { ...ci, notes: e.target.value } : ci,
-                      );
-                      updateCart(updated);
-                    }}
-                  />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
                     onClick={() => decrease(item.id)}
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200"
@@ -300,7 +283,7 @@ const Cart = () => {
                     <Plus className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="text-right min-w-[70px]">
+                <div className="text-right shrink-0">
                   <p className="font-bold text-slate-900">{formatCurrency(getPrice(item.price) * item.quantity)}</p>
                   {item.selectedSideDishes && item.selectedSideDishes.length > 0 ? (
                     <p className="text-xs text-amber-600">
@@ -310,10 +293,38 @@ const Cart = () => {
                 </div>
                 <button
                   onClick={() => removeItem(item.id)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-500 transition hover:bg-rose-100"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-500 transition hover:bg-rose-100"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
+              </div>
+
+              {/* Side dishes + notes section - full width below */}
+              <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+                {item.selectedSideDishes && item.selectedSideDishes.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {item.selectedSideDishes.map((sd) => (
+                      <span key={sd.name} className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 border border-amber-200">
+                        {sd.name} ({formatCurrency(Number(sd.price))})
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Add note for restaurant (extra spicy, no onion, etc.)"
+                    className="w-full rounded-xl border-2 border-indigo-200 bg-indigo-50/30 px-4 py-2.5 pr-10 text-sm text-slate-700 placeholder-slate-400 outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+                    value={item.notes || ""}
+                    onChange={(e) => {
+                      const updated = cart.map((ci) =>
+                        ci.id === item.id ? { ...ci, notes: e.target.value } : ci,
+                      );
+                      updateCart(updated);
+                    }}
+                  />
+                  <svg className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
               </div>
             </div>
           ))}
