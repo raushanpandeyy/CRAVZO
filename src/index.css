@@ -24,6 +24,10 @@ body{
     scroll-behavior: smooth;
 }
 
+img, a, button {
+    touch-action: pan-y pinch-zoom;
+}
+
 /* Below-fold sections: defer rendering until they scroll into view */
 .content-visibility-auto {
   content-visibility: auto;
