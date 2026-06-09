@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Clock3, Heart, MapPin, Minus, Plus, ShoppingBag, Star } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 
