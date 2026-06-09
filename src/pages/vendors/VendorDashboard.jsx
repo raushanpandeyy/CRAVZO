@@ -4,6 +4,7 @@ import { AlertCircle, Clock, IndianRupee, ShoppingBag, Store } from "lucide-reac
 import { getVendorOrders, updateOrderStatus } from "../../services/orderService.js";
 import { getMyRestaurant, updateRestaurantAvailability } from "../../services/vendorService.js";
 import { VerifiedBadge, ProfileProgress } from "../../components/vendors/VerifiedBadge.jsx";
+import { Skeleton, SkeletonCard, SkeletonRow } from "../../components/Skeleton.jsx";
 
 const OrderRequestPopup = lazy(() => import("../../components/OrderRequestPopup.jsx"));
 
@@ -291,7 +292,11 @@ const VendorDashboard = () => {
           </div>
 
           {loading ? (
-            <div className="py-12 text-center text-sm text-gray-500">Loading dashboard...</div>
+            <div className="space-y-4">
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
+            </div>
           ) : recentOrders.length ? (
             <div className="space-y-4">
               {recentOrders.map((order) => (

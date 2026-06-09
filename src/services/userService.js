@@ -1,6 +1,6 @@
 import { API_ENDPOINTS } from "../constants/apiEndpoints.js";
 import { persistSession } from "./authService.js";
-import { apiRequest } from "./api.js";
+import { apiRequest, invalidateCache } from "./api.js";
 
 const MAX_UPLOAD_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 1600;
@@ -25,6 +25,7 @@ const updateProfile = async (payload) => {
     persistSession({ user });
   }
 
+  invalidateCache("/api/users/profile");
   return user;
 };
 

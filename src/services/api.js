@@ -2,48 +2,84 @@ import { API_BASE_URL } from "../constants/apiEndpoints.js";
 
 const getStoredToken = () => localStorage.getItem("cravzoAuthToken");
 
-// ── In-memory GET cache ────────────────────────────────────────────────────────
-// Prevents duplicate GET calls fired within the same JS tick or within a
-// short dedup window (e.g. React StrictMode double-invocations, multiple
-// components mounting simultaneously and calling the same endpoint).
-//
-// Cache entries expire after DEDUP_WINDOW_MS — real data is always fetched
-// on the next request after expiry.
-const _cache = new Map();
-const DEDUP_WINDOW_MS = 3000; // 3 seconds — enough to collapse same-tick duplicates
+const CACHE_PREFIX = "cravzo_cache_";
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
-const getCached = (key) => {
-  const entry = _cache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.ts > DEDUP_WINDOW_MS) {
-    _cache.delete(key);
+const getCacheKey = (path) => `${CACHE_PREFIX}${path}`;
+
+const getPersistentCache = (key) => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    if (Date.now() - entry.ts > CACHE_TTL_MS) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return entry.data;
+  } catch {
     return null;
   }
-  return entry.promise; // Return the in-flight or resolved promise
 };
 
-const setCached = (key, promise) => {
-  _cache.set(key, { promise, ts: Date.now() });
-  // Auto-clean after window expires
-  setTimeout(() => _cache.delete(key), DEDUP_WINDOW_MS + 100);
-};
-
-// Invalidate cache for a path prefix (call after mutations)
-export const invalidateCache = (pathPrefix) => {
-  for (const key of _cache.keys()) {
-    if (key.startsWith(pathPrefix)) _cache.delete(key);
+const setPersistentCache = (key, data) => {
+  try {
+    localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
+  } catch {
+    // localStorage full
   }
 };
 
-// ── Core request function ──────────────────────────────────────────────────────
+const deletePersistentCache = (key) => {
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    // silently fail
+  }
+};
+
+const _dedupCache = new Map();
+const DEDUP_WINDOW_MS = 3000;
+
+const getDedupCached = (key) => {
+  const entry = _dedupCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > DEDUP_WINDOW_MS) {
+    _dedupCache.delete(key);
+    return null;
+  }
+  return entry.promise;
+};
+
+const setDedupCache = (key, promise) => {
+  _dedupCache.set(key, { promise, ts: Date.now() });
+  setTimeout(() => _dedupCache.delete(key), DEDUP_WINDOW_MS + 100);
+};
+
+export const invalidateCache = (pathPrefix) => {
+  const fullPrefix = `${CACHE_PREFIX}${pathPrefix}`;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(fullPrefix)) {
+      localStorage.removeItem(k);
+    }
+  }
+  for (const key of _dedupCache.keys()) {
+    if (key.startsWith(pathPrefix)) _dedupCache.delete(key);
+  }
+};
+
 async function apiRequest(path, options = {}) {
   const { skipAuth = false, skipCache = false, ...fetchOptions } = options;
   const isGet = !fetchOptions.method || fetchOptions.method.toUpperCase() === "GET";
-  const cacheKey = path; // GET path is the cache key
+  const cacheKey = path;
+  const persistentKey = getCacheKey(path);
 
-  // Return cached GET promise for dedup window
   if (isGet && !skipCache) {
-    const cached = getCached(cacheKey);
+    const deduped = getDedupCached(cacheKey);
+    if (deduped) return deduped;
+
+    const cached = getPersistentCache(persistentKey);
     if (cached) return cached;
   }
 
@@ -74,23 +110,25 @@ async function apiRequest(path, options = {}) {
         const error = new Error(data?.message || "Request failed");
         error.status = response.status;
         error.data = data;
-        // Remove from cache on error so next call retries
-        _cache.delete(cacheKey);
+        _dedupCache.delete(cacheKey);
+        deletePersistentCache(persistentKey);
         throw error;
+      }
+      if (isGet && !skipCache) {
+        setPersistentCache(persistentKey, data);
       }
       return data;
     })
     .catch((error) => {
       clearTimeout(timeoutId);
-      _cache.delete(cacheKey);
+      _dedupCache.delete(cacheKey);
       if (!navigator.onLine) throw new Error("No internet connection");
       if (error.name === "AbortError") throw new Error("Request timeout. Please try again.");
       throw new Error(error.message || "Network error");
     });
 
-  // Store promise immediately so concurrent callers share it
   if (isGet && !skipCache) {
-    setCached(cacheKey, fetchPromise);
+    setDedupCache(cacheKey, fetchPromise);
   }
 
   return fetchPromise;

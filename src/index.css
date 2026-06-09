@@ -3,6 +3,14 @@
 
 body{
     background-color: whitesmoke;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+/* Below-fold sections: defer rendering until they scroll into view */
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 200px;
 }
 
 @keyframes bounce-in {

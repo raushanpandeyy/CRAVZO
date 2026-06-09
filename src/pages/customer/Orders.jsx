@@ -1,21 +1,18 @@
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ArrowRight, Clock3, Loader2, MessageCircle, Star, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { cart } from "../../assets/images/logos.js";
 import SearchBar from "../../components/common/Searchbar.jsx";
 import OrderProgressBar from "../../components/OrderProgressBar.jsx";
+import OrderCard from "../../components/OrderCard.jsx";
+import { SkeletonCard } from "../../components/Skeleton.jsx";
 import { cancelOrder, getMyOrders } from "../../services/orderService.js";
+import { getCloudinaryUrl } from "../../utils/cloudinary.js";
 
-// Fix 14: Cloudinary image optimization helper — f_avif for ~30% smaller images
 const getOrderImage = (url, width = 400) => {
   if (!url) return null;
-  if (url.includes("cloudinary.com")) {
-    const parts = url.split("/upload/");
-    if (parts.length === 2) {
-      return `${parts[0]}/upload/c_fill,w_${width},h_160,q_auto,f_avif/${parts[1]}`;
-    }
-  }
+  if (url.includes("cloudinary.com")) return getCloudinaryUrl(url, { width, height: 160 });
   return url;
 };
 
@@ -52,6 +49,8 @@ const POLL_INTERVAL_MS = 15000;
 export default function Orders() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const [searchQuery, setSearchQuery] = useState("");
   const [orders, setOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -129,9 +128,7 @@ export default function Orders() {
     return () => clearInterval(pollingRef.current);
   }, [orders]);
 
-  const cancellableStatuses = ["PENDING", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP"];
-
-  const handleCancelOrder = async (event, orderId) => {
+  const handleCancelOrder = useCallback(async (event, orderId) => {
     event.preventDefault();
     event.stopPropagation();
     setMessage("");
@@ -139,22 +136,24 @@ export default function Orders() {
     try {
       await cancelOrder(orderId);
       setMessage("Order cancelled successfully.");
-      await loadOrders(false);
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: "CANCELLED" } : o)),
+      );
     } catch (requestError) {
       setError(requestError.message || "Failed to cancel order");
     }
-  };
+  }, []);
 
   const filteredOrders = useMemo(
     () =>
       orders.filter((order) => {
         const items = order.items?.map((item) => item.menuItem?.name || "").join(" ");
         return (
-          (order.restaurant?.name || "").toLowerCase().includes(search.toLowerCase()) ||
-          items.toLowerCase().includes(search.toLowerCase())
+          (order.restaurant?.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+          items.toLowerCase().includes(searchQuery.toLowerCase())
         );
       }),
-    [orders, search],
+    [orders, searchQuery],
   );
 
   const getOrderItemsTotal = (order) =>
@@ -163,20 +162,22 @@ export default function Orders() {
       0,
     ) || 0;
 
-  const canChatWithRider = (order) =>
-    Boolean(order.rider?.id) && !riderChatClosedStatuses.includes(order.status);
+  const canChatWithRider = useCallback(
+    (order) => Boolean(order.rider?.id) && !riderChatClosedStatuses.includes(order.status),
+    [],
+  );
 
-  const openRiderChat = (event, order) => {
+  const openRiderChat = useCallback((event, order) => {
     event.preventDefault();
     event.stopPropagation();
     setChatOrder(order);
-  };
+  }, []);
 
-  const openFeedback = (event, order) => {
+  const openFeedback = useCallback((event, order) => {
     event.preventDefault();
     event.stopPropagation();
     setFeedbackOrder(order);
-  };
+  }, []);
 
   // Called when user submits feedback — mark submitted, update state
   const handleFeedbackSubmitted = () => {
@@ -213,7 +214,10 @@ export default function Orders() {
       <div className="mx-auto mb-4 w-full max-w-3xl sm:mb-5">
         <SearchBar
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            setSearch(event.target.value);
+            startTransition(() => setSearchQuery(event.target.value));
+          }}
           placeholder="Search orders, restaurants or dishes..."
           showResults={false}
         />
@@ -244,90 +248,23 @@ export default function Orders() {
         </div>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl shadow-md border border-gray-200">
-            <h2 className="text-2xl font-semibold text-indigo-900 mb-2">Loading orders...</h2>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
         ) : orders.length > 0 ? (
           filteredOrders.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {filteredOrders.map((order) => (
-                <div
-                  onClick={() => setSelectedOrder(order)}
+                <OrderCard
                   key={order.id}
-                  className="cursor-pointer group overflow-hidden rounded-[28px] border border-slate-100 bg-white text-left shadow-sm transition-all duration-200 active:scale-[0.99] hover:shadow-md sm:rounded-3xl"
-                >
-                  {/* Restaurant image */}
-                  <div className="relative h-32 overflow-hidden sm:h-40">
-                    <img
-                      src={order.restaurant?.imageUrl || cart}
-                      alt={order.restaurant?.name || "Order"}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-black text-white ${statusBadgeClass(order.status)}`}>
-                      {order.status.replace(/_/g, " ")}
-                    </span>
-                    {/* Feedback badge on delivered orders */}
-                    {needsFeedback(order) && (
-                      <span className="absolute right-3 top-3 rounded-full bg-amber-400 px-3 py-1 text-xs font-black text-amber-950">
-                        Rate
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-3 p-4">
-                    <div>
-                      <h2 className="line-clamp-1 text-lg font-black text-slate-950">
-                        {order.restaurant?.name || "Restaurant"}
-                      </h2>
-                      <p className="mt-1 line-clamp-1 text-sm text-slate-500">
-                        {order.items?.map((item) => item.menuItem?.name).filter(Boolean).join(", ")}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 text-sm text-slate-500">
-                      <span>{new Date(order.createdAt).toLocaleDateString()}</span>
-                      <span className="font-black text-slate-950">{formatCurrency(order.totalAmount)}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-xs font-bold text-amber-600">{order.paymentMethod}</div>
-                      <div className="flex items-center gap-2">
-                        {cancellableStatuses.includes(order.status) ? (
-                          <button
-                            onClick={(event) => handleCancelOrder(event, order.id)}
-                            className="rounded-full bg-rose-600 px-3 py-2 text-xs font-bold text-white"
-                          >
-                            Cancel
-                          </button>
-                        ) : null}
-                        {canChatWithRider(order) ? (
-                          <button
-                            type="button"
-                            onClick={(event) => openRiderChat(event, order)}
-                            className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-2 text-xs font-bold text-white"
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                            Rider
-                          </button>
-                        ) : null}
-                        {/* Feedback button on delivered orders */}
-                        {needsFeedback(order) ? (
-                          <button
-                            type="button"
-                            onClick={(event) => openFeedback(event, order)}
-                            className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-3 py-2 text-xs font-black text-amber-950"
-                          >
-                            <Star className="h-3.5 w-3.5" />
-                            Rate
-                          </button>
-                        ) : null}
-                        <span className="inline-flex items-center gap-1 text-xs font-black text-indigo-700">
-                          View <ArrowRight className="w-4 h-4" />
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  order={order}
+                  onSelect={setSelectedOrder}
+                  onCancel={handleCancelOrder}
+                  onChat={openRiderChat}
+                  onFeedback={openFeedback}
+                  needsFeedback={needsFeedback}
+                  canChatWithRider={canChatWithRider}
+                />
               ))}
             </div>
           ) : (

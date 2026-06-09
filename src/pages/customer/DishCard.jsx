@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Star } from "lucide-react";
 import { Link } from "react-router-dom";
+import ShareButton from "../../components/ShareButton.jsx";
+import { getShareUrl, getShareText } from "../../utils/share.js";
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
@@ -50,9 +52,17 @@ const DishCard = ({ dish }) => {
 
         <div className="mt-auto flex items-center justify-between pt-2">
           <p className="text-xs text-gray-300">{dish.date || "Fresh picks available"}</p>
-          <span className="rounded-lg border border-indigo-400 bg-white px-4 py-2 text-sm font-semibold text-indigo-900 transition hover:bg-indigo-50">
-            View Dish
-          </span>
+          <div className="flex items-center gap-1">
+            <ShareButton
+              url={getShareUrl.dish(dish.name)}
+              text={getShareText.dish(dish.name, dish.restaurantName || dish.restaurant)}
+              className="text-gray-300 hover:bg-white/10"
+              iconSize={16}
+            />
+            <span className="rounded-lg border border-indigo-400 bg-white px-4 py-2 text-sm font-semibold text-indigo-900 transition hover:bg-indigo-50">
+              View Dish
+            </span>
+          </div>
         </div>
       </div>
     </Link>

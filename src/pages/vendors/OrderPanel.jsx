@@ -1,7 +1,8 @@
-import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle, Clock, Eye, MessageCircle, ShoppingBag } from "lucide-react";
 
 import { getVendorOrders, updateOrderStatus } from "../../services/orderService.js";
+import { SkeletonRow } from "../../components/Skeleton.jsx";
 
 const vendorStatusFlow = {
   PENDING: "ACCEPTED",
@@ -36,7 +37,7 @@ const OrderPanel = () => {
   const [error, setError] = useState("");
   const [chatOrder, setChatOrder] = useState(null);
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -48,11 +49,11 @@ const OrderPanel = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [loadOrders]);
 
   const filteredOrders = useMemo(() => {
     if (selectedStatus === "all") {
@@ -71,7 +72,7 @@ const OrderPanel = () => {
     [orders],
   );
 
-  const handleStatusUpdate = async (orderId, status) => {
+  const handleStatusUpdate = useCallback(async (orderId, status) => {
     setMessage("");
     setError("");
 
@@ -82,7 +83,7 @@ const OrderPanel = () => {
     } catch (requestError) {
       setError(requestError.message || "Failed to update order");
     }
-  };
+  }, [loadOrders]);
 
   const canChatWithRider = (order) => Boolean(order.rider?.id) && !riderChatClosedStatuses.includes(order.status);
 
@@ -154,7 +155,13 @@ const OrderPanel = () => {
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-gray-500">Loading orders...</div>
+          <div className="space-y-4">
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+          </div>
         ) : (
           <div className="space-y-4">
             {filteredOrders.map((order) => (

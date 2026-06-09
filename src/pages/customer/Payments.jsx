@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Plus, Smartphone, Trash2 } from "lucide-react";
 
 import { getProfile, updateProfile } from "../../services/userService.js";
+import { Skeleton, SkeletonCard } from "../../components/Skeleton.jsx";
 
 const buildUpiState = (profile) => profile?.paymentMethods?.upiIds || [];
 
@@ -104,7 +105,9 @@ export default function PaymentMethods() {
             </div>
 
             {loading ? (
-              <div className="rounded-2xl bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">Loading UPI IDs...</div>
+              <div className="space-y-4">
+                {Array.from({ length: 2 }).map((_, i) => <SkeletonCard key={i} />)}
+              </div>
             ) : savedUPI.length ? (
               <div className="space-y-3">
                 {savedUPI.map((upiId, index) => (

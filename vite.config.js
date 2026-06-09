@@ -81,15 +81,14 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // API — network first, fall back to cache, 5s timeout on bad connection
+          // API — stale while revalidate: show cached instantly, fetch fresh in background
           {
             urlPattern: /\/api\/.*/i,
-            handler: 'NetworkFirst',
+            handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'api-cache',
-              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 5 },
+              expiration: { maxEntries: 80, maxAgeSeconds: 60 * 5 },
               cacheableResponse: { statuses: [0, 200] },
-              networkTimeoutSeconds: 5,
             },
           },
         ],

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Minus, Plus, Trash2, Receipt, ChevronLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { getRestaurantById } from "../../services/foodService.js";
+import { Skeleton, SkeletonRow } from "../../components/Skeleton.jsx";
 
 const FOOD_GST_RATE = 0.05;
 const DELIVERY_GST_RATE = 0.18;
@@ -220,8 +221,10 @@ const Cart = () => {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="text-slate-400 animate-pulse">Loading cart...</div>
+      <div className="mx-auto max-w-2xl space-y-4 px-4 pt-32">
+        <Skeleton className="h-8 w-1/3" />
+        {Array.from({ length: 3 }).map((_, i) => <SkeletonRow key={i} />)}
+        <Skeleton className="h-48 w-full rounded-3xl" />
       </div>
     );
   }
@@ -315,8 +318,8 @@ const Cart = () => {
                     type="text"
                     placeholder="Add note for restaurant (extra spicy, no onion, etc.)"
                     className="w-full rounded-xl border-2 border-indigo-200 bg-indigo-50/30 px-4 py-2.5 pr-10 text-sm text-slate-700 placeholder-slate-400 outline-none transition-all focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-100"
-                    value={item.notes || ""}
-                    onChange={(e) => {
+                    defaultValue={item.notes || ""}
+                    onBlur={(e) => {
                       const updated = cart.map((ci) =>
                         ci.id === item.id ? { ...ci, notes: e.target.value } : ci,
                       );

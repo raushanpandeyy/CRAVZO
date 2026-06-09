@@ -123,12 +123,12 @@
     <link
       rel="preload"
       as="style"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=optional"
     />
 
-    <!-- Non-blocking font load: "print" media defers, onload switches to "all" -->
+    <!-- Non-blocking font load: display=optional means if font isn't ready in 100ms, use system font without swapping later -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=optional"
       rel="stylesheet"
       media="print"
       onload="this.media='all'; this.onload=null"
@@ -136,7 +136,7 @@
 
     <noscript>
       <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=optional"
         rel="stylesheet"
       />
     </noscript>
@@ -145,6 +145,10 @@
     <link rel="preconnect" href="https://res.cloudinary.com" />
 
     <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+
+    <!-- API & WebSocket - preconnect to reduce connection latency -->
+    <link rel="dns-prefetch" href="https://cravzo.shop" />
+    <link rel="dns-prefetch" href="https://api.cravzo.shop" />
 
     <!-- Organization Schema -->
     <script type="application/ld+json">

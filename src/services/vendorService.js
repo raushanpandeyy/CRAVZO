@@ -1,4 +1,4 @@
-import { apiRequest } from "./api";
+import { apiRequest, invalidateCache } from "./api";
 
 const BASE = "/api";
 
@@ -19,6 +19,7 @@ const saveVendorRestaurant = async (payload, restaurantId = null) => {
     body: JSON.stringify(payload),
   });
 
+  invalidateCache("/api/restaurants");
   return response.data;
 };
 
@@ -28,6 +29,7 @@ const updateRestaurantAvailability = async (restaurantId, isOpen) => {
     body: JSON.stringify({ isOpen }),
   });
 
+  invalidateCache("/api/restaurants");
   return response.data;
 };
 
@@ -37,6 +39,7 @@ const createVendorMenuItem = async (payload) => {
     body: JSON.stringify(payload),
   });
 
+  invalidateCache("/api/menu-items");
   return response.data;
 };
 
@@ -46,6 +49,7 @@ const updateVendorMenuItem = async (menuItemId, payload) => {
     body: JSON.stringify(payload),
   });
 
+  invalidateCache("/api/menu-items");
   return response.data;
 };
 
@@ -54,6 +58,7 @@ const deleteVendorMenuItem = async (menuItemId) => {
     method: "DELETE",
   });
 
+  invalidateCache("/api/menu-items");
   return response.data;
 };
 

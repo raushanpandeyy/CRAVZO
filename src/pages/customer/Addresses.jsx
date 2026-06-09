@@ -3,6 +3,7 @@ import { Building, Home, LocateFixed, MapPin, Plus, Save, Trash2 } from "lucide-
 
 import { createAddress, deleteAddress, getAddresses, updateAddress } from "../../services/addressService.js";
 import { getStoredUser } from "../../services/authService.js";
+import { Skeleton, SkeletonCard } from "../../components/Skeleton.jsx";
 
 const emptyForm = {
   label: "HOME",
@@ -272,7 +273,9 @@ export default function SavedAddresses() {
               </div>
 
               {loading ? (
-                <div className="py-10 text-center text-sm text-slate-500">Loading addresses...</div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+                </div>
               ) : groupedAddresses[selected].length ? (
                 <div className="space-y-4">
                   {groupedAddresses[selected].map((address) => (

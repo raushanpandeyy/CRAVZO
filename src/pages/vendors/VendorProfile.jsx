@@ -27,6 +27,8 @@ import {
 
 import { uploadImage } from "../../services/userService.js";
 import { VerifiedBadge, ProfileProgress, VerifiedBadgeLarge } from "../../components/vendors/VerifiedBadge.jsx";
+import { getCloudinaryUrl } from "../../utils/cloudinary.js";
+import { SkeletonAvatar, SkeletonForm } from "../../components/Skeleton.jsx";
 
 const DAYS_OF_WEEK = [
   "Monday",
@@ -50,15 +52,7 @@ const getOptimizedImage = (
   height = 400
 ) => {
   if (!url) return FALLBACK_IMG;
-
-  if (url.includes("cloudinary.com")) {
-    const parts = url.split("/upload/");
-
-    if (parts.length === 2) {
-      return `${parts[0]}/upload/c_fill,w_${width},h_${height},q_auto,f_auto/${parts[1]}`;
-    }
-  }
-
+  if (url.includes("cloudinary.com")) return getCloudinaryUrl(url, { width, height });
   return url;
 };
 
@@ -449,10 +443,12 @@ const VendorProfile = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F4F7FB]">
-        <div className="flex items-center gap-3 text-slate-600">
-          <Loader2 className="animate-spin" />
-          Loading vendor profile...
+      <div className="flex-1 md:ml-40 min-h-screen bg-[#F4F7FB] p-4 sm:p-6 lg:p-8">
+        <div className="max-w-5xl mx-auto space-y-6">
+          <SkeletonAvatar />
+          <SkeletonForm rows={6} />
+          <SkeletonForm rows={4} />
+          <SkeletonForm rows={3} />
         </div>
       </div>
     );

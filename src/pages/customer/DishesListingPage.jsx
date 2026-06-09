@@ -1,5 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import ShareButton from "../../components/ShareButton.jsx";
+import { getShareUrl, getShareText } from "../../utils/share.js";
 
 import foodItems from "../../assets/data/FoodData.js";
 import foodItems1 from "../../assets/data/FoodData1.js";
@@ -17,21 +19,33 @@ const DishesListingPage = () => (
 
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
       {uniqueDishes.map((dish) => (
-        <Link
+        <div
           key={dish.name}
-          to={`/dish/${encodeURIComponent(dish.name)}`}
-          className="group flex min-h-48 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+          className="group relative flex min-h-48 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
         >
-          <img
-            src={dish.img}
-            alt={dish.name}
-            loading="lazy"
-            decoding="async"
-            className="h-28 w-28 rounded-full object-cover transition duration-300 group-hover:scale-105"
-          />
-          <h2 className="mt-4 text-base font-bold text-slate-950">{dish.name}</h2>
-          <p className="mt-1 text-sm text-indigo-700">Find restaurants</p>
-        </Link>
+          <Link
+            to={`/dish/${encodeURIComponent(dish.name)}`}
+            className="absolute inset-0"
+          >
+            <img
+              src={dish.img}
+              alt={dish.name}
+              loading="lazy"
+              decoding="async"
+              className="h-28 w-28 rounded-full object-cover transition duration-300 group-hover:scale-105"
+            />
+            <h2 className="mt-4 text-base font-bold text-slate-950">{dish.name}</h2>
+            <p className="mt-1 text-sm text-indigo-700">Find restaurants</p>
+          </Link>
+          <div className="absolute right-2 top-2 z-10">
+            <ShareButton
+              url={getShareUrl.dish(dish.name)}
+              text={getShareText.dish(dish.name)}
+              className="bg-white/80 text-slate-600 shadow-sm backdrop-blur hover:bg-white"
+              iconSize={16}
+            />
+          </div>
+        </div>
       ))}
     </div>
   </section>

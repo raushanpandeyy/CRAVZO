@@ -1,3 +1,4 @@
+import React from "react";
 import { Award, ShieldCheck } from "lucide-react";
 
 const isProfileComplete = (restaurant) => {
@@ -17,7 +18,7 @@ const isProfileComplete = (restaurant) => {
   return required.every((field) => field && field.toString().trim() !== "");
 };
 
-export const VerifiedBadge = ({ restaurant, showLabel = true }) => {
+const VerifiedBadgeComponent = ({ restaurant, showLabel = true }) => {
   const isVerified = isProfileComplete(restaurant);
 
   if (!restaurant) return null;
@@ -45,7 +46,7 @@ export const VerifiedBadge = ({ restaurant, showLabel = true }) => {
   );
 };
 
-export const VerifiedBadgeLarge = ({ restaurant }) => {
+const VerifiedBadgeLargeImpl = ({ restaurant }) => {
   const isVerified = isProfileComplete(restaurant);
 
   if (!restaurant) return null;
@@ -83,7 +84,7 @@ export const VerifiedBadgeLarge = ({ restaurant }) => {
   );
 };
 
-export const ProfileProgress = ({ restaurant }) => {
+const ProfileProgressImpl = ({ restaurant }) => {
   if (!restaurant) return null;
 
   const fields = [
@@ -126,4 +127,7 @@ export const ProfileProgress = ({ restaurant }) => {
   );
 };
 
+export const VerifiedBadge = React.memo(VerifiedBadgeComponent);
+export const VerifiedBadgeLarge = React.memo(VerifiedBadgeLargeImpl);
+export const ProfileProgress = React.memo(ProfileProgressImpl);
 export default VerifiedBadge;

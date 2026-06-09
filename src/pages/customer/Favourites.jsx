@@ -3,6 +3,9 @@ import { Heart } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { getFavorites, removeFavorite } from "../../services/favoriteService.js";
+import ShareButton from "../../components/ShareButton.jsx";
+import { getShareUrl, getShareText } from "../../utils/share.js";
+import { SkeletonCard } from "../../components/Skeleton.jsx";
 
 export default function Favorites() {
   const [favorites, setFavorites] = useState([]);
@@ -53,7 +56,9 @@ export default function Favorites() {
         {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
         {loading ? (
-          <div className="rounded-3xl bg-white px-6 py-16 text-center text-sm text-slate-500 shadow-sm">Loading favorites...</div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
         ) : favorites.length ? (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {favorites.map((favorite) => (
@@ -64,12 +69,20 @@ export default function Favorites() {
                     alt={favorite.restaurant.name}
                     className="h-36 w-full object-cover sm:h-52"
                   />
-                  <button
-                    onClick={() => handleRemove(favorite.restaurantId)}
-                    className="absolute right-4 top-4 rounded-full bg-white p-2 shadow"
-                  >
-                    <Heart className="h-5 w-5 fill-rose-500 text-rose-500" />
-                  </button>
+                  <div className="absolute right-4 top-4 flex items-center gap-2">
+                    <ShareButton
+                      url={getShareUrl.restaurant(favorite.restaurantId)}
+                      text={getShareText.restaurant(favorite.restaurant.name)}
+                      className="bg-white text-slate-600 shadow"
+                      iconSize={16}
+                    />
+                    <button
+                      onClick={() => handleRemove(favorite.restaurantId)}
+                      className="rounded-full bg-white p-2 shadow"
+                    >
+                      <Heart className="h-5 w-5 fill-rose-500 text-rose-500" />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-3 p-4 sm:p-5">

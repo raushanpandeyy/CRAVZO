@@ -6,9 +6,15 @@ import { useAuth } from "../../hooks/useAuth";
 import { addFavorite, checkIsFavorite, removeFavorite } from "../../services/favoriteService.js";
 import { getRestaurantById } from "../../services/foodService.js";
 import { getRestaurantReviews, saveReview } from "../../services/reviewService.js";
+import ShareButton from "../../components/ShareButton.jsx";
+import { getShareUrl, getShareText } from "../../utils/share.js";
+import { Skeleton, SkeletonRow } from "../../components/Skeleton.jsx";
+import { getCloudinaryUrl } from "../../utils/cloudinary.js";
 
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
+
+const _restaurantCache = new Map();
 
 const getOptimizedImage = (
   url,
@@ -16,16 +22,7 @@ const getOptimizedImage = (
   height = 400
 ) => {
   if (!url) return FALLBACK_IMG;
-
-  if (url.includes("cloudinary.com")) {
-    const parts = url.split("/upload/");
-
-    if (parts.length === 2) {
-      // Fix 8: f_avif saves ~30% vs f_auto/WebP on modern browsers
-      return `${parts[0]}/upload/c_fill,w_${width},h_${height},q_auto,f_avif/${parts[1]}`;
-    }
-  }
-
+  if (url.includes("cloudinary.com")) return getCloudinaryUrl(url, { width, height });
   return url;
 };
 
@@ -90,32 +87,49 @@ const RestaurantPage = () => {
       setError("");
       setReviewForm({ rating: 5, comment: "" });
 
+      const cached = _restaurantCache.get(id);
+      if (cached) {
+        setRestaurant(cached.restaurant || null);
+        setReviews(cached.reviews || []);
+        setIsFavorite(cached.isFavorite || false);
+        const myReview = (cached.reviews || []).find((review) => review.user?.id === user?.id);
+        if (myReview) {
+          setReviewForm({ rating: myReview.rating, comment: myReview.comment || "" });
+        }
+        setLoading(false);
+      }
+
       try {
         const [restaurantData, reviewData, isFav] = await Promise.all([
           getRestaurantById(id),
           getRestaurantReviews(id),
-          // Fix 4: checkIsFavorite — single boolean instead of full favorites list (~2KB saved)
-          // GET /api/favorites/check?restaurantId=X → { isFavorite: true/false }
           user?.isLoggedIn ? checkIsFavorite(id).catch(() => false) : Promise.resolve(false),
         ]);
 
-        setRestaurant(restaurantData);
-        setReviews(reviewData);
-        setIsFavorite(isFav);
+        _restaurantCache.set(id, { restaurant: restaurantData, reviews: reviewData, isFavorite: isFav });
+
+        if (!cached) {
+          setRestaurant(restaurantData);
+          setReviews(reviewData);
+          setIsFavorite(isFav);
+        } else {
+          setRestaurant(restaurantData);
+          setReviews(reviewData);
+          setIsFavorite(isFav);
+        }
 
         const myReview = reviewData.find((review) => review.user?.id === user?.id);
         if (myReview) {
-          setReviewForm({
-            rating: myReview.rating,
-            comment: myReview.comment || "",
-          });
+          setReviewForm({ rating: myReview.rating, comment: myReview.comment || "" });
         }
       } catch (requestError) {
-        console.error("Failed to load restaurant", requestError);
-        setRestaurant(null);
-        setError(requestError.message || "Failed to load restaurant");
+        if (!cached) {
+          console.error("Failed to load restaurant", requestError);
+          setRestaurant(null);
+          setError(requestError.message || "Failed to load restaurant");
+        }
       } finally {
-        setLoading(false);
+        if (!cached) setLoading(false);
       }
     };
 
@@ -200,10 +214,10 @@ const RestaurantPage = () => {
     [safeCart]
   );
 
-  const goToCheckout = () => {
+  const goToCheckout = useCallback(() => {
     window.scrollTo(0, 0);
     navigate("/cart");
-  };
+  }, [navigate]);
 
   const averageRating = useMemo(() => {
     if (!reviews.length) return null;
@@ -211,7 +225,7 @@ const RestaurantPage = () => {
     return (total / reviews.length).toFixed(1);
   }, [reviews]);
 
-  const toggleFavorite = async () => {
+  const toggleFavorite = useCallback(async () => {
     if (!user?.isLoggedIn) {
       navigate("/signin");
       return;
@@ -232,9 +246,9 @@ const RestaurantPage = () => {
     } catch (requestError) {
       setError(requestError.message || "Failed to update favorite");
     }
-  };
+  }, [user?.isLoggedIn, navigate, isFavorite, id]);
 
-  const handleSaveReview = async () => {
+  const handleSaveReview = useCallback(async () => {
     if (!user?.isLoggedIn) {
       navigate("/signin");
       return;
@@ -245,24 +259,46 @@ const RestaurantPage = () => {
     setError("");
 
     try {
-      await saveReview({
+      const saved = await saveReview({
         restaurantId: id,
         rating: reviewForm.rating,
         comment: reviewForm.comment,
       });
 
-      const refreshedReviews = await getRestaurantReviews(id);
-      setReviews(refreshedReviews);
+      setReviews((prev) => {
+        const filtered = prev.filter((r) => r.user?.id !== user?.id);
+        return [...filtered, saved].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      });
       setMessage("Review saved successfully.");
     } catch (requestError) {
       setError(requestError.message || "Failed to save review");
     } finally {
       setSavingReview(false);
     }
-  };
+  }, [user?.isLoggedIn, user?.id, navigate, id, reviewForm.rating, reviewForm.comment]);
 
   if (loading) {
-    return <div className="pt-24 text-center">Loading restaurant...</div>;
+    return (
+      <div className="bg-slate-50 pb-32 md:pb-10">
+        <div className="mx-auto max-w-7xl md:px-4 md:pt-32">
+          <Skeleton className="mx-4 h-56 rounded-none md:mx-0 md:h-80 md:rounded-3xl" />
+          <div className="relative z-10 mx-4 -mt-10 rounded-3xl bg-white p-5 shadow-xl md:mx-8 md:-mt-16 md:p-7">
+            <Skeleton className="h-8 w-2/3 md:h-12" />
+            <div className="mt-3 flex gap-2">
+              <Skeleton className="h-5 w-24 rounded-full" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="mt-4 h-4 w-1/2" />
+          </div>
+          <div className="mt-7 px-4 md:px-0">
+            <Skeleton className="mb-4 h-5 w-32" />
+            <div className="space-y-4">
+              {Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!restaurant) {
@@ -311,13 +347,20 @@ const RestaurantPage = () => {
                 </div>
               </div>
 
-              <button
-                onClick={toggleFavorite}
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 shadow-sm transition-all duration-200 active:scale-95"
-                aria-label="Toggle favorite"
-              >
-                <Heart className={`h-5 w-5 ${isFavorite ? "fill-rose-500 text-rose-500" : ""}`} />
-              </button>
+              <div className="flex items-center gap-2">
+                <ShareButton
+                  url={getShareUrl.restaurant(restaurant.id)}
+                  text={getShareText.restaurant(restaurant.name)}
+                  className="bg-slate-50 text-slate-600 shadow-sm"
+                />
+                <button
+                  onClick={toggleFavorite}
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-50 text-slate-600 shadow-sm transition-all duration-200 active:scale-95"
+                  aria-label="Toggle favorite"
+                >
+                  <Heart className={`h-5 w-5 ${isFavorite ? "fill-rose-500 text-rose-500" : ""}`} />
+                </button>
+              </div>
             </div>
 
             <p className="mt-3 flex items-start gap-2 text-sm font-medium leading-6 text-slate-500">
@@ -425,6 +468,15 @@ const RestaurantPage = () => {
                     className="h-full w-full rounded-2xl object-cover"
                     onError={(e) => { e.target.src = FALLBACK_IMG; }}
                   />
+
+                  <div className="absolute left-1 top-1 z-10">
+                    <ShareButton
+                      url={getShareUrl.dish(dish.name)}
+                      text={getShareText.dish(dish.name, restaurant.name)}
+                      className="bg-white/80 text-slate-600 shadow-sm backdrop-blur hover:bg-white"
+                      iconSize={14}
+                    />
+                  </div>
 
                   {!cartItem ? (
                     <button

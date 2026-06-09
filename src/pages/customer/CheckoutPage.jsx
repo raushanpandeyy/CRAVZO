@@ -5,6 +5,7 @@ import { MapPin, Plus, CreditCard, Check, X, Tag, ChevronDown, ChevronUp, Trash2
 import { createAddress as saveAddress, getAddresses } from "../../services/addressService.js";
 import { getProfile } from "../../services/userService.js";
 import { getRestaurantById } from "../../services/foodService.js";
+import { Skeleton } from "../../components/Skeleton.jsx";
 import {
   createCODOrder,
   createRazorpayCheckoutOrder,
@@ -750,9 +751,9 @@ const CheckoutPage = () => {
               </h2>
 
               {isLoadingAddresses ? (
-                <div className="animate-pulse space-y-3">
-                  <div className="h-20 rounded-2xl bg-slate-100"></div>
-                  <div className="h-20 rounded-2xl bg-slate-100"></div>
+                <div className="space-y-3">
+                  <Skeleton className="h-20 w-full rounded-2xl" />
+                  <Skeleton className="h-20 w-full rounded-2xl" />
                 </div>
               ) : savedAddresses.length > 0 ? (
                 <div className="space-y-3">

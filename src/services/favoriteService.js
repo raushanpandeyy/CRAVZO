@@ -1,4 +1,4 @@
-import { apiRequest } from "./api.js";
+import { apiRequest, invalidateCache } from "./api.js";
 import { API_ENDPOINTS } from "../constants/apiEndpoints.js";
 
 const getFavorites = async () => {
@@ -18,6 +18,8 @@ const addFavorite = async (restaurantId) => {
     method: "POST",
     body: JSON.stringify({ restaurantId }),
   });
+  invalidateCache("/api/favorites");
+  invalidateCache(`/api/restaurants/${restaurantId}`);
   return response.data;
 };
 
@@ -25,6 +27,8 @@ const removeFavorite = async (restaurantId) => {
   const response = await apiRequest(API_ENDPOINTS.favorites.remove(restaurantId), {
     method: "DELETE",
   });
+  invalidateCache("/api/favorites");
+  invalidateCache(`/api/restaurants/${restaurantId}`);
   return response.data;
 };
 

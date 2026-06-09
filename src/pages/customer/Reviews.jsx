@@ -3,6 +3,7 @@ import { Star, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import { deleteReview, getMyReviews } from "../../services/reviewService.js";
+import { SkeletonCard } from "../../components/Skeleton.jsx";
 
 const Stars = ({ rating }) => (
   <div className="flex items-center gap-1 text-amber-500">
@@ -61,7 +62,9 @@ export default function Reviews() {
         {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
         {loading ? (
-          <div className="rounded-3xl bg-white px-6 py-16 text-center text-sm text-slate-500 shadow-sm">Loading reviews...</div>
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
         ) : reviews.length ? (
           <div className="space-y-4">
             {reviews.map((review) => (

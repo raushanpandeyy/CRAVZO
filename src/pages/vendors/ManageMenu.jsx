@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Menu, Plus, Edit, Trash2, Save, X, ImagePlus } from "lucide-react";
 
 import {
@@ -8,19 +8,17 @@ import {
   updateVendorMenuItem,
 } from "../../services/vendorService.js";
 import { uploadImage } from "../../services/userService.js";
+import { Skeleton, SkeletonCard } from "../../components/Skeleton.jsx";
+import { getCloudinaryUrl } from "../../utils/cloudinary.js";
 
 const categories = ["Main Course", "Starters", "Thali", "Beverages", "Desserts", "Biryani", "Sides"];
 const ALL_SIZES = ["S", "M", "L"];
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect fill='%23f1f5f9' width='150' height='150'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='14' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
-// Helper function to force images to load as WebP/AVIF via CDN parameters (e.g., Cloudinary, NextGen CDNs)
-const optimizeImageUrl = (url) => {
+const optimizeImageUrl = (url, width = 400) => {
   if (!url) return FALLBACK_IMG;
-  // Check if it's a Cloudinary URL to apply auto format (WebP/AVIF) and auto quality
-  if (url.includes("res.cloudinary.com")) {
-    return url.replace("/upload/", "/upload/f_auto,q_auto/");
-  }
+  if (url.includes("res.cloudinary.com")) return getCloudinaryUrl(url, { width });
   return url;
 };
 
@@ -45,7 +43,7 @@ const ManageMenu = () => {
     status: "ACTIVE",
   });
 
-  const loadRestaurant = async () => {
+  const loadRestaurant = useCallback(async () => {
     setLoading(true);
     setError("");
 
@@ -58,11 +56,11 @@ const ManageMenu = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadRestaurant();
-  }, []);
+  }, [loadRestaurant]);
 
   const stats = useMemo(
     () => ({
@@ -73,15 +71,15 @@ const ManageMenu = () => {
     [menuItems],
   );
 
-  const handleInputChange = (event) => {
+  const handleInputChange = useCallback((event) => {
     const { name, value, type, checked } = event.target;
     setFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
-  };
+  }, []);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setFormData({
       name: "",
       description: "",
@@ -93,9 +91,9 @@ const ManageMenu = () => {
       isVeg: false,
       status: "ACTIVE",
     });
-  };
+  }, []);
 
-  const handleImageUpload = async (event) => {
+  const handleImageUpload = useCallback(async (event) => {
     const file = event.target.files?.[0];
 
     if (!file) {
@@ -119,9 +117,9 @@ const ManageMenu = () => {
       setUploadingImage(false);
       event.target.value = "";
     }
-  };
+  }, []);
 
-  const handleAddItem = async () => {
+  const handleAddItem = useCallback(async () => {
     if (!restaurant) {
       setError("Create your restaurant profile first.");
       return;
@@ -155,9 +153,9 @@ const ManageMenu = () => {
     } catch (requestError) {
       setError(requestError.message || "Failed to add item");
     }
-  };
+  }, [restaurant, formData, loadRestaurant]);
 
-  const handleEditItem = (item) => {
+  const handleEditItem = useCallback((item) => {
     setEditingItem(item.id);
     setFormData({
       name: item.name,
@@ -170,9 +168,9 @@ const ManageMenu = () => {
       isVeg: item.isVeg,
       status: item.status,
     });
-  };
+  }, []);
 
-  const handleUpdateItem = async () => {
+  const handleUpdateItem = useCallback(async () => {
     if (!editingItem) {
       return;
     }
@@ -204,9 +202,9 @@ const ManageMenu = () => {
     } catch (requestError) {
       setError(requestError.message || "Failed to update item");
     }
-  };
+  }, [editingItem, formData, loadRestaurant]);
 
-  const handleDeleteItem = async (id) => {
+  const handleDeleteItem = useCallback(async (id) => {
     if (!window.confirm("Are you sure you want to delete this item?")) {
       return;
     }
@@ -218,9 +216,9 @@ const ManageMenu = () => {
     } catch (requestError) {
       setError(requestError.message || "Failed to delete item");
     }
-  };
+  }, [loadRestaurant]);
 
-  const toggleAvailability = async (item) => {
+  const toggleAvailability = useCallback(async (item) => {
     try {
       await updateVendorMenuItem(item.id, {
         status: item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
@@ -229,7 +227,7 @@ const ManageMenu = () => {
     } catch (requestError) {
       setError(requestError.message || "Failed to update item availability");
     }
-  };
+  }, [loadRestaurant]);
 
   return (
     <div className="px-4 py-4 md:px-6 md:py-6 bg-[#F4F7FB] min-h-screen">
@@ -424,7 +422,7 @@ const ManageMenu = () => {
                 <label className="block text-xs font-medium text-gray-700 mb-1">Dish Image</label>
                 <div className="rounded-lg border border-dashed border-gray-300 p-3 bg-white">
                   {formData.imageUrl ? (
-                    <img src={optimizeImageUrl(formData.imageUrl)} alt={formData.name || "Dish preview"} className="mb-3 h-28 w-full rounded-lg object-cover" loading="lazy" />
+                    <img src={optimizeImageUrl(formData.imageUrl, 300)} alt={formData.name || "Dish preview"} className="mb-3 h-28 w-full rounded-lg object-cover" loading="lazy" />
                   ) : (
                     <div className="mb-3 flex h-28 items-center justify-center rounded-lg bg-gray-50 text-xs text-gray-400">No dish image selected</div>
                   )}
@@ -474,7 +472,14 @@ const ManageMenu = () => {
         ) : null}
 
         {loading ? (
-          <div className="text-center py-12 text-gray-400 text-sm">Loading menu...</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
         ) : menuItems.length > 0 ? (
           /* Cards Grid Layout: Mobile size pe fully 1-column responsive grid structure */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
@@ -483,7 +488,7 @@ const ManageMenu = () => {
                 <div>
                   {item.imageUrl ? (
                     <img 
-                      src={optimizeImageUrl(item.imageUrl)} 
+                      src={optimizeImageUrl(item.imageUrl, 400)} 
                       alt={item.name} 
                       className="mb-3 h-40 md:h-44 w-full rounded-lg object-cover" 
                       loading="lazy"

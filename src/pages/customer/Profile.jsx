@@ -6,6 +6,7 @@ import { getStoredUser } from "../../services/authService.js";
 import { useAuth } from "../../hooks/useAuth.js";
 import { ensureFcmToken } from "../../firebase/notificationService.js";
 import { getProfile, updateProfile, uploadImage } from "../../services/userService.js";
+import { SkeletonAvatar, SkeletonForm } from "../../components/Skeleton.jsx";
 
 const fallbackAvatar =
   "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=300&q=80";
@@ -204,7 +205,10 @@ const Profile = () => {
             <p className="mt-1 text-sm text-slate-500">These details are synced with your authenticated account.</p>
 
             {loading ? (
-              <div className="py-16 text-center text-sm text-slate-500">Loading profile...</div>
+              <div className="mt-6 sm:mt-8">
+                <SkeletonAvatar className="mb-8" />
+                <SkeletonForm rows={3} />
+              </div>
             ) : (
               <div className="mt-6 space-y-4 sm:mt-8 sm:space-y-5">
                 <div>

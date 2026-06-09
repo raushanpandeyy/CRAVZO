@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from "../constants/apiEndpoints.js";
-import { apiRequest } from "./api.js";
+import { apiRequest, invalidateCache } from "./api.js";
 
 const dispatchAddressesChange = () => {
   window.dispatchEvent(new Event("addressesChange"));
@@ -16,6 +16,7 @@ const createAddress = async (payload) => {
     body: JSON.stringify(payload),
   });
 
+  invalidateCache("/api/users/addresses");
   dispatchAddressesChange();
   return response.data;
 };
@@ -26,6 +27,7 @@ const updateAddress = async (addressId, payload) => {
     body: JSON.stringify(payload),
   });
 
+  invalidateCache("/api/users/addresses");
   dispatchAddressesChange();
   return response.data;
 };
@@ -35,6 +37,7 @@ const deleteAddress = async (addressId) => {
     method: "DELETE",
   });
 
+  invalidateCache("/api/users/addresses");
   dispatchAddressesChange();
   return response.data;
 };

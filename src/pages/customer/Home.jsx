@@ -15,6 +15,7 @@ import {
 } from "../../assets/images/foodimages.js";
 import { getNearbyRestaurants, listRestaurants } from "../../services/foodService.js";
 import { useUserLocation } from "../../hooks/useUserLocation.js";
+import { getCloudinaryUrl } from "../../utils/cloudinary.js";
 
 const HeroSection = lazy(() => import("./HeroSection.jsx"));
 const Citywise = lazy(() => import("./Citywise.jsx"));
@@ -25,12 +26,7 @@ const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/sv
 
 const getOptimizedImage = (url, width = 400) => {
   if (!url) return FALLBACK_IMG;
-  if (url.includes("cloudinary.com")) {
-    const parts = url.split("/upload/");
-    if (parts.length === 2) {
-      return `${parts[0]}/upload/c_fill,w_${width},q_auto,f_avif/${parts[1]}`;
-    }
-  }
+  if (url.includes("cloudinary.com")) return getCloudinaryUrl(url, { width });
   return url;
 };
 

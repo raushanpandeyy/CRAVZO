@@ -1,4 +1,4 @@
-import { apiRequest } from "./api.js";
+import { apiRequest, invalidateCache } from "./api.js";
 
 const createOrder = async (payload) => {
   const response = await apiRequest("/api/orders", {
@@ -6,6 +6,7 @@ const createOrder = async (payload) => {
     body: JSON.stringify(payload),
   });
 
+  invalidateCache("/api/orders");
   return response.data;
 };
 
@@ -50,6 +51,7 @@ const updateOrderStatus = async (orderId, status) => {
     body: JSON.stringify({ status }),
   });
 
+  invalidateCache("/api/orders");
   return response.data;
 };
 
