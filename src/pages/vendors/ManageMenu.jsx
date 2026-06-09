@@ -40,6 +40,7 @@ const ManageMenu = () => {
     category: "",
     imageUrl: "",
     sizes: [],
+    sideDishes: [],
     isVeg: false,
     status: "ACTIVE",
   });
@@ -88,6 +89,7 @@ const ManageMenu = () => {
       category: "",
       imageUrl: "",
       sizes: [],
+      sideDishes: [],
       isVeg: false,
       status: "ACTIVE",
     });
@@ -142,6 +144,7 @@ const ManageMenu = () => {
         category: formData.category,
         imageUrl: formData.imageUrl || null,
         sizes: formData.sizes.length > 0 ? formData.sizes : undefined,
+        sideDishes: formData.sideDishes.length > 0 ? formData.sideDishes : undefined,
         isVeg: formData.isVeg,
         status: formData.status,
       });
@@ -163,6 +166,7 @@ const ManageMenu = () => {
       category: item.category,
       imageUrl: item.imageUrl || "",
       sizes: item.sizes || [],
+      sideDishes: item.sideDishes || [],
       isVeg: item.isVeg,
       status: item.status,
     });
@@ -189,6 +193,7 @@ const ManageMenu = () => {
         category: formData.category,
         imageUrl: formData.imageUrl || null,
         sizes: formData.sizes.length > 0 ? formData.sizes : undefined,
+        sideDishes: formData.sideDishes.length > 0 ? formData.sideDishes : undefined,
         isVeg: formData.isVeg,
         status: formData.status,
       });
@@ -363,6 +368,59 @@ const ManageMenu = () => {
               </div>
 
               <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Side Dishes (optional)</label>
+                <div className="space-y-2">
+                  {formData.sideDishes.map((sd, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Name"
+                        className="flex-1 border border-gray-200 rounded px-2 py-1.5 text-xs"
+                        value={sd.name}
+                        onChange={(e) => {
+                          const current = [...formData.sideDishes];
+                          current[idx] = { ...current[idx], name: e.target.value };
+                          setFormData((prev) => ({ ...prev, sideDishes: current }));
+                        }}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Price"
+                        className="w-20 border border-gray-200 rounded px-2 py-1.5 text-xs"
+                        value={sd.price}
+                        onChange={(e) => {
+                          const current = [...formData.sideDishes];
+                          current[idx] = { ...current[idx], price: e.target.value };
+                          setFormData((prev) => ({ ...prev, sideDishes: current }));
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData((prev) => ({ ...prev, sideDishes: prev.sideDishes.filter((_, i) => i !== idx) }));
+                        }}
+                        className="text-red-500 hover:text-red-700 px-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData((prev) => ({ ...prev, sideDishes: [...prev.sideDishes, { name: "", price: "" }] }));
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add Side Dish
+                  </button>
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Dish Image</label>
                 <div className="rounded-lg border border-dashed border-gray-300 p-3 bg-white">
                   {formData.imageUrl ? (
@@ -452,6 +510,15 @@ const ManageMenu = () => {
                       <span className="text-[11px] font-medium text-gray-500 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md">{item.category}</span>
                     </div>
                   </div>
+                  {item.sideDishes && item.sideDishes.length > 0 ? (
+                    <div className="mb-3 flex flex-wrap gap-1">
+                      {item.sideDishes.map((sd, idx) => (
+                        <span key={idx} className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-md">
+                          {sd.name} (Rs {sd.price})
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Buttons Layout: Proper flex gap, padding adjusted for small taps on mobile */}

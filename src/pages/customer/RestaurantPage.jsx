@@ -56,6 +56,7 @@ const RestaurantPage = () => {
   const [restaurant, setRestaurant] = useState(null);
   const [cart, setCart] = useState([]);
   const [selectedSizes, setSelectedSizes] = useState({});
+  const [selectedSideDishes, setSelectedSideDishes] = useState({});
   const [loading, setLoading] = useState(true);
   // Fix 4: isFavorite is a simple boolean, not a module-level flag, so initialize as false
   const [isFavorite, setIsFavorite] = useState(false);
@@ -143,6 +144,9 @@ const RestaurantPage = () => {
   const addToCart = (dish) => {
     const size = (dish.sizes && dish.sizes.length > 0) ? (selectedSizes[dish.id] || dish.sizes[0].size) : null;
     const unitPrice = getSizePrice(dish, size);
+    const chosenSideDishes = selectedSideDishes[dish.id] || [];
+    const sideDishTotal = chosenSideDishes.reduce((sum, sd) => sum + Number(sd.price), 0);
+    const effectivePrice = unitPrice + sideDishTotal;
     const cartKey = size ? `${dish.id}-${size}` : dish.id;
     const existing = safeCart.find((item) => item.cartKey === cartKey);
     if (existing) {
@@ -156,6 +160,8 @@ const RestaurantPage = () => {
           quantity: 1,
           size,
           price: unitPrice,
+          selectedSideDishes: chosenSideDishes,
+          notes: "",
           restaurantId: restaurant.id,
           restaurantName: restaurant.name,
         },
@@ -381,6 +387,34 @@ const RestaurantPage = () => {
                   <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">
                     {dish.description || "Freshly prepared and packed with care."}
                   </p>
+
+                  {dish.sideDishes && dish.sideDishes.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {dish.sideDishes.map((sd) => {
+                        const isSelected = (selectedSideDishes[dish.id] || []).some((s) => s.name === sd.name);
+                        return (
+                          <button
+                            key={sd.name}
+                            type="button"
+                            onClick={() => {
+                              const current = selectedSideDishes[dish.id] || [];
+                              const updated = isSelected
+                                ? current.filter((s) => s.name !== sd.name)
+                                : [...current, sd];
+                              setSelectedSideDishes((prev) => ({ ...prev, [dish.id]: updated }));
+                            }}
+                            className={`text-[10px] font-bold px-2 py-1 rounded-full border transition-all ${
+                              isSelected
+                                ? "bg-indigo-600 text-white border-indigo-600"
+                                : "bg-white text-amber-700 border-amber-300 hover:bg-amber-50"
+                            }`}
+                          >
+                            {sd.name} +Rs {Number(sd.price)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="relative h-28 w-28 shrink-0">

@@ -122,6 +122,8 @@ const serializeOrder = (order) => ({
     unitPrice: Number(item.unitPrice),
     totalPrice: Number(item.totalPrice),
     size: item.size,
+    notes: item.notes,
+    selectedSideDishes: item.selectedSideDishes,
     menuItem: item.menuItem
       ? {
           id: item.menuItem.id,
@@ -182,10 +184,16 @@ db = prisma,
     return Number(menuItem.price);
   };
 
+  const getSideDishTotal = (sideDishes) => {
+    if (!sideDishes || !Array.isArray(sideDishes) || sideDishes.length === 0) return 0;
+    return sideDishes.reduce((sum, sd) => sum + Number(sd.price), 0);
+  };
+
   const subtotal = items.reduce((sum, item) => {
     const menuItem = menuItems.find((entry) => entry.id === item.menuItemId);
     const unitPrice = getItemPrice(menuItem, item.size);
-    return sum + unitPrice * item.quantity;
+    const sideDishTotal = getSideDishTotal(item.selectedSideDishes);
+    return sum + (unitPrice + sideDishTotal) * item.quantity;
   }, 0);
 
   let resolvedAddressId = null;
@@ -346,13 +354,17 @@ db = prisma,
     resolvedAddressId,
     itemRows: items.map((item) => {
       const menuItem = menuItems.find((entry) => entry.id === item.menuItemId);
-      const unitPrice = getItemPrice(menuItem, item.size);
+      const basePrice = getItemPrice(menuItem, item.size);
+      const sideDishTotal = getSideDishTotal(item.selectedSideDishes);
+      const unitPrice = basePrice + sideDishTotal;
       return {
         menuItemId: item.menuItemId,
         quantity: item.quantity,
         unitPrice,
         totalPrice: unitPrice * item.quantity,
         size: item.size || null,
+        notes: item.notes || null,
+        selectedSideDishes: item.selectedSideDishes || undefined,
       };
     }),
   };

@@ -191,7 +191,11 @@ const Cart = () => {
   };
 
   const pricing = useMemo(() => {
-    const itemTotal = cart.reduce((acc, item) => acc + getPrice(item.price) * item.quantity, 0);
+    const itemTotal = cart.reduce((acc, item) => {
+      const baseTotal = getPrice(item.price) * item.quantity;
+      const sideTotal = (item.selectedSideDishes || []).reduce((sum, sd) => sum + Number(sd.price), 0) * item.quantity;
+      return acc + baseTotal + sideTotal;
+    }, 0);
     const deliveryBase = calculateDeliveryBase(distanceKm);
     const deliveryGst = deliveryBase * DELIVERY_GST_RATE;
     const deliveryTotal = deliveryBase + deliveryGst;
@@ -263,6 +267,23 @@ const Cart = () => {
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-slate-900 truncate">{item.name} {item.size ? <span className="text-indigo-600">({item.size})</span> : null}</p>
                   <p className="text-sm text-slate-500">{formatCurrency(getPrice(item.price))} each</p>
+                  {item.selectedSideDishes && item.selectedSideDishes.length > 0 ? (
+                    <p className="text-xs text-amber-600 mt-0.5">
+                      + {item.selectedSideDishes.map((sd) => `${sd.name} (${formatCurrency(Number(sd.price))})`).join(", ")}
+                    </p>
+                  ) : null}
+                  <input
+                    type="text"
+                    placeholder="Add note for restaurant (extra spicy, no onion, etc.)"
+                    className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                    value={item.notes || ""}
+                    onChange={(e) => {
+                      const updated = cart.map((ci) =>
+                        ci.id === item.id ? { ...ci, notes: e.target.value } : ci,
+                      );
+                      updateCart(updated);
+                    }}
+                  />
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -281,6 +302,11 @@ const Cart = () => {
                 </div>
                 <div className="text-right min-w-[70px]">
                   <p className="font-bold text-slate-900">{formatCurrency(getPrice(item.price) * item.quantity)}</p>
+                  {item.selectedSideDishes && item.selectedSideDishes.length > 0 ? (
+                    <p className="text-xs text-amber-600">
+                      +{formatCurrency(item.selectedSideDishes.reduce((sum, sd) => sum + Number(sd.price), 0) * item.quantity)}
+                    </p>
+                  ) : null}
                 </div>
                 <button
                   onClick={() => removeItem(item.id)}

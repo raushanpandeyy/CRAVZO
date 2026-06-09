@@ -176,9 +176,17 @@ const OrderPanel = () => {
                 <div className="mb-3">
                   <p className="text-sm text-gray-600 mb-1">Items:</p>
                   {order.items.map((item) => (
-                    <p key={item.id} className="text-sm">
-                      {item.quantity}x {item.menuItem?.name} - {formatCurrency(item.unitPrice)}
-                    </p>
+                    <div key={item.id} className="text-sm">
+                      <p>{item.quantity}x {item.menuItem?.name} - {formatCurrency(item.unitPrice)}</p>
+                      {item.selectedSideDishes && item.selectedSideDishes.length > 0 ? (
+                        <p className="text-xs text-amber-600 ml-4">
+                          + Side: {item.selectedSideDishes.map((sd) => `${sd.name} (${formatCurrency(Number(sd.price))})`).join(", ")}
+                        </p>
+                      ) : null}
+                      {item.notes ? (
+                        <p className="text-xs text-slate-500 italic ml-4">Note: {item.notes}</p>
+                      ) : null}
+                    </div>
                   ))}
                 </div>
 
@@ -240,9 +248,19 @@ const OrderPanel = () => {
             <div className="border-t pt-4">
               <h4 className="font-semibold mb-2">Items:</h4>
               {selectedOrder.items.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm">
-                  <span>{item.quantity}x {item.menuItem?.name}</span>
-                  <span>{formatCurrency(item.totalPrice)}</span>
+                <div key={item.id} className="text-sm">
+                  <div className="flex justify-between">
+                    <span>{item.quantity}x {item.menuItem?.name}</span>
+                    <span>{formatCurrency(item.totalPrice)}</span>
+                  </div>
+                  {item.selectedSideDishes && item.selectedSideDishes.length > 0 ? (
+                    <p className="text-xs text-amber-600 ml-4">
+                      + Side: {item.selectedSideDishes.map((sd) => `${sd.name} (${formatCurrency(Number(sd.price))})`).join(", ")}
+                    </p>
+                  ) : null}
+                  {item.notes ? (
+                    <p className="text-xs text-slate-500 italic ml-4">Note: {item.notes}</p>
+                  ) : null}
                 </div>
               ))}
               <div className="border-t mt-2 pt-2 flex justify-between font-bold">

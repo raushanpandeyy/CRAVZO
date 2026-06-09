@@ -13,10 +13,17 @@ const orderAddressSchema = z.object({
   postalCode: z.string().trim().min(4).max(12),
 });
 
+const sideDishSelectionSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  price: z.coerce.number().positive().max(100000),
+});
+
 const orderItemSchema = z.object({
   menuItemId: z.string().trim().min(1),
   quantity: z.coerce.number().int().min(1).max(99),
   size: z.string().trim().max(10).optional().nullable(),
+  notes: z.string().trim().max(500).optional().nullable(),
+  selectedSideDishes: z.array(sideDishSelectionSchema).max(20).optional().nullable(),
 });
 
 const requireDeliveryAddress = (schema) =>

@@ -69,6 +69,17 @@ const App = () => {
     return () => window.removeEventListener("message", handleNotificationClick);
   }, [navigate]);
 
+  // Prevent mouse scroll from changing number input values
+  useEffect(() => {
+    const preventNumberScroll = (e) => {
+      if (e.target.type === "number") {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener("wheel", preventNumberScroll, { passive: false });
+    return () => document.removeEventListener("wheel", preventNumberScroll);
+  }, []);
+
   // Handle foreground FCM message — show in-app toast instead of OS notification
   useEffect(() => {
     const handleFcmMessage = (event) => {

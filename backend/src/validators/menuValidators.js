@@ -19,6 +19,16 @@ const menuItemPayloadSchema = z.object({
     .max(3)
     .optional()
     .nullable(),
+  sideDishes: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(100),
+        price: z.coerce.number().positive().max(100000),
+      }),
+    )
+    .max(20)
+    .optional()
+    .nullable(),
   isVeg: z.boolean().optional(),
   status: menuItemStatusSchema.optional(),
 });

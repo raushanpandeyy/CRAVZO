@@ -363,19 +363,29 @@ const OrderItemCard = ({ item, onRemove }) => {
   };
 
   return (
-    <div className={`flex items-center gap-4 transition-all ${isRemoving ? "scale-95 opacity-0" : ""}`}>
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-slate-900 truncate">{item.name}</p>
-        <p className="text-sm text-slate-500">Qty: {item.quantity}</p>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="font-bold text-slate-900">{formatCurrency(getPrice(item.price) * item.quantity)}</span>
-        <button
-          onClick={handleRemove}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-500 transition hover:bg-rose-100"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+    <div className={`transition-all ${isRemoving ? "scale-95 opacity-0" : ""}`}>
+      <div className="flex items-center gap-4">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-slate-900 truncate">{item.name}</p>
+          <p className="text-sm text-slate-500">Qty: {item.quantity}</p>
+          {item.selectedSideDishes && item.selectedSideDishes.length > 0 ? (
+            <p className="text-xs text-amber-600 truncate">
+              + {item.selectedSideDishes.map((sd) => `${sd.name}`).join(", ")}
+            </p>
+          ) : null}
+          {item.notes ? (
+            <p className="text-xs text-slate-400 italic truncate mt-0.5">Note: {item.notes}</p>
+          ) : null}
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="font-bold text-slate-900">{formatCurrency(getPrice(item.price) * item.quantity)}</span>
+          <button
+            onClick={handleRemove}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-rose-500 transition hover:bg-rose-100"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -510,7 +520,11 @@ const CheckoutPage = () => {
     setCouponDiscount(0);
   };
 
-  const itemTotal = useMemo(() => cart.reduce((acc, item) => acc + getPrice(item.price) * item.quantity, 0), [cart]);
+  const itemTotal = useMemo(() => cart.reduce((acc, item) => {
+    const baseTotal = getPrice(item.price) * item.quantity;
+    const sideTotal = (item.selectedSideDishes || []).reduce((sum, sd) => sum + Number(sd.price), 0) * item.quantity;
+    return acc + baseTotal + sideTotal;
+  }, 0), [cart]);
 
   const { deliveryBase, deliveryGst, deliveryTotal, packagingFeeBase, foodGst, packagingTax, platformFeeBase, platformTax, deliveryAndTax, totalTax, grandTotal, cgst, sgst } = useMemo(() => {
     const dBase = calculateDeliveryBase(distanceKm);
@@ -593,6 +607,8 @@ const CheckoutPage = () => {
           menuItemId: item.id,
           quantity: item.quantity,
           size: item.size || null,
+          notes: item.notes || null,
+          selectedSideDishes: item.selectedSideDishes && item.selectedSideDishes.length > 0 ? item.selectedSideDishes : undefined,
         })),
         addressId: resolvedAddressId,
         address,
