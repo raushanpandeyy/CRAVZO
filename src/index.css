@@ -13,11 +13,17 @@ body{
 }
 
 [class*="overflow-y-auto"],
-[class*="overflow-x-auto"],
 [class*="overflow-auto"] {
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
     overscroll-behavior: contain;
+    touch-action: manipulation;
+}
+
+[class*="overflow-x-auto"] {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    touch-action: manipulation;
 }
 
 body {
