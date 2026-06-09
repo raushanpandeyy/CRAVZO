@@ -1,10 +1,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@700&display=swap');
 @import "tailwindcss";
 
+html {
+    scroll-behavior: smooth;
+}
+
 body{
     background-color: whitesmoke;
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Smooth scrolling for all overflow containers */
+* {
+    overscroll-behavior: contain;
+}
+
+[class*="overflow-y-auto"],
+[class*="overflow-x-auto"],
+[class*="overflow-auto"] {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
 }
 
 /* Below-fold sections: defer rendering until they scroll into view */
