@@ -6,16 +6,21 @@ const SWIPE_THRESHOLD = 50;
 const INTERVAL_MS = 7000;
 const INTERACTION_COOLDOWN = 10000;
 
-const DishPromoCarousel = () => {
+const DishPromoCarousel = ({ promotions: propPromotions }) => {
   const navigate = useNavigate();
-  const [promotions, setPromotions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [promotions, setPromotions] = useState(propPromotions || []);
+  const [loading, setLoading] = useState(!propPromotions);
   const [current, setCurrent] = useState(0);
   const scrollRef = useRef(null);
   const touchRef = useRef({ startX: 0, startY: 0, swiped: false });
   const lastInteractionRef = useRef(Date.now());
 
   useEffect(() => {
+    if (propPromotions) {
+      setPromotions(propPromotions);
+      setLoading(false);
+      return;
+    }
     const fetchPromos = async () => {
       try {
         const base = import.meta.env.VITE_API_BASE_URL || "";
@@ -29,7 +34,7 @@ const DishPromoCarousel = () => {
       }
     };
     fetchPromos();
-  }, []);
+  }, [propPromotions]);
 
   const total = promotions.length;
 

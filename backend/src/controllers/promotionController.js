@@ -16,7 +16,7 @@ const createSchema = z.object({
 
 const updateSchema = createSchema.partial();
 
-async function resolvePromotionRecord(promo) {
+export async function resolvePromotionRecord(promo) {
   if (promo.referenceType === "dish") {
     const menuItem = await prisma.menuItem.findUnique({
       where: { id: promo.referenceId },

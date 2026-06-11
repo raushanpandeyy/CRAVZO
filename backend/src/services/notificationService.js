@@ -34,13 +34,15 @@ const getOrderStatusCopy = ({ status, restaurantName }) => {
 
 const upsertFcmToken = async ({ userId, token, deviceId = null, platform = "WEB", userAgent = null }) => {
   // Bloom filter Use Case 2: skip DB upsert if token is already known
-  // The filter tracks tokens we've previously stored — saves a DB round-trip
-  // on every app load for existing devices (which is the common case)
+  // Saves a DB round-trip on every app load for existing devices.
+  // BUT if Redis is down, mightExist() returns true (fail-open) which would
+  // skip the DB upsert and lose the token — so confirm with a lightweight check.
   const alreadyKnown = await fcmTokenBloomFilter.mightExist(token);
   if (alreadyKnown) {
-    // Token probably already in DB and active — skip the upsert
-    // (false positive rate 1% — those 1% will just do a normal upsert)
-    return { token, isActive: true };
+    const existing = await prisma.fcmToken.findUnique({ where: { token }, select: { id: true, isActive: true } });
+    if (existing) {
+      return existing;
+    }
   }
 
   const result = await prisma.fcmToken.upsert({

@@ -14,6 +14,7 @@ import {
   icecream, Snacks, southindian, salad, northindian,
 } from "../../assets/images/foodimages.js";
 import { getNearbyRestaurants, listRestaurants } from "../../services/foodService.js";
+import { apiRequest } from "../../services/api.js";
 import { useUserLocation } from "../../hooks/useUserLocation.js";
 import { getCloudinaryUrl } from "../../utils/cloudinary.js";
 
@@ -171,42 +172,72 @@ const MobileRestaurantCard = ({ restaurant, index }) => {
   );
 };
 
+const PopularDishesSection = ({ restaurants }) => {
+  const items = restaurants
+    .flatMap((restaurant) =>
+      (restaurant.menuPreview?.length ? restaurant.menuPreview : [null]).map((dish) => ({
+        ...restaurant,
+        dish,
+      }))
+    )
+    .slice(0, 10);
+  return (
+    <section className="relative py-3 border-b border-indigo-100">
+      <div className="px-4 mb-2">
+        <h2 className="text-base font-bold text-indigo-700">Popular Dishes Nearby</h2>
+      </div>
+      <div className="flex gap-3 overflow-x-auto px-4 [scrollbar-width:none] snap-x">
+        {items.map((restaurant, index) => (
+          <MobileNearbyMiniCard
+            key={`${restaurant.id}-${restaurant.dish?.id || "restaurant"}`}
+            restaurant={restaurant}
+            index={index}
+          />
+        ))}
+      </div>
+    </section>
+  );
+};
+
 const MobileNearbyMiniCard = ({ restaurant, index }) => {
   const dish = restaurant.dish || restaurant.menuPreview?.[0];
   const dishImage = dish?.imageUrl || getDishFallbackImage(dish, restaurant);
   const deliveryTime = restaurant.deliveryTime || `${20 + (index % 4) * 5}-${30 + (index % 4) * 5} min`;
-  const price = dish?.price ? Math.floor(Number(dish.price)) : null;
+  const price = dish?.price ? `₹${Math.floor(Number(dish.price))}` : null;
+  const dishName = dish?.name || restaurant.name;
+
+  const labels = [dishName, deliveryTime, price].filter(Boolean);
+  const [labelIndex, setLabelIndex] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setLabelIndex((i) => (i + 1) % labels.length), 2000);
+    return () => clearInterval(timer);
+  }, [labels.length]);
 
   return (
-    <Link
-      to={`/restaurant/${restaurant.id}`}
-      className="min-w-[120px] snap-start rounded-xl bg-white shadow-sm transition-all duration-200 active:scale-95 overflow-hidden"
-    >
-      {/* CLS Fix: fixed h-20 wrapper + explicit width/height on img */}
-      <div className="relative h-20 w-full overflow-hidden rounded-xl bg-slate-100">
-        <LazyImage
+    <div className="min-w-[120px] snap-start">
+      <Link
+        to={`/restaurant/${restaurant.id}`}
+        className="relative aspect-square rounded-xl overflow-hidden shadow-sm block transition-all duration-200 active:scale-95"
+      >
+        <img
           src={dishImage}
-          alt={dish?.name || restaurant.name}
-          className="h-full w-full object-cover"
+          alt={dishName}
+          className="absolute inset-0 h-full w-full object-cover"
+          loading="lazy"
           width={150}
-          height={80}
+          height={128}
         />
-        {price && (
-          <span className="absolute bottom-1 right-1 rounded-md bg-indigo-950 px-1.5 py-0.5 text-[10px] font-extrabold text-white">
-            ₹{price}
-          </span>
-        )}
-      </div>
-      <div className="px-2 py-1.5">
-        <p className="line-clamp-1 text-[11px] font-extrabold text-slate-800">{dish?.name || restaurant.name}</p>
-        <p className="mt-0.5 text-[10px] font-semibold text-indigo-600">{deliveryTime}</p>
-      </div>
-    </Link>
+      </Link>
+      <p className="mt-1 text-xs font-extrabold text-indigo-500 text-center truncate">
+        {labels[labelIndex]}
+      </p>
+    </div>
   );
 };
 
 const Home = () => {
   const [restaurants, setRestaurants] = useState([]);
+  const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isDesktop, setIsDesktop] = useState(
     typeof window !== "undefined" && window.innerWidth >= 768
@@ -233,8 +264,6 @@ const Home = () => {
     if (!locationReady) return; // wait for location resolution
 
     const load = async () => {
-      // Fix 12: Mobile gets 10 restaurants (half the data), desktop gets 20.
-      // window.innerWidth check at fetch time so SSR/prerender stays safe.
       const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
       const limit = isMobile ? 10 : 20;
 
@@ -243,7 +272,6 @@ const Home = () => {
         if (lat && lng) {
           const res = await getNearbyRestaurants(lat, lng, 3);
           restaurantData = Array.isArray(res) ? res : (res?.data || []);
-          // Respect the mobile limit even for nearby results
           if (isMobile) restaurantData = restaurantData.slice(0, limit);
         }
         if (!restaurantData.length) {
@@ -251,8 +279,6 @@ const Home = () => {
           restaurantData = Array.isArray(res) ? res : (res?.data || []);
         }
         setRestaurants(restaurantData);
-        // Fix: localStorage write is synchronous and blocks main thread (20 items × ~1KB).
-        // Defer to idle time so it doesn't compete with rendering.
         const saveToCache = () => {
           try { localStorage.setItem("cravzoHomeRestaurants", JSON.stringify(restaurantData)); } catch {}
         };
@@ -267,6 +293,15 @@ const Home = () => {
         setLoading(false);
       }
     };
+
+    const loadPromos = async () => {
+      try {
+        const res = await apiRequest("/api/public/home");
+        if (res?.data?.promotions) setPromotions(res.data.promotions);
+      } catch {}
+    };
+
+    loadPromos();
 
     load();
   }, [locationReady, lat, lng]);
@@ -318,7 +353,7 @@ const Home = () => {
       <div className="md:hidden">
 
         {/* Dish Promotions — admin-controlled, 7s auto-slide carousel */}
-        <DishPromoCarousel />
+        <DishPromoCarousel promotions={promotions} />
 
         <div className="px-4 pt-3 pb-1">
           <SearchBar
@@ -331,51 +366,25 @@ const Home = () => {
         <section className="relative py-3 border-b border-indigo-100">
 <div className="px-4 mb-2">
             <h2 className="text-base font-bold text-indigo-700">Eat what you love</h2>
-            <p className="text-xs font-semibold text-indigo-400">Categories</p>
           </div>
           <div className="flex gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none]">
             {categories.map((category) => (
               <Link key={category.name} to={category.to} className="min-w-[65px] text-center">
-                <span className="mx-auto flex h-14 w-14 items-center justify-center overflow-hidden rounded-xl bg-indigo-50 shadow-sm border-2 border-indigo-200">
-                  <img src={category.image} alt={category.name} className="h-10 w-10 object-contain" loading="lazy" width={40} height={40} />
+                <span className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-md">
+                  <img src={category.image} alt={category.name} className="h-full w-full object-cover" loading="lazy" width={64} height={64} />
                 </span>
-                <span className="mt-1 block text-[9px] font-bold text-indigo-700">{category.name}</span>
+                <span className="mt-1 block text-[10px] font-bold text-indigo-700">{category.name}</span>
               </Link>
             ))}
           </div>
         </section>
         {/* Popular Dishes Nearby */}
-        {restaurants.length > 0 && (
-          <section className="relative py-3 border-b border-indigo-100">
-            <div className="px-4 mb-2">
-              <h2 className="text-base font-bold text-indigo-700">Popular Dishes Nearby</h2>
-              <p className="text-xs font-semibold text-indigo-400">Quick bites</p>
-            </div>
-            <div className="flex gap-3 overflow-x-auto px-4 [scrollbar-width:none] pb-2 snap-x">
-              {restaurants
-                .flatMap((restaurant) =>
-                  (restaurant.menuPreview?.length ? restaurant.menuPreview : [null]).map((dish) => ({
-                    ...restaurant,
-                    dish,
-                  }))
-                )
-                .slice(0, 10)
-                .map((restaurant, index) => (
-                  <MobileNearbyMiniCard
-                    key={`${restaurant.id}-${restaurant.dish?.id || "restaurant"}`}
-                    restaurant={restaurant}
-                    index={index}
-                  />
-                ))}
-            </div>
-          </section>
-        )}
+        {restaurants.length > 0 && <PopularDishesSection restaurants={restaurants} />}
 
         {/* Nearby Restaurants */}
         <section className="relative py-4">
           <div className="px-4 mb-3">
             <h2 className="text-base font-bold text-indigo-700">Nearby Restaurants</h2>
-            <p className="text-xs font-semibold text-indigo-400">Fast delivery</p>
           </div>
           <div className="space-y-3 px-4">
             {loading ? (

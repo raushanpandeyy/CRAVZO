@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   getFeaturedRestaurants,
   getAds,
+  getHomeData,
   addFeaturedRestaurant,
   removeFeaturedRestaurant,
   updateFeaturedRestaurantsOrder,
@@ -15,6 +16,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const publicRouter = Router();
 
+publicRouter.get("/home", asyncHandler(getHomeData));
 publicRouter.get("/featured-restaurants", asyncHandler(getFeaturedRestaurants));
 publicRouter.get("/ads", asyncHandler(getAds));
 

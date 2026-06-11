@@ -86,8 +86,9 @@ restaurant: {
  },
 
  public: {
-   featuredRestaurants: `${BASE}/public/featured-restaurants`,
-   ads: `${BASE}/public/ads`,
- },
+    home: `${BASE}/public/home`,
+    featuredRestaurants: `${BASE}/public/featured-restaurants`,
+    ads: `${BASE}/public/ads`,
+  },
 
 };
