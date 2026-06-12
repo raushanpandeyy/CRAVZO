@@ -35,7 +35,7 @@ const OrderPanel = () => {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [chatOrder, setChatOrder] = useState(null);
+  const [chatOrderState, setChatOrderState] = useState(null);
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -220,9 +220,16 @@ const OrderPanel = () => {
                         {vendorStatusLabel[order.status]}
                       </button>
                     ) : null}
+                    <button
+                      onClick={() => setChatOrderState({ order, chatType: "vendor" })}
+                      className="flex items-center gap-1 rounded bg-emerald-600 px-3 py-1 text-sm text-white hover:bg-emerald-700"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Customer Chat
+                    </button>
                     {canChatWithRider(order) ? (
                       <button
-                        onClick={() => setChatOrder(order)}
+                        onClick={() => setChatOrderState({ order, chatType: "rider" })}
                         className="flex items-center gap-1 rounded bg-slate-950 px-3 py-1 text-sm text-white hover:bg-slate-800"
                       >
                         <MessageCircle className="h-4 w-4" />
@@ -290,8 +297,11 @@ const OrderPanel = () => {
                   Call Customer
                 </button>
               ) : null}
+              <button onClick={() => setChatOrderState({ order: selectedOrder, chatType: "vendor" })} className="flex-1 rounded bg-emerald-600 py-2 text-white hover:bg-emerald-700">
+                Customer Chat
+              </button>
               {canChatWithRider(selectedOrder) ? (
-                <button onClick={() => setChatOrder(selectedOrder)} className="flex-1 rounded bg-slate-950 py-2 text-white hover:bg-slate-800">
+                <button onClick={() => setChatOrderState({ order: selectedOrder, chatType: "rider" })} className="flex-1 rounded bg-slate-950 py-2 text-white hover:bg-slate-800">
                   Rider Chat
                 </button>
               ) : null}
@@ -300,16 +310,16 @@ const OrderPanel = () => {
         </div>
       ) : null}
 
-      {chatOrder ? (
+      {chatOrderState ? (
         <Suspense fallback={<div className="fixed inset-0 z-[90] bg-slate-950/40" />}>
           <OrderChatModal
-            order={chatOrder}
-            onClose={() => setChatOrder(null)}
-            title="Restaurant to Rider"
-            subtitle={chatOrder.rider?.name || "Assigned rider"}
-            participantName={chatOrder.rider?.name || "Assigned rider"}
-            disabled={!canChatWithRider(chatOrder)}
-            disabledReason="Restaurant to rider chat closes after delivery or cancellation."
+            order={chatOrderState.order}
+            onClose={() => setChatOrderState(null)}
+            chatType={chatOrderState.chatType}
+            title={chatOrderState.chatType === "vendor" ? `Chat with ${chatOrderState.order.customer?.name || "Customer"}` : "Rider Chat"}
+            subtitle={chatOrderState.order.customer?.name ? `Customer: ${chatOrderState.order.customer.name}` : ""}
+            participantName={chatOrderState.chatType === "vendor" ? chatOrderState.order.customer?.name || "Customer" : chatOrderState.order.rider?.name || "Rider"}
+            disabledReason="Order chat is available only while the order is active."
           />
         </Suspense>
       ) : null}

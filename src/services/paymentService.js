@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from "../constants/apiEndpoints.js";
-import { apiRequest } from "./api.js";
+import { apiRequest, invalidateCache } from "./api.js";
 
 let checkoutScriptPromise = null;
 
@@ -46,6 +46,7 @@ const verifyRazorpayPaymentAndCreateOrder = async (payload) => {
     body: JSON.stringify(payload),
   });
 
+  invalidateCache("/api/orders");
   return response.data;
 };
 
@@ -55,6 +56,7 @@ const createCODOrder = async (payload) => {
     body: JSON.stringify(payload),
   });
 
+  invalidateCache("/api/orders");
   return response.data;
 };
 

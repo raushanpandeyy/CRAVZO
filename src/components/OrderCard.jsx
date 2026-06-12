@@ -18,7 +18,7 @@ const statusBadgeClass = (status) => {
   }
 };
 
-const OrderCard = React.memo(({ order, onSelect, onCancel, onChat, onFeedback, needsFeedback, canChatWithRider }) => (
+const OrderCard = React.memo(({ order, onSelect, onCancelRequest, onChat, onChatVendor, onFeedback, needsFeedback, canChatWithRider }) => (
   <div
     onClick={() => onSelect(order)}
     className="cursor-pointer group overflow-hidden rounded-[28px] border border-slate-100 bg-white text-left shadow-sm transition-all duration-200 active:scale-[0.99] hover:shadow-md sm:rounded-3xl"
@@ -59,10 +59,20 @@ const OrderCard = React.memo(({ order, onSelect, onCancel, onChat, onFeedback, n
         <div className="flex items-center gap-2">
           {cancellableStatuses.includes(order.status) ? (
             <button
-              onClick={(event) => onCancel(event, order.id)}
+              onClick={(event) => onCancelRequest(event, order)}
               className="rounded-full bg-rose-600 px-3 py-2 text-xs font-bold text-white"
             >
               Cancel
+            </button>
+          ) : null}
+          {onChatVendor ? (
+            <button
+              type="button"
+              onClick={(event) => onChatVendor(event, order)}
+              className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Restaurant
             </button>
           ) : null}
           {canChatWithRider(order) ? (

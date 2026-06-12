@@ -83,7 +83,8 @@ const assertCanUseOrderChat = async (req, orderId, { forWrite = false } = {}) =>
     throw new ApiError(403, "You do not have permission to access this order chat");
   }
 
-  if (!isAdmin && !order.riderId) {
+  const isVendorOrCustomer = isVendor || isCustomer;
+  if (!isAdmin && !isVendorOrCustomer && !order.riderId) {
     throw new ApiError(400, "Rider chat starts after a rider is assigned");
   }
 
@@ -172,6 +173,35 @@ const getOrCreateOrderRoom = async (req, res) => {
   res.status(200).json(
     apiResponse({
       message: "Order chat room ready",
+      data: sanitizeRoom(room),
+    }),
+  );
+};
+
+const getOrCreateVendorOrderRoom = async (req, res) => {
+  const order = await assertCanUseOrderChat(req, req.params.orderId);
+  const isClosed = CLOSED_ORDER_STATUSES.includes(order.status);
+
+  const room = await prisma.chatRoom.upsert({
+    where: {
+      type_orderId: {
+        type: "ORDER_VENDOR",
+        orderId: req.params.orderId,
+      },
+    },
+    create: {
+      type: "ORDER_VENDOR",
+      orderId: req.params.orderId,
+      status: isClosed ? "CLOSED" : "ACTIVE",
+    },
+    update: {
+      status: isClosed ? "CLOSED" : "ACTIVE",
+    },
+  });
+
+  res.status(200).json(
+    apiResponse({
+      message: "Vendor order chat room ready",
       data: sanitizeRoom(room),
     }),
   );
@@ -393,7 +423,7 @@ const listAdminChatRooms = async (req, res) => {
     throw new ApiError(403, "Only admins can view the chat inbox");
   }
 
-  const type = req.query.type === "ORDER_RIDER" ? "ORDER_RIDER" : "SUPPORT";
+  const type = ["ORDER_RIDER", "ORDER_VENDOR"].includes(req.query.type) ? req.query.type : "SUPPORT";
   const rooms = await prisma.chatRoom.findMany({
     where: { type },
     orderBy: { lastMessageAt: "desc" },
@@ -460,6 +490,7 @@ export {
   createRoomMessage,
   getOrCreateOrderRoom,
   getOrCreateSupportRoom,
+  getOrCreateVendorOrderRoom,
   getRoomMessages,
   listAdminChatRooms,
   sanitizeMessage,

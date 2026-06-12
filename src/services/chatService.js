@@ -10,6 +10,11 @@ const getOrderChatRoom = async (orderId) => {
   return response.data;
 };
 
+const getVendorOrderChatRoom = async (orderId) => {
+  const response = await apiRequest(`/api/chats/orders/${orderId}/vendor`);
+  return response.data;
+};
+
 const getChatMessages = async (roomId, { after = "", limit = 30 } = {}) => {
   const params = new URLSearchParams();
   if (after) params.set("after", after);
@@ -47,4 +52,4 @@ const getCustomerSupportRoom = async (customerId) => {
   return response.data;
 };
 
-export { getAdminChatRooms, getChatMessages, getCustomerSupportRoom, getOrderChatRoom, getSupportChatRoom, sendChatMessage, uploadChatImage };
+export { getAdminChatRooms, getChatMessages, getCustomerSupportRoom, getOrderChatRoom, getSupportChatRoom, getVendorOrderChatRoom, sendChatMessage, uploadChatImage };

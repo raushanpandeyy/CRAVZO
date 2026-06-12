@@ -234,7 +234,15 @@ const attachChatSocket = async (server) => {
         let recipientIds = [];
 
         if (room?.type === "ORDER_RIDER") {
-          recipientIds = [room.order?.customerId, room.order?.riderId].filter(Boolean);
+          recipientIds = [
+            room.order?.customerId,
+            room.order?.riderId,
+          ].filter(Boolean);
+        } else if (room?.type === "ORDER_VENDOR") {
+          recipientIds = [
+            room.order?.customerId,
+            room.order?.restaurant?.vendorId,
+          ].filter(Boolean);
         } else if (room?.type === "SUPPORT") {
           if (socket.user.role === "ADMIN") {
             recipientIds = [room.supportUserId].filter(Boolean);

@@ -57,6 +57,8 @@ export default function Orders() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [chatOrder, setChatOrder] = useState(null);
+  const [chatVendorOrder, setChatVendorOrder] = useState(null);
+  const [cancelConfirmOrder, setCancelConfirmOrder] = useState(null);
   const [feedbackOrder, setFeedbackOrder] = useState(null);
   const [submittedIds, setSubmittedIds] = useState(getSubmittedIds);
   const [dismissedIds, setDismissedIds] = useState(getDismissedIds);
@@ -128,21 +130,44 @@ export default function Orders() {
     return () => clearInterval(pollingRef.current);
   }, [orders]);
 
-  const handleCancelOrder = useCallback(async (event, orderId) => {
+  const calcCancelFee = (order) => {
+    if (["PENDING", "ACCEPTED"].includes(order.status)) return 0;
+    if (order.status === "PREPARING" && order.preparingAt) {
+      const mins = (Date.now() - new Date(order.preparingAt).getTime()) / 60000;
+      if (mins < 2) return 0;
+      if (mins >= 10) return 20;
+      return 15;
+    }
+    return 20;
+  };
+
+  const handleCancelRequest = useCallback((event, order) => {
     event.preventDefault();
     event.stopPropagation();
+    setCancelConfirmOrder(order);
+  }, []);
+
+  const handleCancelConfirm = useCallback(async () => {
+    if (!cancelConfirmOrder) return;
     setMessage("");
     setError("");
     try {
-      await cancelOrder(orderId);
-      setMessage("Order cancelled successfully.");
+      const data = await cancelOrder(cancelConfirmOrder.id);
+      const fee = data?.cancelFee;
+      if (fee && fee > 0) {
+        setMessage(`Order cancelled. ${data.cancelFeePercent}% fee deducted: ${formatCurrency(fee)}. Refund: ${formatCurrency(data.refundAmount)}`);
+      } else {
+        setMessage("Order cancelled successfully.");
+      }
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: "CANCELLED" } : o)),
+        prev.map((o) => (o.id === cancelConfirmOrder.id ? { ...o, status: "CANCELLED" } : o)),
       );
+      setCancelConfirmOrder(null);
     } catch (requestError) {
       setError(requestError.message || "Failed to cancel order");
+      setCancelConfirmOrder(null);
     }
-  }, []);
+  }, [cancelConfirmOrder]);
 
   const filteredOrders = useMemo(
     () =>
@@ -171,6 +196,17 @@ export default function Orders() {
     event.preventDefault();
     event.stopPropagation();
     setChatOrder(order);
+  }, []);
+
+  const canChatWithVendor = useCallback(
+    (order) => Boolean(order.restaurant?.vendorId) && !riderChatClosedStatuses.includes(order.status),
+    [],
+  );
+
+  const openVendorChat = useCallback((event, order) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setChatVendorOrder(order);
   }, []);
 
   const openFeedback = useCallback((event, order) => {
@@ -259,8 +295,9 @@ export default function Orders() {
                   key={order.id}
                   order={order}
                   onSelect={setSelectedOrder}
-                  onCancel={handleCancelOrder}
+                  onCancelRequest={handleCancelRequest}
                   onChat={openRiderChat}
+                  onChatVendor={canChatWithVendor(order) ? openVendorChat : null}
                   onFeedback={openFeedback}
                   needsFeedback={needsFeedback}
                   canChatWithRider={canChatWithRider}
@@ -364,6 +401,16 @@ export default function Orders() {
               Open Restaurant <ArrowRight className="h-4 w-4" />
             </button>
 
+            {canChatWithVendor(selectedOrder) ? (
+              <button
+                type="button"
+                onClick={(event) => openVendorChat(event, selectedOrder)}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Chat with {selectedOrder.restaurant?.name || "Restaurant"}
+              </button>
+            ) : null}
             {canChatWithRider(selectedOrder) ? (
               <button
                 type="button"
@@ -398,6 +445,22 @@ export default function Orders() {
         </div>
       ) : null}
 
+      {/* ── Restaurant Chat Modal ── */}
+      {chatVendorOrder ? (
+        <Suspense fallback={<div className="fixed inset-0 z-[90] bg-slate-950/40" />}>
+          <OrderChatModal
+            order={chatVendorOrder}
+            onClose={() => setChatVendorOrder(null)}
+            chatType="vendor"
+            title={`Chat with ${chatVendorOrder.restaurant?.name || "Restaurant"}`}
+            subtitle={chatVendorOrder.restaurant?.name || "Restaurant partner"}
+            participantName={chatVendorOrder.restaurant?.name || "Restaurant"}
+            disabled={!canChatWithVendor(chatVendorOrder)}
+            disabledReason="Restaurant chat is available only while the order is active."
+          />
+        </Suspense>
+      ) : null}
+
       {/* ── Rider Chat Modal ── */}
       {chatOrder ? (
         <Suspense fallback={<div className="fixed inset-0 z-[90] bg-slate-950/40" />}>
@@ -411,6 +474,38 @@ export default function Orders() {
             disabledReason="Rider chat is available only while the order is active."
           />
         </Suspense>
+      ) : null}
+
+      {/* ── Cancel Confirmation Modal ── */}
+      {cancelConfirmOrder ? (
+        <div className="fixed inset-0 z-[90] flex items-end bg-slate-950/55 p-3 sm:items-center sm:justify-center sm:p-6">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+            <h2 className="text-xl font-black text-slate-950">Cancel Order?</h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Order #{cancelConfirmOrder.id.slice(-6)} &middot; {cancelConfirmOrder.status.replace(/_/g, " ")}
+            </p>
+            {(() => {
+              const pct = calcCancelFee(cancelConfirmOrder);
+              const amt = Number(cancelConfirmOrder.totalAmount);
+              const fee = Math.round(amt * pct / 100 * 100) / 100;
+              const refund = amt - fee;
+              return pct > 0 ? (
+                <div className="mt-4 space-y-2 rounded-2xl bg-rose-50 p-4 text-sm">
+                  <div className="flex justify-between"><span>Cancellation fee ({pct}%)</span><span className="font-bold text-rose-600">-{formatCurrency(fee)}</span></div>
+                  <div className="flex justify-between border-t border-rose-200 pt-2"><span className="font-bold">Amount to refund</span><span className="font-bold">{formatCurrency(refund)}</span></div>
+                </div>
+              ) : (
+                <div className="mt-4 rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700">
+                  No cancellation fee for this order.
+                </div>
+              );
+            })()}
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setCancelConfirmOrder(null)} className="flex-1 rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-700">Go Back</button>
+              <button onClick={handleCancelConfirm} className="flex-1 rounded-xl bg-rose-600 py-3 text-sm font-bold text-white">Yes, Cancel</button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {/* ── Feedback Modal ── */}

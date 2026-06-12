@@ -5,6 +5,7 @@ import {
   getChatMessages,
   getOrderChatRoom,
   getSupportChatRoom,
+  getVendorOrderChatRoom,
   sendChatMessage,
   uploadChatImage,
 } from "../services/chatService.js";
@@ -85,7 +86,9 @@ const Chat = ({
           ? { id: roomId }
           : mode === "order"
             ? await getOrderChatRoom(orderId)
-            : await getSupportChatRoom();
+            : mode === "order-vendor"
+              ? await getVendorOrderChatRoom(orderId)
+              : await getSupportChatRoom();
         if (cancelled) return;
 
         setRoom(nextRoom);
@@ -129,12 +132,12 @@ const Chat = ({
   }, [isOpen, room?.id]);
 
   const repInfo =
-    mode === "order"
+    mode === "order" || mode === "order-vendor"
       ? {
           name: participantName || "Order Chat",
           role: subtitle || "Order conversation",
           icon: User,
-          color: disabled ? "bg-slate-500" : "bg-indigo-600",
+          color: disabled ? "bg-slate-500" : mode === "order-vendor" ? "bg-emerald-600" : "bg-indigo-600",
         }
       : user
         ? getRepresentativeInfo(user.accountType || user.role)

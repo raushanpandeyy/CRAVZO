@@ -27,9 +27,10 @@ const getMyOrders = async ({ cursor = null } = {}) => {
   };
 };
 
-const getVendorOrders = async ({ cursor = null } = {}) => {
+const getVendorOrders = async ({ cursor = null, skipCache = false } = {}) => {
   const params = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
-  const response = await apiRequest(`/api/orders/vendor${params}`);
+  const options = skipCache ? { skipCache: true } : {};
+  const response = await apiRequest(`/api/orders/vendor${params}`, options);
   if (Array.isArray(response.data)) {
     return { orders: response.data, nextCursor: null, hasMore: false };
   }

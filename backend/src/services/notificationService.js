@@ -224,7 +224,18 @@ const notifyChatMessage = async ({ room, sender, messageText, imageUrl }) => {
   let clickUrl = "/";
 
   if (room?.type === "ORDER_RIDER") {
-    recipientIds = [room.order?.customerId, room.order?.riderId].filter(Boolean);
+    recipientIds = [
+      room.order?.customerId,
+      room.order?.riderId,
+    ].filter(Boolean);
+    if (room.orderId) {
+      clickUrl = `/account/orders?orderId=${room.orderId}`;
+    }
+  } else if (room?.type === "ORDER_VENDOR") {
+    recipientIds = [
+      room.order?.customerId,
+      room.order?.restaurant?.vendorId,
+    ].filter(Boolean);
     if (room.orderId) {
       clickUrl = `/account/orders?orderId=${room.orderId}`;
     }

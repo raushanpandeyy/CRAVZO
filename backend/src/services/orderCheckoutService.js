@@ -448,6 +448,13 @@ const createPersistedOrder = async ({
         include: {
           restaurant: true,
           address: true,
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+            },
+          },
           items: {
             include: {
               menuItem: true,

@@ -3,13 +3,16 @@ import crypto from "crypto";
 import { env } from "../config/env.js";
 import { createPersistedOrder, prepareOrderDraft, serializeOrder } from "../services/orderCheckoutService.js";
 import { notifyAdminOrderCreated } from "../services/adminOrderAlertService.js";
-import { notifyOrderCreated, notifyVendorNewOrder } from "../services/notificationService.js";
+import { notifyRiderNewOrder, notifyVendorNewOrder } from "../services/notificationService.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import { logger } from "../utils/logger.js";
 import { createCheckoutOrderSchema, createOrderSchema, verifyPaymentOrderSchema } from "../validators/orderValidators.js";
 
-const runNotificationTask = (task) => {
-  task.catch(() => {});
+const runNotificationTask = (task, context) => {
+  task.catch((err) => {
+    logger.error("Notification task failed", { error: err.message, context });
+  });
 };
 
 const razorpayBaseUrl = "https://api.razorpay.com/v1";
@@ -77,8 +80,8 @@ const createCODOrder = async (req, res) => {
     notes,
   });
 
-  runNotificationTask(notifyOrderCreated(order));
-  runNotificationTask(notifyVendorNewOrder(order));
+  runNotificationTask(notifyVendorNewOrder(order), "notifyVendorNewOrder");
+  runNotificationTask(notifyRiderNewOrder(order), "notifyRiderNewOrder");
   notifyAdminOrderCreated(order);
 
   res.status(201).json({
@@ -161,8 +164,8 @@ const verifyAndCreatePaidOrder = async (req, res) => {
     gatewaySignature: razorpaySignature,
   });
 
-  runNotificationTask(notifyOrderCreated(order));
-  runNotificationTask(notifyVendorNewOrder(order));
+  runNotificationTask(notifyVendorNewOrder(order), "notifyVendorNewOrder");
+  runNotificationTask(notifyRiderNewOrder(order), "notifyRiderNewOrder");
   notifyAdminOrderCreated(order);
 
   res.status(201).json(

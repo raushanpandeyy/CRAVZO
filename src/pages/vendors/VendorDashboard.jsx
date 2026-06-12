@@ -29,7 +29,7 @@ const VendorDashboard = () => {
       // First load - fetch all data
       if (isFirstLoadRef.current) {
         setLoading(true);
-        const [restaurantData, vendorData] = await Promise.all([getMyRestaurant(), getVendorOrders()]);
+        const [restaurantData, vendorData] = await Promise.all([getMyRestaurant(), getVendorOrders({ skipCache: true })]);
         const orderData = Array.isArray(vendorData?.orders) ? vendorData.orders : [];
         
         const pendingOrders = orderData.filter((order) => order.status === "PENDING");
@@ -50,7 +50,7 @@ const VendorDashboard = () => {
       }
 
       // Smart polling - only fetch pending count first
-      const vendorData = await getVendorOrders();
+      const vendorData = await getVendorOrders({ skipCache: true });
       const orderData = Array.isArray(vendorData?.orders) ? vendorData.orders : [];
       const currentPendingOrders = orderData.filter((order) => order.status === "PENDING");
       const currentPendingCount = currentPendingOrders.length;

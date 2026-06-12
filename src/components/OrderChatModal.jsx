@@ -13,12 +13,17 @@ const OrderChatModal = ({
   title = "Order Chat",
   subtitle,
   participantName,
+  chatType = "rider",
   disabled,
   disabledReason,
 }) => {
   if (!order) return null;
 
   const isDisabled = disabled ?? isOrderChatClosed(order);
+  const mode = chatType === "vendor" ? "order-vendor" : "order";
+  const defaultReason = chatType === "vendor"
+    ? "This order is complete, so restaurant chat is closed."
+    : "This order is complete, so rider chat is closed.";
 
   return (
     <div className="fixed inset-0 z-[90] flex items-end bg-slate-950/55 p-3 sm:items-center sm:justify-center sm:p-6">
@@ -41,13 +46,13 @@ const OrderChatModal = ({
           <Chat
             isOpen
             onClose={onClose}
-            mode="order"
+            mode={mode}
             orderId={order.id}
             title={title}
             subtitle={subtitle || order.status?.replaceAll?.("_", " ")}
             participantName={participantName}
             disabled={isDisabled}
-            disabledReason={disabledReason || "This order is complete, so rider and restaurant chat is closed."}
+            disabledReason={disabledReason || defaultReason}
             variant="panel"
           />
         </Suspense>

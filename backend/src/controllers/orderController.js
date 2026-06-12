@@ -649,10 +649,27 @@ const updateOrderStatus = async (req, res) => {
     }
   }
 
+  const cancelFeePercent = (() => {
+    if (status !== "CANCELLED") return 0;
+    if (["PENDING", "ACCEPTED"].includes(order.status)) return 0;
+    if (order.status === "PREPARING" && order.preparingAt) {
+      const mins = (Date.now() - order.preparingAt.getTime()) / 60000;
+      if (mins < 2) return 0;
+      if (mins >= 10) return 20;
+      return 15;
+    }
+    return 20;
+  })();
+
+  const totalAmountNum = Number(order.totalAmount);
+  const cancelFee = Math.round((totalAmountNum * cancelFeePercent) / 100 * 100) / 100;
+  const refundAmount = totalAmountNum - cancelFee;
+
   const updatedOrder = await prisma.order.update({
     where: { id: req.params.orderId },
     data: {
       status,
+      ...(status === "PREPARING" ? { preparingAt: new Date() } : {}),
       ...(req.user.role === "RIDER" && (status === order.status || status === "OUT_FOR_DELIVERY")
         ? { riderId: req.user.sub }
         : {}),
@@ -660,6 +677,12 @@ const updateOrderStatus = async (req, res) => {
         ? { rejectedRiderIds: [] }
         : {}),
       ...(status === "DELIVERED" ? { paymentStatus: "PAID" } : {}),
+      ...(status === "CANCELLED" && order.paymentStatus === "PAID"
+        ? { paymentStatus: "REFUNDED" }
+        : {}),
+      ...(status === "CANCELLED" && cancelFee > 0
+        ? { totalAmount: refundAmount }
+        : {}),
     },
     include: {
       restaurant: true,
@@ -700,10 +723,17 @@ const updateOrderStatus = async (req, res) => {
 
   res.status(200).json(
     apiResponse({
-      message: "Order status updated successfully",
+      message: status === "CANCELLED" && cancelFee > 0
+        ? `Order cancelled. ${cancelFeePercent}% fee deducted (₹${cancelFee}).`
+        : "Order status updated successfully",
       data: {
         ...serializeOrder(updatedOrder),
         customer: updatedOrder.customer,
+        ...(status === "CANCELLED" ? {
+          cancelFeePercent,
+          cancelFee,
+          refundAmount,
+        } : {}),
       },
     }),
   );
