@@ -28,7 +28,7 @@ A full-stack food delivery application built with React, Node.js, Express, and P
 - **Reviews & Ratings**: Rate restaurants and food
 - **Favorites**: Save favorite restaurants
 - **Address Management**: Store multiple delivery addresses
-- **Authentication**: JWT-based authentication with secure sessions
+- **Authentication**: JWT-based authentication with secure session
 
 ---
 
