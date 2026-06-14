@@ -180,18 +180,29 @@ const PopularDishesSection = ({ restaurants }) => {
         dish,
       }))
     )
-    .slice(0, 10);
+    .slice(0, 20);
+  const row1 = items.slice(0, 10);
+  const row2 = items.slice(10, 20);
   return (
     <section className="relative py-3 border-b border-indigo-100">
       <div className="px-4 mb-2">
         <h2 className="text-base font-bold text-indigo-700">Popular Dishes Nearby</h2>
       </div>
-      <div className="flex gap-3 overflow-x-auto px-4 [scrollbar-width:none] snap-x">
-        {items.map((restaurant, index) => (
+      <div className="flex gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] snap-x snap-mandatory overscroll-x-contain">
+        {row1.map((restaurant, index) => (
           <MobileNearbyMiniCard
-            key={`${restaurant.id}-${restaurant.dish?.id || "restaurant"}`}
+            key={`${restaurant.id}-${restaurant.dish?.id || "restaurant"}-r1`}
             restaurant={restaurant}
             index={index}
+          />
+        ))}
+      </div>
+      <div className="mt-3 flex gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] snap-x snap-mandatory overscroll-x-contain">
+        {row2.map((restaurant, index) => (
+          <MobileNearbyMiniCard
+            key={`${restaurant.id}-${restaurant.dish?.id || "restaurant"}-r2`}
+            restaurant={restaurant}
+            index={index + 10}
           />
         ))}
       </div>
@@ -206,7 +217,7 @@ const MobileNearbyMiniCard = ({ restaurant, index }) => {
   const price = dish?.price ? `₹${Math.floor(Number(dish.price))}` : null;
   const dishName = dish?.name || restaurant.name;
 
-  const labels = [dishName, deliveryTime, price].filter(Boolean);
+  const labels = [dishName, deliveryTime].filter(Boolean);
   const [labelIndex, setLabelIndex] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => setLabelIndex((i) => (i + 1) % labels.length), 2000);
@@ -214,21 +225,21 @@ const MobileNearbyMiniCard = ({ restaurant, index }) => {
   }, [labels.length]);
 
   return (
-    <div className="min-w-[120px] snap-start">
+    <div className="w-[100px] flex-shrink-0">
       <Link
         to={`/restaurant/${restaurant.id}`}
-        className="relative aspect-square rounded-xl overflow-hidden shadow-sm block transition-all duration-200 active:scale-95"
+        className="relative aspect-square rounded-lg overflow-hidden shadow-sm block transition-all duration-200 active:scale-95"
       >
         <img
           src={dishImage}
           alt={dishName}
           className="absolute inset-0 h-full w-full object-cover"
           loading="lazy"
-          width={150}
-          height={128}
+          width={100}
+          height={100}
         />
       </Link>
-      <p className="mt-1 text-xs font-extrabold text-indigo-500 text-center truncate">
+      <p className="mt-1 text-sm font-extrabold text-indigo-500 text-center truncate leading-tight">
         {labels[labelIndex]}
       </p>
     </div>

@@ -44,7 +44,7 @@ const markDismissed = (orderId) => {
 };
 
 // Auto-polling interval for active orders (ms)
-const POLL_INTERVAL_MS = 15000;
+const POLL_INTERVAL_MS = 45000;
 
 export default function Orders() {
   const navigate = useNavigate();

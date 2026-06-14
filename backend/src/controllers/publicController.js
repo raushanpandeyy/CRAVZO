@@ -2,6 +2,7 @@ import { prisma } from "../config/database.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { getCache, setCache, deleteCache, mgetCache } from "../utils/cache.js";
 import { resolvePromotionRecord } from "./promotionController.js";
+import { PROMOTIONS_CACHE_TTL_SECONDS } from "../utils/publicCache.js";
 
 // Fix 2: Removed duplicate `new PrismaClient()` — was creating a second connection
 // pool (+20 DB connections) on top of the singleton in config/database.js
@@ -33,7 +34,7 @@ export const getHomeData = async (req, res) => {
       orderBy: { position: "asc" },
     });
     promotions = (await Promise.all(promos.map(resolvePromotionRecord))).filter(Boolean);
-    await setCache(CACHE_KEYS.PROMOTIONS, promotions, 120);
+    await setCache(CACHE_KEYS.PROMOTIONS, promotions, PROMOTIONS_CACHE_TTL_SECONDS);
   }
 
   return res.status(200).json(

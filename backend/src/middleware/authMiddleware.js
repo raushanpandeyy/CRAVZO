@@ -4,7 +4,7 @@ import { ApiError } from "../utils/apiError.js";
 import { verifyToken } from "../utils/jwt.js";
 import { getCache, setCache } from "../utils/cache.js";
 
-const AUTH_CACHE_TTL = 600;
+const AUTH_CACHE_TTL = 1800;
 
 const authenticate = asyncHandler(async (req, _res, next) => {
   const authHeader = req.headers.authorization;

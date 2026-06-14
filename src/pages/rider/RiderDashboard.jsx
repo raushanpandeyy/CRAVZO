@@ -166,7 +166,7 @@ const RiderDashboard = () => {
 
     const intervalId = window.setInterval(() => {
       loadOrders({ silent: true });
-    }, 15000);
+    }, 45000);
 
     return () => window.clearInterval(intervalId);
   }, []);

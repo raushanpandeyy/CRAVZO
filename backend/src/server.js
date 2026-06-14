@@ -4,11 +4,12 @@ import http from "http";
 import { env } from "./config/env.js";
 import { connectRedis } from "./config/redis.js";
 import { attachChatSocket } from "./socket/chatSocket.js";
-
+import { ensureIndexes } from "./scripts/ensureIndexes.js";
 
 const PORT = env.PORT || process.env.PORT || 8080;
 
 await connectRedis();
+ensureIndexes();
 
 const { app } = await import("./app.js");
 const server = http.createServer(app);

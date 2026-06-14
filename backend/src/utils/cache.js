@@ -2,10 +2,13 @@ import { connectRedis } from "../config/redis.js";
 import { memoryCache } from "./memoryCache.js";
 
 const L1_TTL_RATIO = 0.3;
+let cacheClient = null;
 
 const getCacheClient = async () => {
+  if (cacheClient?.isOpen) return cacheClient;
   try {
-    return await connectRedis();
+    cacheClient = await connectRedis();
+    return cacheClient;
   } catch (error) {
     console.error("Redis cache unavailable:", error.message);
     return null;
@@ -72,6 +75,29 @@ const mgetCache = async (keys) => {
   return result;
 };
 
+const INDEXED_PREFIXES = ["restaurants:list", "restaurants:nearby"];
+
+const getIndexKey = (key) => {
+  for (const prefix of INDEXED_PREFIXES) {
+    if (key.startsWith(prefix)) return `cache:ix:${prefix}`;
+  }
+  return null;
+};
+
+const indexCacheKey = async (client, key) => {
+  const indexKey = getIndexKey(key);
+  if (indexKey) {
+    await client.sAdd(indexKey, key);
+  }
+};
+
+const deindexCacheKey = async (client, key) => {
+  const indexKey = getIndexKey(key);
+  if (indexKey) {
+    await client.sRem(indexKey, key);
+  }
+};
+
 const setCache = async (key, value, ttlSeconds) => {
   const l1Ttl = Math.max(Math.round(ttlSeconds * L1_TTL_RATIO) * 1000, 5000);
   memoryCache.set(key, value, l1Ttl);
@@ -86,6 +112,7 @@ const setCache = async (key, value, ttlSeconds) => {
     await client.set(key, JSON.stringify(value), {
       EX: ttlSeconds,
     });
+    await indexCacheKey(client, key);
   } catch (error) {
     console.error("Redis cache write failed:", error.message);
   }
@@ -103,6 +130,9 @@ const deleteCache = async (...keys) => {
 
   try {
     await client.del(cacheKeys);
+    for (const key of cacheKeys) {
+      await deindexCacheKey(client, key);
+    }
   } catch (error) {
     console.error("Redis cache delete failed:", error.message);
   }
@@ -116,8 +146,20 @@ const deleteCacheByPattern = async (pattern) => {
   }
 
   try {
-    let cursor = "0";
+    const match = pattern.replace(/:?\*$/, "");
+    const idx = INDEXED_PREFIXES.indexOf(match);
+    const indexKey = idx !== -1 ? `cache:ix:${INDEXED_PREFIXES[idx]}` : null;
 
+    if (indexKey) {
+      const members = await client.sMembers(indexKey);
+      if (members.length > 0) {
+        await client.del([indexKey, ...members]);
+        members.forEach((k) => memoryCache.del(k));
+      }
+      return;
+    }
+
+    let cursor = "0";
     do {
       const [nextCursor, keys] = await client.sendCommand([
         "SCAN",

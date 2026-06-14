@@ -25,15 +25,25 @@ const serializeAddress = (address) => ({
 });
 
 const listAddresses = async (req, res) => {
-  const addresses = await prisma.address.findMany({
-    where: { userId: req.user.sub },
-    orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
-  });
+  const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 50);
+  const skip = (page - 1) * limit;
+
+  const [addresses, total] = await Promise.all([
+    prisma.address.findMany({
+      where: { userId: req.user.sub },
+      orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
+      skip,
+      take: limit,
+    }),
+    prisma.address.count({ where: { userId: req.user.sub } }),
+  ]);
 
   res.status(200).json(
     apiResponse({
       message: "Addresses fetched successfully",
       data: addresses.map(serializeAddress),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
     }),
   );
 };

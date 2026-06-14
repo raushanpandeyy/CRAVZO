@@ -7,31 +7,33 @@ import {
 import { notifyAdminOrderCreated, notifyAdminOrderStatusChanged } from "./adminOrderAlertService.js";
 import { logger } from "../utils/logger.js";
 
+const CONCURRENCY = 5;
+
 const startNotificationWorker = async () => {
   const queue = getNotificationQueue();
 
   // Process vendor new-order notifications
-  queue.process("vendor-new-order", async (job) => {
+  queue.process("vendor-new-order", CONCURRENCY, async (job) => {
     const { order } = job.data;
     await sendVendorNotification(order);
     notifyAdminOrderCreated(order);
   });
 
   // Process rider new-order notifications
-  queue.process("rider-new-order", async (job) => {
+  queue.process("rider-new-order", CONCURRENCY, async (job) => {
     const { order } = job.data;
     await sendRiderNotification(order);
   });
 
   // Process order status change notifications
-  queue.process("order-status-changed", async (job) => {
+  queue.process("order-status-changed", CONCURRENCY, async (job) => {
     const { order, actorRole } = job.data;
     await sendOrderStatusNotification({ order, actorRole });
     notifyAdminOrderStatusChanged({ order, actorRole });
   });
 
   // Process reject notification (rider rejected an order)
-  queue.process("rider-rejected-order", async (job) => {
+  queue.process("rider-rejected-order", CONCURRENCY, async (job) => {
     const { order, actorRole } = job.data;
     await sendOrderStatusNotification({ order, actorRole });
     notifyAdminOrderStatusChanged({ order, actorRole });

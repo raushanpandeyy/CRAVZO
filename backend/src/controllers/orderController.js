@@ -1,9 +1,12 @@
 import { prisma } from "../config/database.js";
+import { connectRedis } from "../config/redis.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { createPersistedOrder, serializeOrder } from "../services/orderCheckoutService.js";
 import { queueNotification } from "../services/notificationQueue.js";
 import { createOrderSchema } from "../validators/orderValidators.js";
+
+const RIDER_GEO_KEY = "rider:geo";
 
 const ACTIVE_DELIVERY_STATUSES = ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
 
@@ -366,69 +369,70 @@ const getRiderOrderSuggestions = async (req, res) => {
     }),
   ]);
 
-  // Fix 2: Compute bounding box from restaurant locations to pre-filter riders at DB level.
-  // Without this, ALL online riders with lat/lng are fetched (~hundreds),
-  // and the JS loop does O(activeOrders × candidateRiders) haversine calculations.
-  // With bounding box, only riders near any active order restaurant are returned.
-  let latMin = -90, latMax = 90, lngMin = -180, lngMax = 180;
-  const restaurantCoords = activeOrders
-    .map((o) => o.restaurant)
-    .filter((r) => typeof r.latitude === "number" && typeof r.longitude === "number");
-  if (restaurantCoords.length > 0) {
-    const margin = 0.1; // ~11km margin
-    latMin = Math.min(...restaurantCoords.map((r) => r.latitude)) - margin;
-    latMax = Math.max(...restaurantCoords.map((r) => r.latitude)) + margin;
-    lngMin = Math.min(...restaurantCoords.map((r) => r.longitude)) - margin;
-    lngMax = Math.max(...restaurantCoords.map((r) => r.longitude)) + margin;
-  }
-
-  const candidateRiders = await prisma.user.findMany({
-    where: {
-      role: "RIDER",
-      status: "ACTIVE",
-      isOnline: true,
-      latitude: { not: null },
-      longitude: { not: null },
-      // Bounding box filter — eliminates riders far from any active order
-      latitude: { gte: latMin, lte: latMax },
-      longitude: { gte: lngMin, lte: lngMax },
-    },
-    select: { id: true, latitude: true, longitude: true, riderOnboarding: true },
-  });
-
   const engagedSet = new Set(engagedRiderRows.map((r) => r.riderId).filter(Boolean));
-  const freeRiders = candidateRiders.filter(
-    (r) =>
-      !engagedSet.has(r.id) &&
-      (!riderCity ||
-        normalizeCity(r.riderOnboarding?.city) === normalizeCity(riderCity)),
-  );
-
   const suggestions = {};
+  const redisClient = await connectRedis();
+  const useGeo = redisClient?.isOpen;
+
   for (const order of activeOrders) {
     const rLat = order.restaurant?.latitude;
     const rLng = order.restaurant?.longitude;
     const orderCity = normalizeCity(order.restaurant?.city);
+    const rejected = order.rejectedRiderIds || [];
 
-    const eligible = freeRiders.filter(
-      (r) =>
-        !(order.rejectedRiderIds || []).includes(r.id) &&
-        (!orderCity || normalizeCity(r.riderOnboarding?.city) === orderCity),
-    );
-    if (!eligible.length) continue;
+    let nearestRiderId = null;
 
-    if (typeof rLat !== "number" || typeof rLng !== "number") {
-      suggestions[order.id] = eligible[0].id;
-      continue;
+    if (useGeo && typeof rLat === "number" && typeof rLng === "number") {
+      const nearby = await redisClient.geoSearch(
+        RIDER_GEO_KEY,
+        { longitude: rLng, latitude: rLat },
+        { radius: 10, unit: "km" },
+        { COUNT: 5, order: "ASC" },
+      );
+      for (const member of nearby) {
+        if (rejected.includes(member)) continue;
+        if (engagedSet.has(member)) continue;
+        nearestRiderId = member;
+        break;
+      }
     }
 
-    let best = null;
-    let bestDist = Infinity;
-    for (const r of eligible) {
-      const d = getDistanceKm(rLat, rLng, r.latitude, r.longitude);
-      if (d < bestDist) { bestDist = d; best = r.id; }
+    if (!nearestRiderId) {
+      const candidateRiders = await prisma.user.findMany({
+        where: {
+          role: "RIDER",
+          status: "ACTIVE",
+          isOnline: true,
+          latitude: { not: null },
+          longitude: { not: null },
+          ...(
+            orderCity
+              ? { riderOnboarding: { path: ["city"], string_contains: orderCity } }
+              : {}
+          ),
+        },
+        select: { id: true, latitude: true, longitude: true },
+      });
+
+      const eligible = candidateRiders.filter(
+        (r) =>
+          !engagedSet.has(r.id) &&
+          !rejected.includes(r.id),
+      );
+      if (!eligible.length) continue;
+
+      if (typeof rLat !== "number" || typeof rLng !== "number") {
+        nearestRiderId = eligible[0].id;
+      } else {
+        let bestDist = Infinity;
+        for (const r of eligible) {
+          const d = getDistanceKm(rLat, rLng, r.latitude, r.longitude);
+          if (d < bestDist) { bestDist = d; nearestRiderId = r.id; }
+        }
+      }
     }
-    if (best) suggestions[order.id] = best;
+
+    if (nearestRiderId) suggestions[order.id] = nearestRiderId;
   }
 
   res.status(200).json(

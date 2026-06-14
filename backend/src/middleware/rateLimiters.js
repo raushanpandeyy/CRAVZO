@@ -1,22 +1,41 @@
 import rateLimit from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 
-import { redisClient, sendRedisCommand } from "../config/redis.js";
+import { connectRedis, redisClient } from "../config/redis.js";
 
 const createRateLimitMessage = (message) => ({
   success: false,
   message,
 });
 
+let redisConnected = false;
+
+const ensureRedisConnected = async () => {
+  if (redisConnected && redisClient?.isOpen) return;
+  try {
+    await connectRedis();
+    redisConnected = true;
+  } catch {
+    redisConnected = false;
+  }
+};
+
 const createStore = (prefix) => {
-  if (!redisClient?.isOpen) {
-    // Fallback to memory store when Redis is down — rate limits never silently disable
+  if (!redisClient) {
     return undefined;
   }
 
   return new RedisStore({
     prefix,
-    sendCommand: (...args) => sendRedisCommand(args),
+    sendCommand: async (...args) => {
+      if (!redisConnected || !redisClient.isOpen) {
+        await ensureRedisConnected();
+        if (!redisClient?.isOpen) {
+          throw new Error("Redis unavailable");
+        }
+      }
+      return redisClient.sendCommand(args);
+    },
   });
 };
 

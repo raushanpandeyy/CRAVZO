@@ -39,7 +39,7 @@ const deletePersistentCache = (key) => {
 };
 
 const _dedupCache = new Map();
-const DEDUP_WINDOW_MS = 3000;
+const DEDUP_WINDOW_MS = 30000;
 
 const getDedupCached = (key) => {
   const entry = _dedupCache.get(key);

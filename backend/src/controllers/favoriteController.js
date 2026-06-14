@@ -21,22 +21,26 @@ const serializeFavorite = (favorite) => ({
 });
 
 const listFavorites = async (req, res) => {
-  const favorites = await prisma.favorite.findMany({
-    where: {
-      userId: req.user.sub,
-    },
-    include: {
-      restaurant: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+  const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 50);
+  const skip = (page - 1) * limit;
+
+  const [favorites, total] = await Promise.all([
+    prisma.favorite.findMany({
+      where: { userId: req.user.sub },
+      include: { restaurant: true },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.favorite.count({ where: { userId: req.user.sub } }),
+  ]);
 
   res.status(200).json(
     apiResponse({
       message: "Favorites fetched successfully",
       data: favorites.map(serializeFavorite),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
     }),
   );
 };

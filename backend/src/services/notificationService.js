@@ -1,4 +1,5 @@
 import { prisma } from "../config/database.js";
+import { connectRedis } from "../config/redis.js";
 import { admin, isFirebaseAdminReady } from "../config/firebaseAdmin.js";
 import { fcmTokenBloomFilter } from "../utils/bloomFilter.js";
 import { logger } from "../utils/logger.js";
@@ -266,21 +267,47 @@ const notifyChatMessage = async ({ room, sender, messageText, imageUrl }) => {
   });
 };
 
+const RIDER_GEO_KEY = "rider:geo";
+
 const notifyRiderNewOrder = async (order) => {
   const vendorName = order.restaurant?.name || "Restaurant";
   const title = "New Delivery Request!";
   const body = `Pickup from ${vendorName} - Earn ₹${Math.floor(order.deliveryFee || 33)}`;
 
-  // Only notify riders who are:
-  // 1. Online and active
-  // 2. NOT already assigned to another active order (avoid spamming busy riders)
-  // 3. In the same city as the restaurant (if city info is available)
-  const restaurantCity = order.restaurant?.city?.trim().toLowerCase();
+  const rLat = order.restaurant?.latitude;
+  const rLng = order.restaurant?.longitude;
+
+  let candidateIds = [];
+
+  const redisClient = await connectRedis();
+
+  if (redisClient?.isOpen && typeof rLat === "number" && typeof rLng === "number") {
+    const nearby = await redisClient.geoSearch(
+      RIDER_GEO_KEY,
+      { longitude: rLng, latitude: rLat },
+      { radius: 10, unit: "km" },
+    );
+    candidateIds = nearby;
+  }
+
+  if (candidateIds.length === 0) {
+    const restaurantCity = order.restaurant?.city?.trim().toLowerCase();
+    const riders = await prisma.user.findMany({
+      where: {
+        role: "RIDER", status: "ACTIVE", isOnline: true,
+        ...(restaurantCity ? { riderOnboarding: { path: ["city"], string_contains: restaurantCity } } : {}),
+      },
+      select: { id: true },
+    });
+    candidateIds = riders.map((r) => r.id);
+  }
+
+  if (!candidateIds.length) return;
 
   const busyRiderIds = (
     await prisma.order.findMany({
       where: {
-        riderId: { not: null },
+        riderId: { in: candidateIds },
         status: { in: ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"] },
         id: { not: order.id },
       },
@@ -288,28 +315,11 @@ const notifyRiderNewOrder = async (order) => {
     })
   ).map((o) => o.riderId).filter(Boolean);
 
-  const availableRiders = await prisma.user.findMany({
-    where: {
-      role: "RIDER",
-      status: "ACTIVE",
-      isOnline: true,
-      id: { notIn: busyRiderIds.length ? busyRiderIds : ["__none__"] },
-    },
-    select: { id: true, riderOnboarding: true },
-  });
-
-  // Filter by city if restaurant city is known
-  const targetRiders = restaurantCity
-    ? availableRiders.filter((r) => {
-        const riderCity = r.riderOnboarding?.city?.trim().toLowerCase();
-        return !riderCity || riderCity === restaurantCity;
-      })
-    : availableRiders;
-
-  if (!targetRiders.length) return;
+  const targetIds = candidateIds.filter((id) => !busyRiderIds.includes(id));
+  if (!targetIds.length) return;
 
   await sendNotificationToUsers({
-    userIds: targetRiders.map((r) => r.id),
+    userIds: targetIds,
     title,
     body,
     data: {

@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "CRAVZO",
+    "slug": "cravzo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "cravzo",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cravzo.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "We need your location to show nearby restaurants and track delivery.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.cravzo.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#1e1b4b",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "INTERNET",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-splash-screen",
+      "expo-status-bar",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-foreground.png",
+          "color": "#4f46e5"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "cravzo-mobile"
+      }
+    }
+  }
+}

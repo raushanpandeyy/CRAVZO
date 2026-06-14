@@ -7,7 +7,9 @@ import { upsertReviewSchema } from "../validators/reviewValidators.js";
 // Fix #8: Cache restaurant reviews.
 // listRestaurantReviews is called on every restaurant page load with no cache.
 // Reviews don't change often — 2-minute TTL is a good tradeoff.
-const REVIEW_CACHE_TTL = 120; // 2 minutes
+import { REVIEWS_CACHE_TTL_SECONDS } from "../utils/publicCache.js";
+
+const REVIEW_CACHE_TTL = REVIEWS_CACHE_TTL_SECONDS;
 const reviewCacheKey = (restaurantId) => `reviews:restaurant:${restaurantId}`;
 
 const serializeReview = (review) => ({

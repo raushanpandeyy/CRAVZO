@@ -6,7 +6,9 @@ import { ApiError } from "../utils/apiError.js";
 import { getCache, setCache, deleteCache } from "../utils/cache.js";
 import { parsePagination } from "../utils/adminHelpers.js";
 
-const CACHE_TTL = 120;
+import { PROMOTIONS_CACHE_TTL_SECONDS } from "../utils/publicCache.js";
+
+const CACHE_TTL = PROMOTIONS_CACHE_TTL_SECONDS;
 const CACHE_KEY = "public:dish-promotions";
 
 const createSchema = z.object({

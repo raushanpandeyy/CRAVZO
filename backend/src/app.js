@@ -69,9 +69,9 @@ app.get("/health", (_req, res) => {
 });
 
 // Fix 6: HTTP Cache-Control headers for public endpoints
-// Browser caches for 60s fresh + 5min stale-while-revalidate — zero round-trips on revisit
+// Browser CDN caches for 5min fresh + 30min stale-while-revalidate — zero round-trips on revisit
 app.use("/api/public", (_req, res, next) => {
-  res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+  res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=1800");
   next();
 });
 

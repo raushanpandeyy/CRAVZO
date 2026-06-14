@@ -9,9 +9,14 @@ import {
 import { authorize, authenticate } from "../middleware/authMiddleware.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
+const cachePublic = (_req, res, next) => {
+  res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=1800");
+  next();
+};
+
 const menuRouter = Router();
 
-menuRouter.get("/restaurant/:restaurantId", asyncHandler(listMenuItems));
+menuRouter.get("/restaurant/:restaurantId", cachePublic, asyncHandler(listMenuItems));
 menuRouter.post("/", authenticate, authorize("VENDOR", "ADMIN"), asyncHandler(createMenuItem));
 menuRouter.put("/:menuItemId", authenticate, authorize("VENDOR", "ADMIN"), asyncHandler(updateMenuItem));
 menuRouter.delete(

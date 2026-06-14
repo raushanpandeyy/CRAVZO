@@ -126,7 +126,7 @@ const VendorDashboard = () => {
   useEffect(() => {
     loadDashboard();
     // Smart polling - check every 10 seconds but only full fetch on new orders
-    const intervalId = setInterval(loadDashboard, 10000);
+    const intervalId = setInterval(loadDashboard, 30000);
     return () => clearInterval(intervalId);
   }, []);
 

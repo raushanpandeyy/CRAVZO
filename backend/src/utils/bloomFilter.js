@@ -18,6 +18,14 @@
 import { createHash } from "crypto";
 import { connectRedis } from "../config/redis.js";
 
+let bfClient = null;
+
+const getBfClient = async () => {
+  if (bfClient?.isOpen) return bfClient;
+  bfClient = await connectRedis();
+  return bfClient;
+};
+
 // ── Configuration ─────────────────────────────────────────────────────────────
 
 const FILTERS = {
@@ -64,7 +72,7 @@ const getBitPositions = (value, bits, hashCount) => {
 
 const bfAdd = async (filter, value) => {
   try {
-    const client = await connectRedis();
+    const client = await getBfClient();
     if (!client?.isOpen) return false;
 
     const positions = getBitPositions(value, filter.bits, filter.hashCount);
@@ -86,7 +94,7 @@ const bfAdd = async (filter, value) => {
 
 const bfExists = async (filter, value) => {
   try {
-    const client = await connectRedis();
+    const client = await getBfClient();
     if (!client?.isOpen) return true; // Fallback: assume exists → do DB check
 
     const positions = getBitPositions(value, filter.bits, filter.hashCount);
@@ -134,9 +142,6 @@ const OTP_WINDOW_MINUTES = 2;
 const otpBloomFilter = {
   wasRecentlySent: async (email) => {
     try {
-      const client = await connectRedis();
-      if (!client?.isOpen) return false;
-
       // Time-bucketed key so filter auto-resets
       const bucket = Math.floor(Date.now() / (OTP_WINDOW_MINUTES * 60 * 1000));
       const filter = {

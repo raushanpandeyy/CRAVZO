@@ -1,43 +1,55 @@
-const store = new Map();
-const timers = new Map();
+const MAX_ENTRIES = 1000;
+const DEFAULT_TTL_MS = 300000;
 
-const DEFAULT_TTL_MS = 30000;
+const cache = new Map();
+const keyOrder = [];
+
+const touchKey = (key) => {
+  const idx = keyOrder.indexOf(key);
+  if (idx > -1) {
+    keyOrder.splice(idx, 1);
+  }
+  keyOrder.push(key);
+};
+
+const evictLRU = () => {
+  while (keyOrder.length > MAX_ENTRIES) {
+    const oldest = keyOrder.shift();
+    cache.delete(oldest);
+  }
+};
 
 const memoryCache = {
   get(key) {
-    const entry = store.get(key);
+    const entry = cache.get(key);
     if (!entry) return undefined;
     if (Date.now() > entry.expiry) {
-      store.delete(key);
+      cache.delete(key);
       return undefined;
     }
+    touchKey(key);
     return entry.value;
   },
 
   set(key, value, ttlMs = DEFAULT_TTL_MS) {
-    if (timers.has(key)) {
-      clearTimeout(timers.get(key));
-    }
-    store.set(key, { value, expiry: Date.now() + ttlMs });
-    timers.set(key, setTimeout(() => {
-      store.delete(key);
-      timers.delete(key);
-    }, ttlMs));
-    timers.get(key).unref();
+    cache.set(key, { value, expiry: Date.now() + ttlMs });
+    touchKey(key);
+    evictLRU();
   },
 
   del(key) {
-    store.delete(key);
-    if (timers.has(key)) {
-      clearTimeout(timers.get(key));
-      timers.delete(key);
-    }
+    cache.delete(key);
+    const idx = keyOrder.indexOf(key);
+    if (idx > -1) keyOrder.splice(idx, 1);
   },
 
   flush() {
-    store.clear();
-    for (const t of timers.values()) clearTimeout(t);
-    timers.clear();
+    cache.clear();
+    keyOrder.length = 0;
+  },
+
+  size() {
+    return cache.size;
   },
 };
 
