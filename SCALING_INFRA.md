@@ -1,4 +1,4 @@
-# Cravzo — Infrastructure Scaling Guide
+# Dodago — Infrastructure Scaling Guide
 
 Items #13, #14, #15 from the audit require infrastructure-level changes, not just code edits.
 This document explains exactly what to do and why for each one.

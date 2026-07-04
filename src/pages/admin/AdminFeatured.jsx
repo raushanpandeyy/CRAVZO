@@ -9,8 +9,8 @@ const PREVIEW_AD_LIMIT = 4;
 const AdminFeatured = () => {
   const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
   const [ads, setAds] = useState([]);
-  const [featureEnabled, setFeatureEnabled] = useState(() => localStorage.getItem("cravzoFeatureEnabled") === "true");
-  const [adsEnabled, setAdsEnabled] = useState(() => localStorage.getItem("cravzoAdsEnabled") === "true");
+  const [featureEnabled, setFeatureEnabled] = useState(() => localStorage.getItem("dodagoFeatureEnabled") === "true");
+  const [adsEnabled, setAdsEnabled] = useState(() => localStorage.getItem("dodagoAdsEnabled") === "true");
   const [showFeaturePanel, setShowFeaturePanel] = useState(false);
   const [showAdPanel, setShowAdPanel] = useState(false);
   const [allRestaurants, setAllRestaurants] = useState([]);
@@ -56,16 +56,16 @@ const AdminFeatured = () => {
   const toggleFeature = () => {
     const newVal = !featureEnabled;
     setFeatureEnabled(newVal);
-    localStorage.setItem("cravzoFeatureEnabled", String(newVal));
-    window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
+    localStorage.setItem("dodagoFeatureEnabled", String(newVal));
+    window.dispatchEvent(new CustomEvent("dodagoFeatureUpdate"));
     setMessage(newVal ? "Featured enabled" : "Featured disabled");
   };
 
   const toggleAds = () => {
     const newVal = !adsEnabled;
     setAdsEnabled(newVal);
-    localStorage.setItem("cravzoAdsEnabled", String(newVal));
-    window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
+    localStorage.setItem("dodagoAdsEnabled", String(newVal));
+    window.dispatchEvent(new CustomEvent("dodagoAdsUpdate"));
     setMessage(newVal ? "Ads enabled" : "Ads disabled");
   };
 
@@ -84,7 +84,7 @@ const AdminFeatured = () => {
       const newFeatured = response.data;
       if (newFeatured?.id) {
         setFeaturedRestaurants([newFeatured, ...activeList]);
-        window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
+        window.dispatchEvent(new CustomEvent("dodagoFeatureUpdate"));
         setMessage(`${restaurant.name} added`);
       }
     } catch {
@@ -98,7 +98,7 @@ const AdminFeatured = () => {
       await apiRequest(`${API_ENDPOINTS.public.featuredRestaurants}/${id}`, { method: "DELETE" });
       setFeaturedRestaurants(featuredRestaurants.filter((r) => r.id !== id));
       if (removed) setMessage(`${removed.name} removed`);
-      window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
+      window.dispatchEvent(new CustomEvent("dodagoFeatureUpdate"));
     } catch {
       setError("Failed to remove");
     }
@@ -145,7 +145,7 @@ const AdminFeatured = () => {
       const newAd = response.data;
       if (newAd?.id) {
         setAds([newAd, ...ads.filter(Boolean)]);
-        window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
+        window.dispatchEvent(new CustomEvent("dodagoAdsUpdate"));
         setMessage("Ad added");
       }
     } catch {
@@ -157,7 +157,7 @@ const AdminFeatured = () => {
     try {
       await apiRequest(`${API_ENDPOINTS.public.ads}/${id}`, { method: "DELETE" });
       setAds(ads.filter((a) => a.id !== id));
-      window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
+      window.dispatchEvent(new CustomEvent("dodagoAdsUpdate"));
       setMessage("Ad removed");
     } catch {
       setError("Failed to remove");
@@ -182,7 +182,7 @@ const AdminFeatured = () => {
         const dataUrl = reader.result;
         const response = await apiRequest("/api/users/uploads/image", {
           method: "POST",
-          body: JSON.stringify({ dataUrl, folder: "cravzo-ads" }),
+          body: JSON.stringify({ dataUrl, folder: "dodago-ads" }),
         });
         if (response.data?.url) {
           await addAd(response.data.url, "");

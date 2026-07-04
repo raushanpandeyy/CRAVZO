@@ -40,7 +40,7 @@ const DishCard = ({ dish }) => {
 
       <div className="flex flex-1 flex-col space-y-2 p-4">
         <h2 className="text-lg font-semibold">{dish.name}</h2>
-        <p className="text-sm text-gray-300">{dish.restaurantName || dish.restaurant || "Cravzo kitchen"}</p>
+        <p className="text-sm text-gray-300">{dish.restaurantName || dish.restaurant || "Dodago kitchen"}</p>
 
         <div className="mt-3 flex items-center justify-between">
           <p className="text-lg font-bold text-orange-300">{formatPrice(dish.price)}</p>

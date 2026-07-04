@@ -258,7 +258,7 @@ const Home = () => {
   const { lat, lng, ready: locationReady } = useUserLocation();
 
   useEffect(() => {
-    const cachedRestaurants = localStorage.getItem("cravzoHomeRestaurants");
+    const cachedRestaurants = localStorage.getItem("dodagoHomeRestaurants");
     if (cachedRestaurants) {
       try {
         setRestaurants(JSON.parse(cachedRestaurants));
@@ -291,7 +291,7 @@ const Home = () => {
         }
         setRestaurants(restaurantData);
         const saveToCache = () => {
-          try { localStorage.setItem("cravzoHomeRestaurants", JSON.stringify(restaurantData)); } catch {}
+          try { localStorage.setItem("dodagoHomeRestaurants", JSON.stringify(restaurantData)); } catch {}
         };
         if (typeof requestIdleCallback !== "undefined") {
           requestIdleCallback(saveToCache, { timeout: 2000 });
@@ -350,7 +350,7 @@ const Home = () => {
               } else {
                 window.dispatchEvent(new CustomEvent("showInstallPrompt"));
               }
-              localStorage.setItem("cravzoAppBannerDismissed", "1");
+              localStorage.setItem("dodagoAppBannerDismissed", "1");
             }}
             className="flex items-center gap-1 rounded-full bg-indigo-600 px-3 py-1 text-[10px] font-extrabold text-white shadow"
           >

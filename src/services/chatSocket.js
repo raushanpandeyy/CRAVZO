@@ -14,7 +14,7 @@ import { API_BASE_URL } from "../constants/apiEndpoints.js";
 let socket = null;
 let socketPromise = null;
 
-const getStoredToken = () => localStorage.getItem("cravzoAuthToken");
+const getStoredToken = () => localStorage.getItem("dodagoAuthToken");
 
 const getChatSocket = () => {
   if (socketPromise) return socketPromise;
@@ -61,9 +61,13 @@ const emitWithAck = (eventName, payload, timeout = 8000) =>
 const joinChatRoom = (roomId) => emitWithAck("chat:join", { roomId });
 
 const leaveChatRoom = (roomId) => {
-  // Fire-and-forget — no need to await; socket may not even be open
-  if (socket?.connected && roomId) {
+  if (!roomId) return;
+  if (socket?.connected) {
     socket.emit("chat:leave", { roomId });
+  } else {
+    getChatSocket().then((s) => {
+      if (s?.connected) s.emit("chat:leave", { roomId });
+    }).catch(() => {});
   }
 };
 
@@ -121,12 +125,55 @@ const onAdminOrderAlert = (handler) => {
   };
 };
 
+const onOrderStatusUpdate = (handler) => {
+  let pending = true;
+  let off = null;
+
+  getChatSocket().then((s) => {
+    if (!pending) return;
+    s.on("order:status-updated", handler);
+    off = () => s.off("order:status-updated", handler);
+  }).catch(() => {});
+
+  return () => {
+    pending = false;
+    off?.();
+  };
+};
+
+const onNewOrder = (handler) => {
+  let pending = true;
+  let off = null;
+
+  getChatSocket().then((s) => {
+    if (!pending) return;
+    s.on("order:new", handler);
+    off = () => s.off("order:new", handler);
+  }).catch(() => {});
+
+  return () => {
+    pending = false;
+    off?.();
+  };
+};
+
+const disconnectSocket = () => {
+  if (socket?.connected) {
+    socket.disconnect();
+  }
+  socket = null;
+  socketPromise = null;
+};
+
 export {
   getChatSocket,
   joinChatRoom,
   leaveChatRoom,
   onAdminOrderAlert,
   onChatNotification,
+  onNewOrder,
+  onOrderStatusUpdate,
   onSocketMessage,
   sendSocketMessage,
+  disconnectSocket,
 };

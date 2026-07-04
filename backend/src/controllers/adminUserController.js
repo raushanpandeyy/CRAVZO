@@ -5,21 +5,29 @@ import { apiResponse } from "../utils/apiResponse.js";
 import { sanitizeUser } from "../utils/userResponse.js";
 import { parsePagination, serializeSupportOrder } from "../utils/adminHelpers.js";
 
-const getPendingVendors = async (_req, res) => {
-  const vendors = await prisma.user.findMany({
-    where: {
-      role: ROLES.VENDOR,
-      status: "PENDING",
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+const getPendingVendors = async (req, res) => {
+  const { page, limit, skip } = parsePagination(req.query);
+
+  const [vendors, total] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        role: ROLES.VENDOR,
+        status: "PENDING",
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.user.count({
+      where: { role: ROLES.VENDOR, status: "PENDING" },
+    }),
+  ]);
 
   res.status(200).json(
     apiResponse({
       message: "Pending vendors fetched successfully",
       data: vendors.map(sanitizeUser),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
     }),
   );
 };
@@ -134,21 +142,29 @@ const approveVendor = async (req, res) => {
   );
 };
 
-const getPendingRiders = async (_req, res) => {
-  const riders = await prisma.user.findMany({
-    where: {
-      role: ROLES.RIDER,
-      status: "PENDING",
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+const getPendingRiders = async (req, res) => {
+  const { page, limit, skip } = parsePagination(req.query);
+
+  const [riders, total] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        role: ROLES.RIDER,
+        status: "PENDING",
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.user.count({
+      where: { role: ROLES.RIDER, status: "PENDING" },
+    }),
+  ]);
 
   res.status(200).json(
     apiResponse({
       message: "Pending riders fetched successfully",
       data: riders.map(sanitizeUser),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
     }),
   );
 };
@@ -185,6 +201,8 @@ const searchUserSupportDetails = async (req, res) => {
     throw new ApiError(400, "Search query is required");
   }
 
+  const { page, limit } = parsePagination(req.query);
+
   const user = await prisma.user.findFirst({
     where: {
       OR: [
@@ -192,79 +210,16 @@ const searchUserSupportDetails = async (req, res) => {
         { email: { equals: query, mode: "insensitive" } },
       ],
     },
-    include: {
-      addresses: {
-        orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
-      },
-      restaurants: {
-        orderBy: { createdAt: "desc" },
-      },
-      customerOrders: {
-        include: {
-          address: true,
-          rider: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
-          },
-          restaurant: {
-            include: {
-              vendor: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  phone: true,
-                },
-              },
-            },
-          },
-          items: {
-            include: {
-              menuItem: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      },
-      riderOrders: {
-        include: {
-          address: true,
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
-          },
-          restaurant: {
-            include: {
-              vendor: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  phone: true,
-                },
-              },
-            },
-          },
-          items: {
-            include: {
-              menuItem: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: true,
+      status: true,
+      isOnline: true,
+      createdAt: true,
+      avatarUrl: true,
     },
   });
 
@@ -272,16 +227,52 @@ const searchUserSupportDetails = async (req, res) => {
     throw new ApiError(404, "No user found for that phone or email");
   }
 
+  const [addresses, restaurants, customerOrders, riderOrders] = await Promise.all([
+    prisma.address.findMany({
+      where: { userId: user.id },
+      orderBy: [{ isDefault: "desc" }, { updatedAt: "desc" }],
+    }),
+    prisma.restaurant.findMany({
+      where: { vendorId: user.id },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.order.findMany({
+      where: { customerId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      skip: (page - 1) * limit,
+      include: {
+        address: true,
+        rider: { select: { id: true, name: true, email: true, phone: true } },
+        restaurant: { include: { vendor: { select: { id: true, name: true, email: true, phone: true } } } },
+        items: { include: { menuItem: true } },
+      },
+    }),
+    prisma.order.findMany({
+      where: { riderId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      skip: (page - 1) * limit,
+      include: {
+        address: true,
+        customer: { select: { id: true, name: true, email: true, phone: true } },
+        restaurant: { include: { vendor: { select: { id: true, name: true, email: true, phone: true } } } },
+        items: { include: { menuItem: true } },
+      },
+    }),
+  ]);
+
   res.status(200).json(
     apiResponse({
       message: "User support details fetched successfully",
       data: {
         user: sanitizeUser(user),
-        addresses: user.addresses,
-        restaurants: user.restaurants,
-        customerOrders: user.customerOrders.map(serializeSupportOrder),
-        riderOrders: user.riderOrders.map(serializeSupportOrder),
+        addresses,
+        restaurants,
+        customerOrders: customerOrders.map(serializeSupportOrder),
+        riderOrders: riderOrders.map(serializeSupportOrder),
       },
+      meta: { page, limit },
     }),
   );
 };
@@ -350,90 +341,107 @@ const getUserDetails = async (req, res) => {
 };
 
 const getUserOrders = async (req, res) => {
-  try {
-    const { userId } = req.params;
+  const { userId } = req.params;
+  const { page, limit, skip } = parsePagination(req.query);
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { role: true },
-    });
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
 
-    if (!user) {
-      throw new ApiError(404, "User not found");
-    }
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
 
-    let orders = [];
+  let orders = [];
+  let total = 0;
 
-    if (user.role === "CUSTOMER") {
-      orders = await prisma.order.findMany({
+  if (user.role === "CUSTOMER") {
+    [orders, total] = await Promise.all([
+      prisma.order.findMany({
         where: { customerId: userId },
         orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
         include: {
           customer: { select: { id: true, name: true, phone: true } },
           restaurant: { select: { id: true, name: true, phone: true } },
           rider: { select: { id: true, name: true, phone: true } },
           items: { include: { menuItem: { select: { name: true } } } },
         },
-      });
-    } else if (user.role === "VENDOR") {
-      const restaurantIds = await prisma.restaurant.findMany({
-        where: { vendorId: userId },
-        select: { id: true },
-      });
-      const rIds = restaurantIds.map(r => r.id);
+      }),
+      prisma.order.count({ where: { customerId: userId } }),
+    ]);
+  } else if (user.role === "VENDOR") {
+    const restaurantIds = await prisma.restaurant.findMany({
+      where: { vendorId: userId },
+      select: { id: true },
+    });
+    const rIds = restaurantIds.map(r => r.id);
 
-      orders = await prisma.order.findMany({
+    [orders, total] = await Promise.all([
+      prisma.order.findMany({
         where: { restaurantId: { in: rIds } },
         orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
         include: {
           customer: { select: { id: true, name: true, phone: true } },
           restaurant: { select: { id: true, name: true, phone: true } },
           rider: { select: { id: true, name: true, phone: true } },
           items: { include: { menuItem: { select: { name: true } } } },
         },
-      });
-    } else if (user.role === "RIDER") {
-      orders = await prisma.order.findMany({
+      }),
+      prisma.order.count({ where: { restaurantId: { in: rIds } } }),
+    ]);
+  } else if (user.role === "RIDER") {
+    [orders, total] = await Promise.all([
+      prisma.order.findMany({
         where: { riderId: userId },
         orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
         include: {
           customer: { select: { id: true, name: true, phone: true } },
           restaurant: { select: { id: true, name: true, phone: true } },
           rider: { select: { id: true, name: true, phone: true } },
           items: { include: { menuItem: { select: { name: true } } } },
         },
-      });
-    }
-
-    const serializedOrders = orders.map((order) => ({
-      id: order.id,
-      status: order.status,
-      createdAt: order.createdAt,
-      subtotal: order.subtotal,
-      deliveryFee: order.deliveryFee,
-      platformFee: order.platformFee,
-      packagingFee: order.packagingFee,
-      totalAmount: order.totalAmount,
-      paymentMethod: order.paymentMethod,
-      paymentStatus: order.paymentStatus,
-      deliveryDistance: order.deliveryDistance,
-      customer: order.customer,
-      restaurant: order.restaurant,
-      rider: order.rider,
-      items: order.items.map((item) => ({
-        quantity: item.quantity,
-        price: item.price,
-        menuItem: item.menuItem,
-      })),
-      vendorEarnings: order.vendorEarnings,
-      riderEarnings: order.riderEarnings,
-    }));
-
-    res.status(200).json(apiResponse({ data: serializedOrders }));
-  } catch (error) {
-    console.error("getUserOrders error:", error);
-    throw error;
+      }),
+      prisma.order.count({ where: { riderId: userId } }),
+    ]);
   }
+
+  const serializedOrders = orders.map((order) => ({
+    id: order.id,
+    status: order.status,
+    createdAt: order.createdAt,
+    subtotal: order.subtotal,
+    deliveryFee: order.deliveryFee,
+    platformFee: order.platformFee,
+    packagingFee: order.packagingFee,
+    totalAmount: order.totalAmount,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    deliveryDistance: order.deliveryDistance,
+    customer: order.customer,
+    restaurant: order.restaurant,
+    rider: order.rider,
+    items: order.items.map((item) => ({
+      quantity: item.quantity,
+      price: item.price,
+      menuItem: item.menuItem,
+    })),
+    vendorEarnings: order.vendorEarnings,
+    riderEarnings: order.riderEarnings,
+  }));
+
+  res.status(200).json(
+    apiResponse({
+      data: serializedOrders,
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
+    }),
+  );
 };
 
 export {

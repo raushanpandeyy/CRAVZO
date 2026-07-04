@@ -1,12 +1,12 @@
-# CRAVZO Backend
+# DODAGO Backend
 
-Express + Prisma + PostgreSQL backend scaffold for the CRAVZO app.
+Express + Prisma + PostgreSQL backend scaffold for the DODAGO app.
 
 ## Setup
 
 1. Copy `.env.example` to `.env`
 2. Install dependencies with `npm install`
-3. Make sure PostgreSQL is installed and a database named `cravzo` exists
+3. Make sure PostgreSQL is installed and a database named `dodago` exists
 4. Generate Prisma client with `npm run prisma:generate`
 5. Check DB connectivity with `npm run db:check`
 6. Run migrations with `npm run prisma:migrate`

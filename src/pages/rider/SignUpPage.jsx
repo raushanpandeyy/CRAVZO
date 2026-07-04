@@ -364,14 +364,14 @@ const RiderSignup = () => {
             <h1 className="mt-3 text-3xl font-extrabold leading-tight text-white lg:text-6xl">
               Join India&apos;s <span className="text-orange-500">Largest</span> platform!
             </h1>
-            <p className="mt-3 text-base font-semibold text-white/90 md:text-xl">Earn up to 30,000/month with Cravzo</p>
+            <p className="mt-3 text-base font-semibold text-white/90 md:text-xl">Earn up to 30,000/month with Dodago</p>
           </div>
         </div>
 
         <div className="absolute top-10 right-6 hidden md:block lg:right-20">
           <div className="w-[380px] rounded-2xl bg-white p-8 shadow-2xl">
             <h2 className="mb-6 text-center text-xl font-bold">
-              {isForgotPassword ? "Reset Rider Password" : isLogin ? "Rider Login" : "Register as Cravzo Partner"}
+              {isForgotPassword ? "Reset Rider Password" : isLogin ? "Rider Login" : "Register as Dodago Partner"}
             </h2>
             <div className="mb-4 text-center">
               <button
@@ -393,7 +393,7 @@ const RiderSignup = () => {
       <div className="relative z-30 -mt-20 px-4 md:hidden">
         <div className="mx-auto max-w-md rounded-[28px] border border-white/80 bg-white p-5 shadow-2xl shadow-slate-900/15">
           <h2 className="mb-2 text-center text-2xl font-extrabold text-slate-950">
-            {isForgotPassword ? "Reset Rider Password" : isLogin ? "Rider Login" : "Register as Cravzo Partner"}
+            {isForgotPassword ? "Reset Rider Password" : isLogin ? "Rider Login" : "Register as Dodago Partner"}
           </h2>
           <p className="mb-4 text-center text-sm font-medium leading-6 text-slate-500">
             {isLogin ? "Access deliveries, earnings, and profile." : "Create your rider profile and verify with OTP."}

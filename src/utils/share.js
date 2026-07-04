@@ -14,9 +14,9 @@ export const getShareUrl = {
 
 export const getShareText = {
   dish: (dishName, restaurantName) =>
-    `I'm craving ${dishName}${restaurantName ? ` from ${restaurantName}` : ""} on Cravzo!`,
+    `I'm craving ${dishName}${restaurantName ? ` from ${restaurantName}` : ""} on Dodago!`,
   restaurant: (restaurantName) =>
-    `Check out ${restaurantName} on Cravzo!`,
+    `Check out ${restaurantName} on Dodago!`,
 };
 
 export function shareOnWhatsApp(url, text) {
@@ -38,7 +38,7 @@ export function shareOnSMS(url, text) {
 }
 
 export function shareOnEmail(url, text) {
-  const subject = encodeURIComponent("Craving something from Cravzo!");
+  const subject = encodeURIComponent("Craving something from Dodago!");
   const body = encodeURIComponent(`${text}\n\n${url}`);
   window.location.href = `mailto:?subject=${subject}&body=${body}`;
 }
@@ -63,7 +63,7 @@ export async function copyToClipboard(url) {
 export async function shareNative(url, text) {
   if (navigator.share) {
     try {
-      await navigator.share({ title: "Cravzo", text, url });
+      await navigator.share({ title: "Dodago", text, url });
       return true;
     } catch {
       return false;

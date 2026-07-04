@@ -48,12 +48,12 @@ const OrderFeedbackModal = ({ order, onClose, onSubmitted }) => {
 
       // Mark this order's feedback as submitted in localStorage
       const submitted = JSON.parse(
-        localStorage.getItem("cravzo_feedback_submitted") || "[]"
+        localStorage.getItem("dodago_feedback_submitted") || "[]"
       );
       if (!submitted.includes(order.id)) {
         submitted.push(order.id);
         localStorage.setItem(
-          "cravzo_feedback_submitted",
+          "dodago_feedback_submitted",
           JSON.stringify(submitted)
         );
       }

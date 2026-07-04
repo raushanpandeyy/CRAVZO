@@ -32,8 +32,9 @@ export const getLatLngFromAddress = async (address) => {
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`,
       {
         headers: {
-          "User-Agent": "cravzo-app",
+          "User-Agent": "dodago-app",
         },
+        signal: AbortSignal.timeout(5000),
       }
     );
 

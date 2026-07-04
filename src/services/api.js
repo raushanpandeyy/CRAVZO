@@ -1,42 +1,10 @@
 import { API_BASE_URL } from "../constants/apiEndpoints.js";
 
-const getStoredToken = () => localStorage.getItem("cravzoAuthToken");
+const getStoredToken = () => localStorage.getItem("dodagoAuthToken");
 
-const CACHE_PREFIX = "cravzo_cache_";
-const CACHE_TTL_MS = 5 * 60 * 1000;
-
-const getCacheKey = (path) => `${CACHE_PREFIX}${path}`;
-
-const getPersistentCache = (key) => {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const entry = JSON.parse(raw);
-    if (Date.now() - entry.ts > CACHE_TTL_MS) {
-      localStorage.removeItem(key);
-      return null;
-    }
-    return entry.data;
-  } catch {
-    return null;
-  }
-};
-
-const setPersistentCache = (key, data) => {
-  try {
-    localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
-  } catch {
-    // localStorage full
-  }
-};
-
-const deletePersistentCache = (key) => {
-  try {
-    localStorage.removeItem(key);
-  } catch {
-    // silently fail
-  }
-};
+// In-memory dedup cache only — localStorage cache was removed because it
+// conflicted with React Query's server-state cache (dual-cache staleness
+// up to 10 min). React Query is the single source of truth now.
 
 const _dedupCache = new Map();
 const DEDUP_WINDOW_MS = 30000;
@@ -57,15 +25,13 @@ const setDedupCache = (key, promise) => {
 };
 
 export const invalidateCache = (pathPrefix) => {
-  const fullPrefix = `${CACHE_PREFIX}${pathPrefix}`;
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k && k.startsWith(fullPrefix)) {
-      localStorage.removeItem(k);
-    }
-  }
+  const dedupPrefixes = [
+    pathPrefix,
+    pathPrefix.replace("/api/", "/api/v1/"),
+    pathPrefix.replace("/api/v1/", "/api/"),
+  ];
   for (const key of _dedupCache.keys()) {
-    if (key.startsWith(pathPrefix)) _dedupCache.delete(key);
+    if (dedupPrefixes.some((p) => key.startsWith(p))) _dedupCache.delete(key);
   }
 };
 
@@ -73,14 +39,10 @@ async function apiRequest(path, options = {}) {
   const { skipAuth = false, skipCache = false, ...fetchOptions } = options;
   const isGet = !fetchOptions.method || fetchOptions.method.toUpperCase() === "GET";
   const cacheKey = path;
-  const persistentKey = getCacheKey(path);
 
   if (isGet && !skipCache) {
     const deduped = getDedupCached(cacheKey);
     if (deduped) return deduped;
-
-    const cached = getPersistentCache(persistentKey);
-    if (cached) return cached;
   }
 
   const headers = new Headers(options.headers || {});
@@ -111,11 +73,7 @@ async function apiRequest(path, options = {}) {
         error.status = response.status;
         error.data = data;
         _dedupCache.delete(cacheKey);
-        deletePersistentCache(persistentKey);
         throw error;
-      }
-      if (isGet && !skipCache) {
-        setPersistentCache(persistentKey, data);
       }
       return data;
     })

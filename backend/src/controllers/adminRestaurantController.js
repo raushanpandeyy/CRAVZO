@@ -34,7 +34,7 @@ const adminCreateRestaurantSchema = z.object({
     name: z.string().trim().min(2).max(120),
     email: z.string().trim().email(),
     phone: z.string().trim().min(10).max(15),
-    password: z.string().min(6).max(100),
+    password: z.string().min(8).max(100),
   }),
   restaurant: z.object({
     name: z.string().trim().min(2).max(120),

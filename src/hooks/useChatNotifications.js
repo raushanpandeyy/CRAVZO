@@ -1,23 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { onChatNotification } from "../services/chatSocket.js";
 
 const getUserId = (user) => user?.id || user?.sub || user?._id || user?.email || "";
 
-const getStorageKey = (user) => `cravzoChatNotifications_${getUserId(user) || "guest"}`;
+const getStorageKey = (userId) => `dodagoChatNotifications_${userId || "guest"}`;
 
-const readStoredNotifications = (user) => {
+const readStoredNotifications = (userId) => {
   try {
-    const stored = JSON.parse(localStorage.getItem(getStorageKey(user)) || "[]");
+    const stored = JSON.parse(localStorage.getItem(getStorageKey(userId)) || "[]");
     return Array.isArray(stored) ? stored : [];
   } catch {
     return [];
   }
 };
 
-const writeStoredNotifications = (user, notifications) => {
-  if (!getUserId(user)) return;
-  localStorage.setItem(getStorageKey(user), JSON.stringify(notifications.slice(0, 30)));
+const writeStoredNotifications = (userId, notifications) => {
+  if (!userId) return;
+  localStorage.setItem(getStorageKey(userId), JSON.stringify(notifications.slice(0, 30)));
 };
 
 const getNotificationTitle = (notification) => {
@@ -53,83 +53,101 @@ const getChatPathForUser = (notification, user) => {
   return `/account/chat${suffix}`;
 };
 
-const useChatNotifications = (user) => {
-  const [notifications, setNotifications] = useState([]);
+// Singleton state — multiple hook calls share one socket subscription
+let _notifications = [];
+let _subscribers = new Set();
+let _unsubscribe = null;
+let _currentUserId = "";
 
-  useEffect(() => {
-    if (!getUserId(user)) {
-      setNotifications([]);
-      return undefined;
-    }
+const notifySubscribers = () => _subscribers.forEach((fn) => fn(_notifications));
 
-    setNotifications(readStoredNotifications(user));
+const ensureSubscribed = (userId) => {
+  if (_unsubscribe && _currentUserId !== userId) {
+    _unsubscribe();
+    _unsubscribe = null;
+    _notifications = [];
+  }
 
-    const handleStorage = (event) => {
-      if (event.key === getStorageKey(user)) {
-        setNotifications(readStoredNotifications(user));
-      }
+  if (_unsubscribe) return;
+  _currentUserId = userId;
+  _notifications = readStoredNotifications(userId);
+
+  _unsubscribe = onChatNotification((notification) => {
+    if (!notification?.roomId || notification.sender?.id === userId) return;
+
+    const nextNotification = {
+      ...notification,
+      title: getNotificationTitle(notification),
+      subtitle: getNotificationSubtitle(notification),
+      receivedAt: new Date().toISOString(),
+      read: false,
     };
 
-    window.addEventListener("storage", handleStorage);
+    _notifications = [
+      nextNotification,
+      ..._notifications.filter((entry) => entry.id !== nextNotification.id),
+    ].slice(0, 30);
 
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [user]);
+    writeStoredNotifications(userId, _notifications);
+    notifySubscribers();
+  });
+};
+
+const unsubscribeSingleton = () => {
+  if (_unsubscribe) {
+    _unsubscribe();
+    _unsubscribe = null;
+  }
+  _currentUserId = "";
+  _notifications = [];
+};
+
+const useChatNotifications = (user) => {
+  const userId = getUserId(user);
+  const [, setTick] = useState(0);
 
   useEffect(() => {
-    if (!getUserId(user)) return undefined;
+    if (!userId) {
+      if (_currentUserId) unsubscribeSingleton();
+      return;
+    }
 
-    // onChatNotification returns a sync unsubscribe function (not a Promise).
-    // The socket loads async internally but the returned cleanup is always sync.
-    const unsubscribe = onChatNotification((notification) => {
-      if (!notification?.roomId || notification.sender?.id === getUserId(user)) return;
+    ensureSubscribed(userId);
 
-      setNotifications((currentNotifications) => {
-        const nextNotification = {
-          ...notification,
-          title: getNotificationTitle(notification),
-          subtitle: getNotificationSubtitle(notification),
-          receivedAt: new Date().toISOString(),
-          read: false,
-        };
+    const subscriber = (next) => {
+      _notifications = next;
+      setTick((t) => t + 1);
+    };
+    _subscribers.add(subscriber);
 
-        const nextNotifications = [
-          nextNotification,
-          ...currentNotifications.filter((entry) => entry.id !== nextNotification.id),
-        ].slice(0, 30);
+    return () => {
+      _subscribers.delete(subscriber);
+    };
+  }, [userId]);
 
-        writeStoredNotifications(user, nextNotifications);
-        return nextNotifications;
-      });
-    });
+  const markNotificationRead = useCallback((notificationId) => {
+    _notifications = _notifications.map((n) =>
+      n.id === notificationId ? { ...n, read: true } : n,
+    );
+    writeStoredNotifications(_currentUserId, _notifications);
+    notifySubscribers();
+  }, []);
 
-    return unsubscribe;
-  }, [user]);
+  const markAllRead = useCallback(() => {
+    _notifications = _notifications.map((n) => ({ ...n, read: true }));
+    writeStoredNotifications(_currentUserId, _notifications);
+    notifySubscribers();
+  }, []);
 
   const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.read).length,
-    [notifications],
+    () => _notifications.filter((n) => !n.read).length,
+    // Recalc whenever _notifications changes (triggered by subscriber above)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [_notifications.length, _notifications.filter((n) => !n.read).length],
   );
 
-  const markNotificationRead = (notificationId) => {
-    setNotifications((currentNotifications) => {
-      const nextNotifications = currentNotifications.map((notification) =>
-        notification.id === notificationId ? { ...notification, read: true } : notification,
-      );
-      writeStoredNotifications(user, nextNotifications);
-      return nextNotifications;
-    });
-  };
-
-  const markAllRead = () => {
-    setNotifications((currentNotifications) => {
-      const nextNotifications = currentNotifications.map((notification) => ({ ...notification, read: true }));
-      writeStoredNotifications(user, nextNotifications);
-      return nextNotifications;
-    });
-  };
-
   return {
-    notifications,
+    notifications: _notifications,
     unreadCount,
     getChatPath: (notification) => getChatPathForUser(notification, user),
     markAllRead,

@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
+import { env } from "../config/env.js";
 import { prisma } from "../config/database.js";
 import { ROLES } from "../constants/roles.js";
 import { generateOTP } from "../services/otpService.js";
@@ -9,14 +10,17 @@ import { apiResponse } from "../utils/apiResponse.js";
 import { emailBloomFilter, otpBloomFilter } from "../utils/bloomFilter.js";
 import { signToken } from "../utils/jwt.js";
 import { sendOTP } from "../utils/sendOtp.js";
+import { sendSMS } from "../utils/sendSms.js";
 import { sanitizeUser } from "../utils/userResponse.js";
 import {
   loginSchema,
+  phoneSignupSchema,
   requestPasswordResetSchema,
   resetPasswordSchema,
   sendOtpSchema,
   signUpSchema,
   verifyOtpSchema,
+  verifyPhoneOtpSchema,
 } from "../validators/authValidators.js";
 
 const AUTH_COOKIE_NAME = "token";
@@ -48,8 +52,8 @@ const createAuthPayload = (user) => ({
 const setAuthCookie = (res, token) => {
   res.cookie(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    secure: env.NODE_ENV === "production",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 };
@@ -57,8 +61,8 @@ const setAuthCookie = (res, token) => {
 const clearAuthCookie = (res) => {
   res.clearCookie(AUTH_COOKIE_NAME, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    secure: env.NODE_ENV === "production",
   });
 };
 
@@ -287,7 +291,7 @@ export const signUp = async (req, res) => {
   // If mightBeRegistered === false → bloom filter guarantees email is new,
   // skip the DB query completely — saves ~5ms per new signup
 
-  const passwordHash = await bcrypt.hash(payload.password, 12);
+  const passwordHash = await bcrypt.hash(payload.password, 10);
 
   const pendingSignupData = {
     name: payload.name.trim(),
@@ -382,7 +386,7 @@ export const resetPassword = async (req, res) => {
     throw new ApiError(400, "Invalid OTP");
   }
 
-  const passwordHash = await bcrypt.hash(payload.password, 12);
+  const passwordHash = await bcrypt.hash(payload.password, 10);
 
   await prisma.$transaction([
     prisma.user.update({
@@ -463,6 +467,116 @@ export const me = async (req, res) => {
       data: {
         user: sanitizeUser(user),
       },
+    })
+  );
+};
+
+export const phoneSignup = async (req, res) => {
+  const payload = phoneSignupSchema.parse(req.body);
+  const phone = payload.phone;
+  const role = payload.role;
+
+  const existingUser = await prisma.user.findUnique({
+    where: { phone },
+  });
+
+  if (existingUser) {
+    throw new ApiError(409, "Account already exists with this phone number");
+  }
+
+  const otp = generateOTP();
+  const codeHash = await bcrypt.hash(otp, 10);
+
+  await prisma.otpVerification.create({
+    data: {
+      id: crypto.randomUUID(),
+      phone,
+      purpose: role === ROLES.RIDER ? "RIDER_ONBOARDING" : "CUSTOMER_SIGNUP",
+      codeHash,
+      pendingSignupData: {
+        phone,
+        role,
+        name: payload.name || "User",
+      },
+      expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
+      updatedAt: new Date(),
+      lastSentAt: new Date(),
+    },
+  });
+
+  try {
+    await sendSMS(phone, otp);
+  } catch (error) {
+    console.error("SMS sending failed:", error.message);
+  }
+
+  res.status(201).json(
+    apiResponse({
+      message: "OTP sent to phone",
+      data: { phone, role },
+    })
+  );
+};
+
+export const verifyPhoneOtp = async (req, res) => {
+  const payload = verifyPhoneOtpSchema.parse(req.body);
+  const phone = payload.phone;
+  const otp = payload.otp;
+  const role = payload.role;
+
+  const record = await prisma.otpVerification.findFirst({
+    where: {
+      phone,
+      purpose: role === ROLES.RIDER ? "RIDER_ONBOARDING" : "CUSTOMER_SIGNUP",
+      usedAt: null,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!record) {
+    throw new ApiError(400, "OTP not found");
+  }
+
+  if (record.expiresAt < new Date()) {
+    throw new ApiError(400, "OTP expired");
+  }
+
+  const isValid = await bcrypt.compare(otp, record.codeHash);
+
+  if (!isValid) {
+    await prisma.otpVerification.update({
+      where: { id: record.id },
+      data: { attemptCount: { increment: 1 }, updatedAt: new Date() },
+    });
+    throw new ApiError(400, "Invalid OTP");
+  }
+
+  const signupData = record.pendingSignupData;
+  const placeholderEmail = `phone_${phone.replace(/[^0-9]/g, "")}@dodago.app`;
+
+  const user = await prisma.user.create({
+    data: {
+      name: signupData.name || "User",
+      email: placeholderEmail,
+      phone,
+      passwordHash: await bcrypt.hash(crypto.randomUUID(), 10),
+      role: signupData.role,
+      status: role === ROLES.RIDER ? "PENDING" : "ACTIVE",
+    },
+  });
+
+  await prisma.otpVerification.update({
+    where: { id: record.id },
+    data: { verifiedAt: new Date(), usedAt: new Date(), updatedAt: new Date() },
+  });
+
+  const token = signToken(createAuthPayload(user));
+  setAuthCookie(res, token);
+
+  res.status(200).json(
+    apiResponse({
+      message: "Account created successfully",
+      data: { user: sanitizeUser(user), token },
     })
   );
 };

@@ -1,6 +1,7 @@
 import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import { createFavoriteSchema } from "../validators/favoriteValidators.js";
 
 const serializeFavorite = (favorite) => ({
   id: favorite.id,
@@ -46,11 +47,7 @@ const listFavorites = async (req, res) => {
 };
 
 const createFavorite = async (req, res) => {
-  const { restaurantId } = req.body;
-
-  if (!restaurantId) {
-    throw new ApiError(400, "Restaurant is required");
-  }
+  const { restaurantId } = createFavoriteSchema.parse(req.body);
 
   const restaurant = await prisma.restaurant.findFirst({
     where: {

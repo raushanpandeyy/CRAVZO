@@ -19,7 +19,7 @@ let _cached = null;
 let _listeners = [];
 let _fetching = false;
 
-const SESSION_KEY = "cravzo_user_location";
+const SESSION_KEY = "dodago_user_location";
 
 const notifyListeners = (loc) => {
   _cached = loc;

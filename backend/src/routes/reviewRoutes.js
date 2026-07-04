@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { deleteReview, listMyReviews, listRestaurantReviews, upsertReview } from "../controllers/reviewController.js";
 import { authenticate } from "../middleware/authMiddleware.js";
+import { publicLimiter } from "../middleware/rateLimiters.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const cachePublic = (_req, res, next) => {
@@ -11,7 +12,7 @@ const cachePublic = (_req, res, next) => {
 
 const reviewRouter = Router();
 
-reviewRouter.get("/restaurant/:restaurantId", cachePublic, asyncHandler(listRestaurantReviews));
+reviewRouter.get("/restaurant/:restaurantId", publicLimiter, cachePublic, asyncHandler(listRestaurantReviews));
 reviewRouter.use(authenticate);
 reviewRouter.get("/my", asyncHandler(listMyReviews));
 reviewRouter.post("/", asyncHandler(upsertReview));

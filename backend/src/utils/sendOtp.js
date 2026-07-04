@@ -17,12 +17,12 @@ export const sendOTP = async (email, otp) => {
   const response = await resend.emails.send({
     from: env.EMAIL_FROM,
     to: email,
-    subject: "Your Cravzo OTP",
+    subject: "Your Dodago OTP",
     html: `
   <div style="font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px;">
     <div style="max-width: 500px; margin: auto; background: #ffffff; padding: 20px; border-radius: 10px; text-align: center;">
       
-      <h2 style="color: #2a2dd0;">Cravzo Verification</h2>
+      <h2 style="color: #2a2dd0;">Dodago Verification</h2>
       
       <p style="font-size: 16px; color: #333;">
         Use the following OTP to verify your account:
@@ -43,7 +43,7 @@ export const sendOTP = async (email, otp) => {
       </p>
 
       <p style="font-size: 12px; color: #999;">
-        © ${new Date().getFullYear()} Cravzo
+        © ${new Date().getFullYear()} Dodago
       </p>
 
     </div>

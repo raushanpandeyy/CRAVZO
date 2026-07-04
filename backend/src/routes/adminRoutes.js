@@ -23,8 +23,7 @@ import { authenticate, authorize } from "../middleware/authMiddleware.js";
 const adminRouter = Router();
 
 adminRouter.use(authenticate, authorize("ADMIN"));
-adminRouter.get("/debug-user", (req, res) => res.json({ user: req.user }));
-adminRouter.get("/test", (req, res) => res.json({ message: "test works" }));
+
 adminRouter.get("/overview", asyncHandler(getAdminOverview));
 adminRouter.get("/support/user-search", asyncHandler(searchUserSupportDetails));
 adminRouter.get("/users", asyncHandler(listUsers));

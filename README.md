@@ -1,4 +1,4 @@
-# 🍔 CRAVZO - Food Delivery Platform
+# 🍔 DODAGO - Food Delivery Platform
 
 A full-stack food delivery application built with React, Node.js, Express, and PostgreSQL.
 
@@ -71,8 +71,8 @@ A full-stack food delivery application built with React, Node.js, Express, and P
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/yourusername/cravzo.git
-cd cravzo
+git clone https://github.com/yourusername/dodago.git
+cd dodago
 ```
 
 ### 2. Install Dependencies
@@ -109,7 +109,7 @@ PORT=5000
 NODE_ENV=development
 
 # Database
-DATABASE_URL=postgresql://postgres:postgres@localhost:5433/cravzo
+DATABASE_URL=postgresql://postgres:postgres@localhost:5433/dodago
 
 # Frontend URL
 CLIENT_URL=http://localhost:5173
@@ -142,10 +142,10 @@ VITE_API_BASE_URL=http://localhost:5000/api
 **Using Docker:**
 ```bash
 docker run -d \
-  --name cravzo-postgres \
+  --name dodago-postgres \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=cravzo \
+  -e POSTGRES_DB=dodago \
   -p 5433:5432 \
   postgres:16
 ```
@@ -241,11 +241,11 @@ npm run db:check
 ### Sample Credentials (After Seeding)
 
 **Admin:**
-- Email: `admin@cravzo.com`
+- Email: `admin@dodago.com`
 - Password: `Admin@12345`
 
 **Vendor:**
-- Email: `seedvendor@cravzo.com`
+- Email: `seedvendor@dodago.com`
 - Password: `Vendor@123`
 
 ---
@@ -281,7 +281,7 @@ Token is stored in `httpOnly` cookie automatically.
 ## 📁 Project Structure
 
 ```
-cravzo/
+dodago/
 ├── backend/
 │   ├── src/
 │   │   ├── app.js              # Express app setup
@@ -395,4 +395,4 @@ For issues or questions, please open an issue on GitHub.
 
 ---
 
-**Made with ❤️ by CRAVZO Team(Raushan Pandey)**
+**Made with ❤️ by DODAGO Team(Raushan Pandey)**

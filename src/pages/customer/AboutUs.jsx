@@ -46,7 +46,7 @@ const AboutUs = () => {
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900">About Cravzo</h1>
+            <h1 className="text-xl font-extrabold text-slate-900">About Dodago</h1>
             <p className="text-xs text-slate-500">Our story and vision</p>
           </div>
         </div>
@@ -59,7 +59,7 @@ const AboutUs = () => {
             <h2 className="text-3xl font-black">We Believe Food Delivery Should Be Fair</h2>
           </div>
           <p className="text-lg text-indigo-100 leading-relaxed">
-            Food delivery was supposed to make life easier. Somewhere along the way, it became expensive, confusing, and unfair for both customers and restaurants. Cravzo was created to change that.
+            Food delivery was supposed to make life easier. Somewhere along the way, it became expensive, confusing, and unfair for both customers and restaurants. Dodago was created to change that.
           </p>
         </div>
 
@@ -69,7 +69,7 @@ const AboutUs = () => {
             We believe ordering food should feel simple, transparent, and accessible — without inflated menu prices, hidden charges, or unfair commissions.
           </p>
           <p className="text-slate-600 leading-relaxed">
-            While traditional platforms often force restaurants to increase prices because of heavy commission fees, Cravzo follows a different approach. Instead of taking large cuts on every order, we work on a subscription-based model that helps restaurants keep their prices closer to their actual dine-in rates.
+            While traditional platforms often force restaurants to increase prices because of heavy commission fees, Dodago follows a different approach. Instead of taking large cuts on every order, we work on a subscription-based model that helps restaurants keep their prices closer to their actual dine-in rates.
           </p>
           <p className="mt-4 text-slate-600 leading-relaxed">
             That means customers pay more honestly priced bills, and local food businesses get a fairer platform to grow on.
@@ -84,7 +84,7 @@ const AboutUs = () => {
             <h3 className="text-xl font-bold text-slate-900">More Than Just Delivery</h3>
           </div>
           <p className="text-slate-600 leading-relaxed mb-4">
-            But Cravzo is not just another food delivery app. We are building a smarter and more community-driven ecosystem:
+            But Dodago is not just another food delivery app. We are building a smarter and more community-driven ecosystem:
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {features.map((feature, index) => {
@@ -123,7 +123,7 @@ const AboutUs = () => {
 
         <div className="mt-8 rounded-3xl bg-indigo-950 p-6 text-white text-center">
           <h3 className="text-xl font-bold mb-2">Built with ❤️ for the community</h3>
-          <p className="text-indigo-300 text-sm">Cravzo - Fair food delivery for everyone</p>
+          <p className="text-indigo-300 text-sm">Dodago - Fair food delivery for everyone</p>
         </div>
       </div>
     </div>

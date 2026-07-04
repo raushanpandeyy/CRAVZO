@@ -1,4 +1,4 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 
 import { connectRedis, redisClient } from "../config/redis.js";
@@ -53,6 +53,10 @@ const otpLimiter = rateLimit({
   limit: 4,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    const email = req.body?.email?.toLowerCase?.();
+    return email ? `email:${email}` : ipKeyGenerator(req);
+  },
   store: createStore("rl:otp:"),
   message: createRateLimitMessage("Too many OTP requests. Please try again after 10 minutes."),
 });
@@ -62,6 +66,10 @@ const otpVerifyLimiter = rateLimit({
   limit: 8,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    const email = req.body?.email?.toLowerCase?.();
+    return email ? `email:${email}` : ipKeyGenerator(req);
+  },
   store: createStore("rl:otp-verify:"),
   message: createRateLimitMessage("Too many OTP verification attempts. Please try again after 10 minutes."),
 });
@@ -94,11 +102,31 @@ const orderLimiter = rateLimit({
   message: createRateLimitMessage("Too many orders placed. Please wait a minute before trying again."),
 });
 
+const publicLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: createStore("rl:public:"),
+  message: createRateLimitMessage("Too many requests. Please slow down."),
+});
+
+const firebaseAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: createStore("rl:firebase-auth:"),
+  message: createRateLimitMessage("Too many authentication attempts. Please try again after 15 minutes."),
+});
+
 export {
+  firebaseAuthLimiter,
   loginLimiter,
   orderLimiter,
   otpLimiter,
   otpVerifyLimiter,
   passwordResetLimiter,
   paymentLimiter,
+  publicLimiter,
 };

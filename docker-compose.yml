@@ -1,12 +1,12 @@
 services:
   postgres:
     image: postgres:16
-    container_name: cravzo-postgres
+    container_name: dodago-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: cravzo
+      POSTGRES_DB: dodago
     ports:
       - "5433:5432"
     volumes:
@@ -19,7 +19,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: cravzo-redis
+    container_name: dodago-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -35,17 +35,17 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: cravzo-backend
+    container_name: dodago-backend
     restart: unless-stopped
     environment:
       PORT: 5000
       NODE_ENV: development
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/cravzo
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/dodago
       
       # 🔥 FIXED HERE
-      CLIENT_URL: https://www.cravzo.shop
+      CLIENT_URL: https://www.dodago.shop
       
-      JWT_SECRET: cravzo_secure_jwt_secret_2026
+      JWT_SECRET: dodago_secure_jwt_secret_2026
       JWT_EXPIRES_IN: 7d
       REDIS_URL: redis://redis:6379
     ports:
@@ -63,12 +63,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: cravzo-frontend
+    container_name: dodago-frontend
     restart: unless-stopped
     environment:
       
       # 🔥 FIXED HERE
-      VITE_API_BASE_URL: https://cravzo-production.up.railway.app
+      VITE_API_BASE_URL: https://dodago-production.up.railway.app
       
     ports:
       - "5173:5173"

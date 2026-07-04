@@ -81,6 +81,14 @@ const SearchBar = ({
     }
   }, 400);
 
+  // Track whether location has been resolved to avoid re-firing on GPS resolution
+  const locationResolvedRef = useRef(false);
+  useEffect(() => {
+    if (locationReady && (lat != null || lng != null)) {
+      locationResolvedRef.current = true;
+    }
+  }, [locationReady, lat, lng]);
+
   // Debounced search — fires ONE API call after 400ms idle
   useEffect(() => {
     const q = query.trim();
@@ -92,8 +100,15 @@ const SearchBar = ({
 
     if (!showResults) return; // Mobile: handled by navigation, not dropdown
 
-    debouncedSearch(q);
-  }, [query, lat, lng, locationReady, showResults]);
+    // If location just resolved and query hasn't changed, don't re-fire
+    if (!locationResolvedRef.current) {
+      debouncedSearch(q);
+    } else {
+      locationResolvedRef.current = false;
+    }
+  // Only re-fire when query actually changes, not when GPS resolves
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, showResults]);
 
   const handleChange = (e) => {
     const val = e.target.value;

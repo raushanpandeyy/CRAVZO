@@ -120,7 +120,7 @@ async function main() {
     console.log(`Created: ${item.restaurant.name} (${item.menuItems.length} dishes)`);
   }
 
-  console.log("\nSample data added! Login as admin@cravzo.com / Admin@12345");
+  console.log("\nSample data added! Login as admin@dodago.com / Admin@12345");
   console.log("Go to Promotions → Add → select a restaurant → pick a dish");
 }
 

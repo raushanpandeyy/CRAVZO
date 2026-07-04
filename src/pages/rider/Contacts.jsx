@@ -48,7 +48,7 @@ export default function Contacts() {
       <div className="flex flex-col flex-1">
         {/* Header */}
         <div className="p-4 bg-indigo-900 text-lg font-semibold flex items-center justify-between">
-          <span>Cravzo Support</span>
+          <span>Dodago Support</span>
           <span className="text-sm text-green-400">● Online</span>
         </div>
 

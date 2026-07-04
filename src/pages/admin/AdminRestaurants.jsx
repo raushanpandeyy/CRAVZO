@@ -318,7 +318,7 @@ const AdminRestaurants = () => {
                       disabled={uploadingKey === "restaurant"}
                       className="hidden"
                       onChange={(e) =>
-                        uploadAdminImage(e.target.files?.[0], "cravzo/restaurants", "restaurant", (url) =>
+                        uploadAdminImage(e.target.files?.[0], "dodago/restaurants", "restaurant", (url) =>
                           handleFormChange("imageUrl", url),
                         )
                       }
@@ -459,7 +459,7 @@ const AdminRestaurants = () => {
                             disabled={uploadingKey === `menu-${index}`}
                             className="hidden"
                             onChange={(e) =>
-                              uploadAdminImage(e.target.files?.[0], "cravzo/menu-items", `menu-${index}`, (url) =>
+                              uploadAdminImage(e.target.files?.[0], "dodago/menu-items", `menu-${index}`, (url) =>
                                 handleMenuChange(index, "imageUrl", url),
                               )
                             }

@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://cravzo.shop/sitemap.xml
+Sitemap: https://dodago.shop/sitemap.xml
 
 # Disallow admin and private routes
 Disallow: /admin/

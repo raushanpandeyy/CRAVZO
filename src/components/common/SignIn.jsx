@@ -12,7 +12,7 @@ const OtpInput = lazy(() =>
   import("./OtpInput.jsx")
 );
 
-import {cravzologo} from "../../assets/images/logos.js";
+import {dodagologo} from "../../assets/images/logos.js";
 import { clearSession, login, sendOtp, signup, verifyOtp } from "../../services/authService.js";
 
 const emptyOtp = ["", "", "", "", "", ""];
@@ -62,7 +62,7 @@ const LoginPage = () => {
   }, [navigate]);
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("cravzoCurrentUser"));
+    const user = JSON.parse(localStorage.getItem("dodagoCurrentUser"));
 
     if (user?.isLoggedIn) {
       setIsLoggedIn(true);
@@ -155,7 +155,7 @@ const LoginPage = () => {
       <div className="mx-auto w-full max-w-md overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-2xl shadow-indigo-950/10">
         <div className="bg-indigo-950 px-6 pb-8 pt-7 text-white">
           <div className="mb-5 flex items-center justify-between">
-            <img src={cravzologo} alt="Cravzo Logo" className="h-12 w-12 rounded-2xl object-cover" />
+            <img src={dodagologo} alt="Dodago Logo" className="h-12 w-12 rounded-2xl object-cover" />
             <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wide">
               Customer
             </span>

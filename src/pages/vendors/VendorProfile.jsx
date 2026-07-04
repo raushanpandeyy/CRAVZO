@@ -327,7 +327,7 @@ const VendorProfile = () => {
         const uploadedAsset =
           await uploadImage(
             file,
-            "cravzo/restaurants"
+            "dodago/restaurants"
           );
 
         setForm((prev) => ({
@@ -590,7 +590,7 @@ const VendorProfile = () => {
                     )
                   }
                   className="mt-1 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
-                  placeholder="Cravzo Kitchen"
+                  placeholder="Dodago Kitchen"
                 />
               </div>
 

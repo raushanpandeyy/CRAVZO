@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { Download, X, Smartphone, Star, Zap, Bell } from "lucide-react";
 
 const STORAGE_KEYS = {
-  installed: "cravzo_app_installed",
-  dismissed: "cravzo_app_prompt_dismissed",
+  installed: "dodago_app_installed",
+  dismissed: "dodago_app_prompt_dismissed",
 };
 
 const InstallAppPrompt = () => {
@@ -100,7 +100,7 @@ const InstallAppPrompt = () => {
                   <p className="text-[10px] font-black uppercase tracking-widest text-indigo-200">
                     Add to Home Screen
                   </p>
-                  <h2 className="text-base font-black text-white">Install Cravzo</h2>
+                  <h2 className="text-base font-black text-white">Install Dodago</h2>
                 </div>
               </div>
               <button
@@ -115,7 +115,7 @@ const InstallAppPrompt = () => {
 
           <div className="p-5">
             <p className="text-sm font-semibold text-slate-700 mb-4">
-              Install Cravzo in 2 taps:
+              Install Dodago in 2 taps:
             </p>
             <ol className="space-y-3">
               <li className="flex items-start gap-3">
@@ -181,7 +181,7 @@ const InstallAppPrompt = () => {
                   Free install
                 </p>
                 <h2 className="text-base font-black text-white">
-                  Install Cravzo App
+                  Install Dodago App
                 </h2>
               </div>
             </div>

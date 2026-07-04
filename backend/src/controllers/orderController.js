@@ -4,6 +4,7 @@ import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { createPersistedOrder, serializeOrder } from "../services/orderCheckoutService.js";
 import { queueNotification } from "../services/notificationQueue.js";
+import { emitOrderStatusUpdate, emitNewOrderToVendor, emitNewOrderToRiders } from "../services/orderSocketService.js";
 import { createOrderSchema } from "../validators/orderValidators.js";
 
 const RIDER_GEO_KEY = "rider:geo";
@@ -73,6 +74,9 @@ const createOrder = async (req, res) => {
   // This removes ~500ms of FCM send time from the request lifecycle
   queueNotification("vendor-new-order", { order });
   queueNotification("rider-new-order", { order });
+
+  // Real-time socket push — replaces frontend polling for new orders
+  emitNewOrderToVendor(order);
 
   res.status(201).json(
     apiResponse({
@@ -314,12 +318,18 @@ const getRiderOrders = async (req, res) => {
     engagedRiderRows.map((row) => row.riderId).filter(Boolean),
   );
 
+  const ownsOrder = (order) => order.riderId === req.user.sub;
+
   res.status(200).json(
     apiResponse({
       message: "Rider orders fetched successfully",
       data: orders.map((order) => ({
         ...serializeOrder(order),
-        customer: sanitizeCustomerForNonAdmin(order.customer, req.user.role),
+        customer: ownsOrder(order)
+          ? order.customer
+          : order.customer
+            ? { id: order.customer.id, name: order.customer.name }
+            : null,
         // isAvailable: O(1) Set lookup — no haversine here
         isAvailable:
           rider.isOnline &&
@@ -553,6 +563,7 @@ const updateOrderStatus = async (req, res) => {
           },
         }),
       );
+      emitOrderStatusUpdate(updatedOrder, req.user.role);
       queueNotification("rider-rejected-order", { order: updatedOrder, actorRole: req.user.role });
       return;
     }
@@ -639,6 +650,7 @@ const updateOrderStatus = async (req, res) => {
 
       const claimedOrder = { ...order, rider: riderData?.rider || null };
 
+      emitOrderStatusUpdate(claimedOrder, req.user.role);
       queueNotification("order-status-changed", { order: claimedOrder, actorRole: req.user.role });
 
       return res.status(200).json(
@@ -715,6 +727,9 @@ const updateOrderStatus = async (req, res) => {
       },
     },
   });
+
+  // Real-time socket push — eliminates frontend polling for this update
+  emitOrderStatusUpdate(updatedOrder, req.user.role);
 
   // Queue notification — background worker handles FCM send
   queueNotification("order-status-changed", { order: updatedOrder, actorRole: req.user.role });

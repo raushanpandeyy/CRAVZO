@@ -6,18 +6,18 @@ import { createMessageForRoom, assertCanAccessRoom } from "../controllers/chatCo
 import { notifyChatMessage } from "../services/notificationService.js";
 import { connectRedis } from "../config/redis.js";
 import { verifyToken } from "../utils/jwt.js";
+import { getCache, setCache } from "../utils/cache.js";
 import { logger } from "../utils/logger.js";
 
 const allowedOrigins = [
-  "https://www.cravzo.shop",
-  "https://cravzo.shop",
+  "https://www.dodago.shop",
+  "https://dodago.shop",
   "http://localhost:5173",
   "https://localhost:5173",
   "http://localhost:5174",
   "https://localhost:5174",
   "http://localhost:4173",
   "https://localhost:4173",
-  "https://cravzo-nine.vercel.app",
 ];
 
 const getSocketToken = (socket) => {
@@ -121,19 +121,29 @@ const attachChatSocket = async (server) => {
       }
 
       const decoded = verifyToken(token);
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.sub },
-        select: {
-          id: true,
-          email: true,
-          role: true,
-          isOnline: true,
-          latitude: true,
-          longitude: true,
-          status: true,
-          name: true,
-        },
-      });
+      const cacheKey = `auth:user:${decoded.sub}`;
+
+      let user = await getCache(cacheKey);
+
+      if (!user) {
+        user = await prisma.user.findUnique({
+          where: { id: decoded.sub },
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            isOnline: true,
+            latitude: true,
+            longitude: true,
+            status: true,
+            name: true,
+          },
+        });
+
+        if (user) {
+          await setCache(cacheKey, user, 1800);
+        }
+      }
 
       if (!user || user.status === "BLOCKED") {
         return next(new Error("Authentication failed"));
@@ -173,6 +183,21 @@ const attachChatSocket = async (server) => {
         if (!room) throw new Error("Chat room not found");
         if (room.type === "SUPPORT" && socket.user.role !== "ADMIN" && room.supportUserId !== socket.user.sub) {
           throw new Error("You do not have permission to access this support chat");
+        }
+
+        if (room.type === "ORDER_RIDER" || room.type === "ORDER_VENDOR") {
+          const order = await prisma.order.findUnique({
+            where: { id: room.orderId },
+            select: { customerId: true, riderId: true, restaurant: { select: { vendorId: true } } },
+          });
+          if (!order) throw new Error("Order not found");
+          const isAdmin = socket.user.role === "ADMIN";
+          const isCustomer = order.customerId === socket.user.sub;
+          const isVendor = order.restaurant?.vendorId === socket.user.sub;
+          const isRider = order.riderId === socket.user.sub;
+          if (!isAdmin && !isCustomer && !isVendor && !isRider) {
+            throw new Error("You do not have permission to access this chat room");
+          }
         }
 
         socket.join(`chat:${roomId}`);
@@ -295,4 +320,4 @@ const attachChatSocket = async (server) => {
   return io;
 };
 
-export { attachChatSocket, emitAdminOrderEvent };
+export { attachChatSocket, emitAdminOrderEvent, ioInstance };

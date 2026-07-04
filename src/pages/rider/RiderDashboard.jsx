@@ -4,6 +4,7 @@ import { MessageCircle } from "lucide-react";
 import { getRiderOrders, updateOrderStatus } from "../../services/orderService.js";
 import { updateRiderLocation, updateRiderStatus } from "../../services/riderService.js";
 import { getProfile } from "../../services/userService.js";
+import { onNewOrder, onOrderStatusUpdate } from "../../services/chatSocket.js";
 
 const OrderRequestPopup = lazy(() => import("../../components/OrderRequestPopup.jsx"));
 const RiderMap = lazy(() => import("./LazyRiderMap.jsx"));
@@ -82,9 +83,9 @@ const RiderDashboard = () => {
             setShowRequest(true);
             
             if ("Notification" in window && Notification.permission === "granted") {
-              new Notification("Cravzo - New Order!", {
+              new Notification("Dodago - New Order!", {
                 body: `${latestOrder.restaurant?.name || "New order"} - Earn ₹${Math.floor(latestOrder.deliveryFee || 0)}`,
-                icon: "/cravzologo.png",
+                icon: "/dodagologo.png",
                 tag: "new-order",
                 requireInteraction: true,
               });
@@ -102,9 +103,9 @@ const RiderDashboard = () => {
             setShowRequest(true);
 
             if ("Notification" in window && Notification.permission === "granted") {
-              new Notification("Cravzo - New Order!", {
+              new Notification("Dodago - New Order!", {
                 body: `${latestOrder.restaurant?.name || "New order"} - Earn ₹${Math.floor(latestOrder.deliveryFee || 0)}`,
-                icon: "/cravzologo.png",
+                icon: "/dodagologo.png",
                 tag: "new-order",
                 requireInteraction: true,
               });
@@ -164,11 +165,17 @@ const RiderDashboard = () => {
     loadRiderState();
     loadOrders();
 
-    const intervalId = window.setInterval(() => {
-      loadOrders({ silent: true });
-    }, 45000);
-
-    return () => window.clearInterval(intervalId);
+    // Real-time order updates via Socket.IO — replaces 45s polling
+    const cleanups = [
+      onNewOrder((data) => {
+        setOrderRequest(data);
+        setShowRequest(true);
+      }),
+      onOrderStatusUpdate(({ orderId }) => {
+        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      }),
+    ];
+    return () => cleanups.forEach((fn) => fn());
   }, []);
 
   useEffect(() => {

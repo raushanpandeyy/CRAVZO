@@ -2,9 +2,10 @@ import { API_ENDPOINTS } from "../constants/apiEndpoints.js";
 import { roleToAccountType } from "../constants/roles.js";
 import { unregisterFcmToken } from "../firebase/notificationService.js";
 import { apiRequest } from "./api.js";
+import { disconnectSocket } from "./chatSocket.js";
 
-const AUTH_STORAGE_KEY = "cravzoCurrentUser";
-const TOKEN_STORAGE_KEY = "cravzoAuthToken";
+const AUTH_STORAGE_KEY = "dodagoCurrentUser";
+const TOKEN_STORAGE_KEY = "dodagoAuthToken";
 const OTP_EMAIL_STORAGE_KEY = "otpEmail";
 const OTP_ROLE_STORAGE_KEY = "otpRole";
 
@@ -134,6 +135,7 @@ const resetPassword = async (payload) => {
 
 const logout = async () => {
   try {
+    disconnectSocket();
     await unregisterFcmToken();
     await apiRequest(API_ENDPOINTS.auth.logout, {
       method: "POST",

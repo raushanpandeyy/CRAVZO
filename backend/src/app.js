@@ -31,23 +31,40 @@ app.use(compression({
 app.use(
   cors({
     origin: [
-      "https://www.cravzo.shop",
-      "https://cravzo.shop",
+      "https://www.dodago.shop",
+      "https://dodago.shop",
       "http://localhost:5173",
       "https://localhost:5173",
       "http://localhost:5174",
       "https://localhost:5174",
       "http://localhost:4173",
       "https://localhost:4173",
-      "https://cravzo-nine.vercel.app",
-      "https://cravzo-mj3bnhl8p-raushan-pandeys-projects.vercel.app",
-      "https://cravzo-backend.onrender.com",
+      "http://localhost:8081",
+      "https://localhost:8081",
+      "http://localhost:8082",
+      "https://localhost:8082",
+      "https://dodago-backend.onrender.com",
     ],
     credentials: true,
   })
 );
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "https://checkout.razorpay.com", "https://www.gstatic.com", "https://www.googletagmanager.com"],
+        frameSrc: ["'self'", "https://checkout.razorpay.com"],
+        imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "https://*.githubusercontent.com"],
+        connectSrc: ["'self'", "https://api.razorpay.com", "https://nominatim.openstreetmap.org"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      },
+    },
+    hsts: { maxAge: 365 * 24 * 60 * 60, preload: true },
+  }),
+);
 app.use(requestLogger);
 // Larger body limit for image upload endpoints — must come BEFORE the global
 // limit so requests to /api/users/uploads/* and /api/chat/rooms/* don't get
@@ -63,7 +80,7 @@ app.use(cookieParser());
 app.get("/health", (_req, res) => {
   res.status(200).json({
     success: true,
-    message: "CRAVZO backend is healthy",
+    message: "DODAGO backend is healthy",
     environment: env.NODE_ENV,
   });
 });

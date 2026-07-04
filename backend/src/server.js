@@ -23,8 +23,21 @@ startNotificationWorker().catch((error) => {
   console.error("Failed to start notification worker:", error.message);
 });
 
+// Wire Socket.IO instance to order socket service for real-time order push
+const { setOrderSocketInstance } = await import("./services/orderSocketService.js");
+const { ioInstance } = await import("./socket/chatSocket.js");
+if (ioInstance) {
+  setOrderSocketInstance(ioInstance);
+}
+
+// Start background order worker (Bull queue for order creation)
+const { startOrderWorker } = await import("./services/orderWorker.js");
+startOrderWorker().catch((error) => {
+  console.error("Failed to start order worker:", error.message);
+});
+
 server.listen(PORT, () => {
-  console.log(`CRAVZO backend running on port ${PORT}`);
+  console.log(`DODAGO backend running on port ${PORT}`);
 });
 
 // Keep-alive ping for Render free tier

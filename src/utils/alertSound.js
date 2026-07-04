@@ -1,11 +1,19 @@
 let alertIntervalId = null;
+let currentAudioContext = null;
 
 const playAlertSound = (loop = false, urgency = "normal") => {
   if (typeof window === "undefined") return;
 
+  if (currentAudioContext) {
+    currentAudioContext.close();
+    currentAudioContext = null;
+  }
+
   const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  currentAudioContext = audioContext;
   
   const playSequence = () => {
+    if (audioContext.state === "closed") return;
     const playTone = (freq, startTime, duration) => {
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
@@ -36,6 +44,15 @@ const playAlertSound = (loop = false, urgency = "normal") => {
       playTone(1100, now + 0.15, 0.15);
       playTone(1320, now + 0.3, 0.2);
     }
+
+    if (!loop) {
+      setTimeout(() => {
+        if (currentAudioContext === audioContext) {
+          audioContext.close();
+          currentAudioContext = null;
+        }
+      }, 1000);
+    }
   };
 
   if (loop) {
@@ -53,6 +70,10 @@ const stopAlertSound = () => {
   if (alertIntervalId) {
     clearInterval(alertIntervalId);
     alertIntervalId = null;
+  }
+  if (currentAudioContext) {
+    currentAudioContext.close();
+    currentAudioContext = null;
   }
 };
 

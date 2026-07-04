@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const STORAGE_KEY = "cravzoCart";
+const STORAGE_KEY = "dodagoCart";
 
 const loadCart = () => {
   try {

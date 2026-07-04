@@ -2,6 +2,7 @@ import { prisma } from "../config/database.js";
 import { emitAdminOrderEvent } from "../socket/chatSocket.js";
 
 const ACCEPT_TIMEOUT_MS = Number(process.env.ADMIN_ORDER_ACCEPT_TIMEOUT_MS || 2 * 60 * 1000);
+const pendingAlerts = new Map();
 
 const buildOrderPayload = (order) => ({
   id: order.id,
@@ -55,21 +56,14 @@ const emitAdminOrderStatusChanged = async ({ order, actorRole }) => {
 };
 
 const scheduleAdminUnacceptedOrderAlert = (orderId) => {
-  setTimeout(async () => {
-    const pendingOrder = await prisma.order.findFirst({
-      where: {
-        id: orderId,
-        status: "PENDING",
-      },
-      select: {
-        id: true,
-      },
-    });
+  if (pendingAlerts.has(orderId)) {
+    clearTimeout(pendingAlerts.get(orderId));
+  }
 
-    if (!pendingOrder) return;
-
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
+  const timeoutId = setTimeout(async () => {
+    pendingAlerts.delete(orderId);
+    const order = await prisma.order.findFirst({
+      where: { id: orderId, status: "PENDING" },
       select: {
         id: true,
         status: true,
@@ -78,26 +72,9 @@ const scheduleAdminUnacceptedOrderAlert = (orderId) => {
         totalAmount: true,
         createdAt: true,
         updatedAt: true,
-        restaurant: {
-          select: {
-            id: true,
-            name: true,
-            vendorId: true,
-          },
-        },
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-          },
-        },
-        rider: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        restaurant: { select: { id: true, name: true, vendorId: true } },
+        customer: { select: { id: true, name: true, phone: true } },
+        rider: { select: { id: true, name: true } },
       },
     });
 
@@ -110,7 +87,9 @@ const scheduleAdminUnacceptedOrderAlert = (orderId) => {
       message: `${order.restaurant?.name || "Restaurant"} has not accepted order #${order.id.slice(-6)} yet.`,
       order: buildOrderPayload(order),
     });
-  }, ACCEPT_TIMEOUT_MS).unref?.();
+  }, ACCEPT_TIMEOUT_MS);
+
+  pendingAlerts.set(orderId, timeoutId);
 };
 
 const notifyAdminOrderCreated = (order) => {
@@ -119,6 +98,10 @@ const notifyAdminOrderCreated = (order) => {
 };
 
 const notifyAdminOrderStatusChanged = ({ order, actorRole }) => {
+  if (order.status !== "PENDING" && pendingAlerts.has(order.id)) {
+    clearTimeout(pendingAlerts.get(order.id));
+    pendingAlerts.delete(order.id);
+  }
   emitAdminOrderStatusChanged({ order, actorRole });
 };
 

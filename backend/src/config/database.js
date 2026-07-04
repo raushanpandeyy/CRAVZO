@@ -18,7 +18,7 @@ const getDatabaseUrl = () => {
       url.searchParams.set("connection_limit", "20");
     }
     if (!url.searchParams.has("pool_timeout")) {
-      url.searchParams.set("pool_timeout", "20");
+      url.searchParams.set("pool_timeout", "8");
     }
     return url.toString();
   } catch {
@@ -48,6 +48,11 @@ const prisma =
       db: {
         url: getDatabaseUrl(),
       },
+    },
+    transactionOptions: {
+      isolationLevel: "RepeatableRead",
+      maxWait: 5000,
+      timeout: 10000,
     },
   });
 

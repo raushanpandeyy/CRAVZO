@@ -69,7 +69,7 @@ const Profile = () => {
     setMessage("");
     setError("");
 
-    uploadImage(file, "cravzo/customers")
+    uploadImage(file, "dodago/customers")
       .then((uploadedAsset) => {
         handleFieldChange("avatarUrl", uploadedAsset.url);
         setMessage("Profile photo uploaded. Save profile to keep it.");

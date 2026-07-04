@@ -104,7 +104,7 @@ We respond to all privacy requests within 30 days.`,
         <div className="mb-6 rounded-3xl bg-gradient-to-r from-indigo-600 to-indigo-800 p-6 text-white">
           <h2 className="text-2xl font-bold">Your Privacy Matters</h2>
           <p className="mt-2 text-white/80">
-            At Cravzo, we are committed to protecting your personal information and being transparent about how we use it.
+            At Dodago, we are committed to protecting your personal information and being transparent about how we use it.
           </p>
         </div>
 

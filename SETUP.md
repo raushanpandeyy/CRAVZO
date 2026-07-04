@@ -19,10 +19,10 @@ Visit: `http://localhost:5173`
 
 #### Step 1: Start Database
 ```bash
-docker run -d --name cravzo-postgres \
+docker run -d --name dodago-postgres \
   -e POSTGRES_USER=postgres \
   -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=cravzo \
+  -e POSTGRES_DB=dodago \
   -p 5433:5432 \
   postgres:16
 ```
@@ -78,8 +78,8 @@ npm run prisma:studio
 
 | Role | Email | Password | Notes |
 |------|-------|----------|-------|
-| Admin | admin@cravzo.com | Admin@12345 | Full access |
-| Vendor | seedvendor@cravzo.com | Vendor@123 | Manage restaurants |
+| Admin | admin@dodago.com | Admin@12345 | Full access |
+| Vendor | seedvendor@dodago.com | Vendor@123 | Manage restaurants |
 
 ---
 

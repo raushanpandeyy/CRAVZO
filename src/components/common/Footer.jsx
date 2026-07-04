@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
-import {cravzologo} from "../../assets/images/logos.js";
+import {dodagologo} from "../../assets/images/logos.js";
 
 const Footer = () => {
   const navigate = useNavigate();
@@ -12,26 +12,28 @@ const Footer = () => {
         <div className="md:max-w-96">
           <img
             onClick={() => navigate("/")}
-            alt="Cravzo Logo"
+            alt="Dodago Logo"
             className="h-28 w-auto cursor-pointer rounded-2xl bg-transparent"
-            src={cravzologo}
+            src={dodagologo}
           />
 
           <p className="mt-6 text-sm leading-6 text-slate-600">
-            Cravzo helps customers discover great local restaurants and place orders without friction.
+            Dodago helps customers discover great local restaurants and place orders without friction.
             Browse cuisines, compare options, and get food delivered with confidence.
           </p>
 
           <div className="mt-4 flex items-center gap-2">
             <img
-              src="https://raw.githubusercontent.com/prebuiltui/prebuiltui/refs/heads/main/assets/appDownload/googlePlayBtnBlack.svg"
+              src="https://res.cloudinary.com/dp3l13mm5/image/fetch/f_auto,q_auto/https://raw.githubusercontent.com/prebuiltui/prebuiltui/refs/heads/main/assets/appDownload/googlePlayBtnBlack.svg"
               alt="Download on Google Play"
               className="h-10 w-auto rounded border border-white"
+              loading="lazy"
             />
             <img
-              src="https://raw.githubusercontent.com/prebuiltui/prebuiltui/refs/heads/main/assets/appDownload/appleStoreBtnBlack.svg"
+              src="https://res.cloudinary.com/dp3l13mm5/image/fetch/f_auto,q_auto/https://raw.githubusercontent.com/prebuiltui/prebuiltui/refs/heads/main/assets/appDownload/appleStoreBtnBlack.svg"
               alt="Download on the App Store"
               className="h-10 w-auto rounded border border-white"
+              loading="lazy"
             />
           </div>
         </div>
@@ -67,7 +69,7 @@ const Footer = () => {
             <h2 className="mb-5 font-semibold">Get in touch</h2>
             <div className="space-y-2 text-sm text-slate-600">
               <p>+91 98765 43210</p>
-              <p>hello@cravzo.shop</p>
+              <p>hello@dodago.shop</p>
             </div>
           </div>
         </div>
@@ -75,8 +77,8 @@ const Footer = () => {
 
       <p className="pb-5 pt-4 text-center text-sm text-slate-500">
         Copyright {new Date().getFullYear()} ©{" "}
-        <a href="http://cravzo.shop" className="hover:text-indigo-700">
-          CRAVZO
+        <a href="http://dodago.shop" className="hover:text-indigo-700">
+          DODAGO
         </a>
         . All rights reserved.
       </p>

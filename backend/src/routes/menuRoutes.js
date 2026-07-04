@@ -7,6 +7,7 @@ import {
   updateMenuItem,
 } from "../controllers/menuController.js";
 import { authorize, authenticate } from "../middleware/authMiddleware.js";
+import { publicLimiter } from "../middleware/rateLimiters.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const cachePublic = (_req, res, next) => {
@@ -16,7 +17,7 @@ const cachePublic = (_req, res, next) => {
 
 const menuRouter = Router();
 
-menuRouter.get("/restaurant/:restaurantId", cachePublic, asyncHandler(listMenuItems));
+menuRouter.get("/restaurant/:restaurantId", publicLimiter, cachePublic, asyncHandler(listMenuItems));
 menuRouter.post("/", authenticate, authorize("VENDOR", "ADMIN"), asyncHandler(createMenuItem));
 menuRouter.put("/:menuItemId", authenticate, authorize("VENDOR", "ADMIN"), asyncHandler(updateMenuItem));
 menuRouter.delete(

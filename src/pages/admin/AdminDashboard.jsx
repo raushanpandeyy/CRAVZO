@@ -1,4 +1,4 @@
-ï»¿
+
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { CalendarRange, MessageCircle, PackageCheck, Search, Store, UserCheck, Users, X, Star, Plus, Trash2, Eye, EyeOff, ChevronRight, ChevronLeft } from "lucide-react";
 
@@ -150,7 +150,7 @@ const AdminDashboard = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [featureEnabled, setFeatureEnabled] = useState(() => {
-    const stored = localStorage.getItem("cravzoFeatureEnabled");
+    const stored = localStorage.getItem("dodagoFeatureEnabled");
     return stored === "true";
   });
   const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
@@ -160,7 +160,7 @@ const AdminDashboard = () => {
   const [featureLoading, setFeatureLoading] = useState(false);
   const [ads, setAds] = useState([]);
   const [adsEnabled, setAdsEnabled] = useState(() => {
-    const stored = localStorage.getItem("cravzoAdsEnabled");
+    const stored = localStorage.getItem("dodagoAdsEnabled");
     return stored === "true";
   });
   const [showAdPanel, setShowAdPanel] = useState(false);
@@ -314,8 +314,8 @@ const refreshSupportResult = async () => {
   const toggleFeature = () => {
     const newVal = !featureEnabled;
     setFeatureEnabled(newVal);
-    localStorage.setItem("cravzoFeatureEnabled", String(newVal));
-    window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
+    localStorage.setItem("dodagoFeatureEnabled", String(newVal));
+    window.dispatchEvent(new CustomEvent("dodagoFeatureUpdate"));
     setMessage(newVal ? "Home featured section enabled." : "Home featured section disabled.");
   };
 
@@ -360,7 +360,7 @@ const refreshSupportResult = async () => {
       const updatedList = [newFeatured, ...activeList];
       console.log("Updated list:", updatedList);
       setFeaturedRestaurants(updatedList);
-      window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
+      window.dispatchEvent(new CustomEvent("dodagoFeatureUpdate"));
       setMessage(`${restaurant.name} added to featured.`);
     } catch (err) {
       console.error("Add featured error:", err);
@@ -380,7 +380,7 @@ const refreshSupportResult = async () => {
       const updated = activeFeatured.filter((r) => r.id !== restaurantId);
       setFeaturedRestaurants(updated);
       if (removed) setMessage(`${removed.name} removed from featured.`);
-      window.dispatchEvent(new CustomEvent("cravzoFeatureUpdate"));
+      window.dispatchEvent(new CustomEvent("dodagoFeatureUpdate"));
     } catch {
       setError("Failed to remove featured restaurant");
     }
@@ -421,8 +421,8 @@ const refreshSupportResult = async () => {
   const toggleAds = () => {
     const newVal = !adsEnabled;
     setAdsEnabled(newVal);
-    localStorage.setItem("cravzoAdsEnabled", String(newVal));
-    window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
+    localStorage.setItem("dodagoAdsEnabled", String(newVal));
+    window.dispatchEvent(new CustomEvent("dodagoAdsUpdate"));
     setMessage(newVal ? "Background ads enabled." : "Background ads disabled.");
   };
 
@@ -444,7 +444,7 @@ const refreshSupportResult = async () => {
       const updatedAds = [newAd, ...activeAds];
       console.log("Updated ads:", updatedAds);
       setAds(updatedAds);
-      window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
+      window.dispatchEvent(new CustomEvent("dodagoAdsUpdate"));
       setMessage("Ad added successfully.");
     } catch (err) {
       console.error("Add ad error:", err);
@@ -459,7 +459,7 @@ const refreshSupportResult = async () => {
       });
       const updated = ads.filter((a) => a.id !== adId);
       setAds(updated);
-      window.dispatchEvent(new CustomEvent("cravzoAdsUpdate"));
+      window.dispatchEvent(new CustomEvent("dodagoAdsUpdate"));
       setMessage("Ad removed.");
     } catch {
       setError("Failed to remove ad");
@@ -486,7 +486,7 @@ const refreshSupportResult = async () => {
         const dataUrl = reader.result;
         const response = await apiRequest("/api/users/uploads/image", {
           method: "POST",
-          body: JSON.stringify({ dataUrl, folder: "cravzo-ads" }),
+          body: JSON.stringify({ dataUrl, folder: "dodago-ads" }),
         });
 
         if (response.data?.url) {
@@ -597,7 +597,7 @@ const refreshSupportResult = async () => {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-semibold text-slate-900">Order #{order.id.slice(-6)}</p>
-          <p className="text-sm text-slate-600">{order.customer?.name || "Customer"} â€¢ {order.restaurant?.name || "Restaurant"}</p>
+          <p className="text-sm text-slate-600">{order.customer?.name || "Customer"} • {order.restaurant?.name || "Restaurant"}</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold text-slate-700 ${accent}`}>{order.status.replaceAll("_", " ")}</span>
       </div>
@@ -854,7 +854,7 @@ const refreshSupportResult = async () => {
                     <p className="font-semibold text-slate-900">{supportResult.user.name}</p>
                     <p className="text-sm text-slate-600">{supportResult.user.email}</p>
                     <p className="text-sm text-slate-600">{supportResult.user.phone || "No phone"}</p>
-                    <p className="mt-2 text-xs text-slate-500">Role: {supportResult.user.role} â€¢ Status: {supportResult.user.status}{supportResult.user.role === "RIDER" ? ` â€¢ ${supportResult.user.isOnline ? "Online" : "Offline"}` : ""}</p>
+                    <p className="mt-2 text-xs text-slate-500">Role: {supportResult.user.role} • Status: {supportResult.user.status}{supportResult.user.role === "RIDER" ? ` • ${supportResult.user.isOnline ? "Online" : "Offline"}` : ""}</p>
                   </div>
                   {supportResult.user.role !== "ADMIN" ? <button onClick={() => updateUserStatus(supportResult.user.id, supportResult.user.status === "BLOCKED" ? "ACTIVE" : "BLOCKED")} className={`rounded-full px-4 py-2 text-sm font-semibold text-white ${supportResult.user.status === "BLOCKED" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"}`}>{supportResult.user.status === "BLOCKED" ? "Unblock User" : "Block User"}</button> : null}
                 </div>
@@ -901,7 +901,7 @@ const refreshSupportResult = async () => {
                 <div>
                   <p className="font-semibold text-slate-900">{user.name}</p>
                   <p className="text-slate-600">{user.email}</p>
-                  <p className="text-xs text-slate-500">{user.phone || "No phone"} â€¢ {user.role} â€¢ {user.status}{user.role === "RIDER" ? ` â€¢ ${user.isOnline ? "Online" : "Offline"}` : ""}</p>
+                  <p className="text-xs text-slate-500">{user.phone || "No phone"} • {user.role} • {user.status}{user.role === "RIDER" ? ` • ${user.isOnline ? "Online" : "Offline"}` : ""}</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => { setSupportQuery(user.phone || user.email); setSupportResult(null); }} className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700">Lookup</button>
@@ -933,10 +933,10 @@ const refreshSupportResult = async () => {
                   <div>
                     <p className="font-semibold text-slate-900">{restaurant.name}</p>
                     <p className="text-slate-600">{[restaurant.addressLine1, restaurant.city, restaurant.state].filter(Boolean).join(", ") || "Address not set"}</p>
-                    <p className="mt-1 text-xs text-slate-500">Vendor: {restaurant.vendor?.name || "NA"} â€¢ {restaurant.vendor?.phone || restaurant.vendor?.email || "No contact"}</p>
+                    <p className="mt-1 text-xs text-slate-500">Vendor: {restaurant.vendor?.name || "NA"} • {restaurant.vendor?.phone || restaurant.vendor?.email || "No contact"}</p>
                     <p className="mt-1 text-xs text-slate-500">
                       Live: {restaurant.isOpen ? "Open" : "Closed"}
-                      {(restaurant.openingTime || restaurant.closingTime) ? ` â€¢ ${restaurant.openingTime || "--:--"} - ${restaurant.closingTime || "--:--"}` : ""}
+                      {(restaurant.openingTime || restaurant.closingTime) ? ` • ${restaurant.openingTime || "--:--"} - ${restaurant.closingTime || "--:--"}` : ""}
                     </p>
                     {restaurant.openDays?.length ? (
                       <p className="mt-1 text-xs text-slate-500">Days: {restaurant.openDays.join(", ")}</p>

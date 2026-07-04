@@ -26,7 +26,7 @@ const AccessPending = ({ user }) => {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#fff7ed,_#ffffff_45%,_#e2e8f0)] flex items-center justify-center px-4">
       <div className={`w-full max-w-2xl rounded-[2rem] border p-8 md:p-10 shadow-xl ${statusCopy.panel}`}>
-        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Cravzo Partner Access</p>
+        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Dodago Partner Access</p>
         <h1 className={`mt-4 text-3xl md:text-4xl font-black ${statusCopy.accent}`}>{statusCopy.title}</h1>
         <p className="mt-4 text-slate-700 leading-7">{statusCopy.description}</p>
 

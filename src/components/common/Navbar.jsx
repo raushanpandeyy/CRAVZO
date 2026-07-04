@@ -2,13 +2,13 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronDown, LogOut, MapPin, MessageCircle, ShoppingCart, User as UserIcon } from "lucide-react";
 
-import {cravzologo} from "../../assets/images/logos.js";
+import {dodagologo} from "../../assets/images/logos.js";
 import { useAuth } from "../../hooks/useAuth.js";
 import { useChatNotifications } from "../../hooks/useChatNotifications.js";
 import { getAddresses } from "../../services/addressService.js";
 import { deleteCookie, getCookie, setCookie } from "../../utils/cookies.js";
 
-const DELIVERY_ADDRESS_COOKIE = "cravzoDeliveryAddress";
+const DELIVERY_ADDRESS_COOKIE = "dodagoDeliveryAddress";
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -23,7 +23,7 @@ const Navbar = () => {
 
   const syncCartCount = () => {
     try {
-      const cart = JSON.parse(localStorage.getItem("cravzoCart") || "[]");
+      const cart = JSON.parse(localStorage.getItem("dodagoCart") || "[]");
       const count = Array.isArray(cart)
         ? cart.reduce((total, item) => total + Number(item.quantity || 0), 0)
         : 0;
@@ -239,7 +239,7 @@ const Navbar = () => {
     <nav className="fixed top-0 left-0 w-full z-50 bg-transparent md:bg-indigo-900 text-slate-950 md:text-white font-sans">
       <div className="mx-auto flex w-full max-w-[1200px] items-center gap-3 px-4 py-2 md:hidden">
         <button type="button" onClick={navigateToUserHome} className="shrink-0">
-          <img src={cravzologo} alt="Cravzo Logo" className="h-9 w-9 rounded-xl object-cover" width={36} height={36} />
+          <img src={dodagologo} alt="Dodago Logo" className="h-9 w-9 rounded-xl object-cover" width={36} height={36} />
         </button>
 
         <button
@@ -289,8 +289,8 @@ const Navbar = () => {
 
       <div className="max-w-[1200px] mx-auto px-4 py-3 hidden md:flex md:flex-row md:justify-between items-center gap-3">
         <div onClick={navigateToUserHome} className="flex items-center gap-2 cursor-pointer">
-          <img src={cravzologo} alt="Cravzo Logo" className="h-10 md:h-12 rounded-2xl" width={48} height={48} />
-          <span className="hidden md:block text-2xl font-bold uppercase">CRAVZO</span>
+          <img src={dodagologo} alt="Dodago Logo" className="h-10 md:h-12 rounded-2xl" width={48} height={48} />
+          <span className="hidden md:block text-2xl font-bold uppercase">DODAGO</span>
         </div>
 
         <button

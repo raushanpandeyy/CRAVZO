@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import { Routes, Route } from "react-router-dom";
 
+import ErrorBoundary from "../components/common/ErrorBoundary.jsx";
 import Navbar from "../components/common/Navbar.jsx";
 import PartnerMobileNav from "../components/common/PartnerMobileNav.jsx";
 
@@ -46,37 +47,39 @@ const VendorRoutes = () => {
             </div>
           }
         >
-          <Routes>
-            <Route
-              path="/vendor-dashboard"
-              element={<VendorAccount />}
-            >
+          <ErrorBoundary>
+            <Routes>
               <Route
-                index
-                element={<VendorDashboard />}
-              />
+                path="/vendor-dashboard"
+                element={<VendorAccount />}
+              >
+                <Route
+                  index
+                  element={<VendorDashboard />}
+                />
 
-              <Route
-                path="orders"
-                element={<OrderPanel />}
-              />
+                <Route
+                  path="orders"
+                  element={<OrderPanel />}
+                />
 
-              <Route
-                path="menu"
-                element={<ManageMenu />}
-              />
+                <Route
+                  path="menu"
+                  element={<ManageMenu />}
+                />
 
-              <Route
-                path="profile"
-                element={<VendorProfile />}
-              />
+                <Route
+                  path="profile"
+                  element={<VendorProfile />}
+                />
 
-              <Route
-                path="chat"
-                element={<VendorChatPage />}
-              />
-            </Route>
-          </Routes>
+                <Route
+                  path="chat"
+                  element={<VendorChatPage />}
+                />
+              </Route>
+            </Routes>
+          </ErrorBoundary>
         </Suspense>
       </main>
     </div>

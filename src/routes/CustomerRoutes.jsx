@@ -67,47 +67,45 @@ function CustomerRoutes() {
             </div>
           }
         >
-          <Routes>
-            {/* ================= CUSTOMER ROUTES ================= */}
-            <Route path="/" element={<Home />} />
-            <Route path="/signin" element={<SignIn />} />
-            <Route path="/verify-otp" element={<VerifyOtp />} />
-            <Route path="/dishes" element={<DishesListingPage />} />
-            <Route path="/restaurants" element={<RestaurantListingPage />} />
-            <Route path="/dish/:dishName" element={<DishPage />} />
-            <Route path="/city/:cityName" element={<Citywise />} />
-            <Route path="/restaurant/:id" element={
-              <ErrorBoundary>
-                <RestaurantPage />
-              </ErrorBoundary>
-            } />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
+          <ErrorBoundary>
+            <Routes>
+              {/* ================= CUSTOMER ROUTES ================= */}
+              <Route path="/" element={<Home />} />
+              <Route path="/signin" element={<SignIn />} />
+              <Route path="/verify-otp" element={<VerifyOtp />} />
+              <Route path="/dishes" element={<DishesListingPage />} />
+              <Route path="/restaurants" element={<RestaurantListingPage />} />
+              <Route path="/dish/:dishName" element={<DishPage />} />
+              <Route path="/city/:cityName" element={<Citywise />} />
+              <Route path="/restaurant/:id" element={<RestaurantPage />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
 
-            {/* ================= ACCOUNT ROUTES ================= */}
-            <Route path="/account" element={<CustomerLayout />}>
-              <Route index element={<Profile />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="orders" element={<Orders />} />
-              <Route path="addresses" element={<Addresses />} />
-              <Route path="favourites" element={<Favourites />} />
-              <Route path="reviews" element={<Reviews />} />
-              <Route path="payments" element={<Payments />} />
-              <Route path="chat" element={<ChatPage />} />
-              <Route path="about" element={<AboutUs />} />
-              <Route path="contact" element={<ContactUs />} />
-              <Route path="privacy" element={<PrivacyPolicy />} />
-            </Route>
+              {/* ================= ACCOUNT ROUTES ================= */}
+              <Route path="/account" element={<CustomerLayout />}>
+                <Route index element={<Profile />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="orders" element={<Orders />} />
+                <Route path="addresses" element={<Addresses />} />
+                <Route path="favourites" element={<Favourites />} />
+                <Route path="reviews" element={<Reviews />} />
+                <Route path="payments" element={<Payments />} />
+                <Route path="chat" element={<ChatPage />} />
+                <Route path="about" element={<AboutUs />} />
+                <Route path="contact" element={<ContactUs />} />
+                <Route path="privacy" element={<PrivacyPolicy />} />
+              </Route>
 
-            {/* ================= PARTNER SIGNUP ROUTES ================= */}
-            <Route path="/rider-signup" element={<RiderSignup />} />
-            <Route path="/vendor-signup" element={<VendorSignup />} />
+              {/* ================= PARTNER SIGNUP ROUTES ================= */}
+              <Route path="/rider-signup" element={<RiderSignup />} />
+              <Route path="/vendor-signup" element={<VendorSignup />} />
 
-            {/* ================= INFO ROUTES (standalone) ================= */}
-            <Route path="/about" element={<AboutUs />} />
-            <Route path="/contact" element={<ContactUs />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-          </Routes>
+              {/* ================= INFO ROUTES (standalone) ================= */}
+              <Route path="/about" element={<AboutUs />} />
+              <Route path="/contact" element={<ContactUs />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+            </Routes>
+          </ErrorBoundary>
         </Suspense>
       </main>
 

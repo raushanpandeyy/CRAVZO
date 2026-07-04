@@ -1,6 +1,7 @@
 import { Routes, Route } from "react-router-dom";
 import React, { lazy, Suspense } from "react";
 
+import ErrorBoundary from "../components/common/ErrorBoundary.jsx";
 import Navbar from "../components/common/Navbar.jsx";
 import PartnerMobileNav from "../components/common/PartnerMobileNav.jsx";
 
@@ -46,39 +47,41 @@ const RiderRoutes = () => {
             </div>
           }
         >
-          <Routes>
-            {/* ================= RIDER DASHBOARD ROUTES ================= */}
+          <ErrorBoundary>
+            <Routes>
+              {/* ================= RIDER DASHBOARD ROUTES ================= */}
 
-            <Route
-              path="/rider-dashboard"
-              element={<RiderDashboard />}
-            />
+              <Route
+                path="/rider-dashboard"
+                element={<RiderDashboard />}
+              />
 
-            <Route
-              path="/rider-analytics"
-              element={<RiderAnalytics />}
-            />
+              <Route
+                path="/rider-analytics"
+                element={<RiderAnalytics />}
+              />
 
-            <Route
-              path="/rider-reviews"
-              element={<RiderReview />}
-            />
+              <Route
+                path="/rider-reviews"
+                element={<RiderReview />}
+              />
 
-            <Route
-              path="/rider-profile"
-              element={<RiderProfile />}
-            />
+              <Route
+                path="/rider-profile"
+                element={<RiderProfile />}
+              />
 
-            <Route
-              path="/rider-contacts"
-              element={<RiderContacts />}
-            />
+              <Route
+                path="/rider-contacts"
+                element={<RiderContacts />}
+              />
 
-            <Route
-              path="/rider-chat"
-              element={<RiderChatPage />}
-            />
-          </Routes>
+              <Route
+                path="/rider-chat"
+                element={<RiderChatPage />}
+              />
+            </Routes>
+          </ErrorBoundary>
         </Suspense>
       </main>
     </div>

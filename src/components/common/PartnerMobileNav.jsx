@@ -14,7 +14,7 @@ import {
   Utensils,
 } from "lucide-react";
 
-import {cravzologo} from "../../assets/images/logos.js";
+import {dodagologo} from "../../assets/images/logos.js";
 import { useAuth } from "../../hooks/useAuth.js";
 import { useChatNotifications } from "../../hooks/useChatNotifications.js";
 
@@ -69,7 +69,7 @@ const PartnerMobileTopNav = ({ role }) => {
     <nav className="fixed inset-x-0 top-0 z-50 border-b border-slate-100 bg-white px-4 py-2 shadow-sm shadow-slate-200/80 md:hidden">
       <div className="mx-auto flex max-w-md items-center gap-3">
         <button type="button" onClick={() => navigate(config.homePath)} className="shrink-0">
-          <img src={cravzologo} alt="Cravzo Logo" className="h-9 w-9 rounded-xl object-cover" />
+          <img src={dodagologo} alt="Dodago Logo" className="h-9 w-9 rounded-xl object-cover" />
         </button>
 
         <button

@@ -38,6 +38,7 @@ const createRazorpayOrder = async ({ amount, receipt, notes }) => {
       receipt,
       notes,
     }),
+    signal: AbortSignal.timeout(5000),
   });
 
   const data = await response.json().catch(() => null);
@@ -107,7 +108,7 @@ const createCheckoutOrder = async (req, res) => {
 
   const razorpayOrder = await createRazorpayOrder({
     amount: Math.round(Number(draft.totalAmount) * 100),
-    receipt: `cravzo_${Date.now()}`,
+    receipt: `dodago_${Date.now()}`,
     notes: {
       customerId: req.user.sub,
       restaurantId,
@@ -147,6 +148,35 @@ const verifyAndCreatePaidOrder = async (req, res) => {
 
   if (generatedSignature !== razorpaySignature) {
     throw new ApiError(400, "Invalid Razorpay payment signature");
+  }
+
+  const razorpayOrderRes = await fetch(`${razorpayBaseUrl}/orders/${razorpayOrderId}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`).toString("base64")}`,
+    },
+    signal: AbortSignal.timeout(5000),
+  });
+
+  if (!razorpayOrderRes.ok) {
+    throw new ApiError(502, "Failed to verify Razorpay order");
+  }
+
+  const razorpayOrder = await razorpayOrderRes.json();
+
+  const draft = await prepareOrderDraft({
+    customerId: req.user.sub,
+    restaurantId,
+    items,
+    address,
+    addressId,
+    paymentMethod: "UPI",
+    notes,
+  });
+
+  const expectedAmount = Math.round(Number(draft.totalAmount) * 100);
+  if (Number(razorpayOrder.amount_paid) < expectedAmount) {
+    throw new ApiError(400, "Payment amount does not match order total");
   }
 
   const order = await createPersistedOrder({

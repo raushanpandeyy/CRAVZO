@@ -127,7 +127,7 @@ const DishPromoCarousel = ({ promotions: propPromotions }) => {
         style={{ height: "320px" }}
       >
         <div className="text-center">
-          <p className="text-xl font-black text-indigo-400">CRAVZO</p>
+          <p className="text-xl font-black text-indigo-400">DODAGO</p>
           <p className="text-xs font-semibold text-indigo-400 mt-1">Affordable food delivery</p>
         </div>
       </div>

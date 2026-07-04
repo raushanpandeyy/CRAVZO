@@ -1,9 +1,9 @@
 import { apiRequest } from "../services/api.js";
 import { getFirebaseMessaging, getFirebasePublicConfig, hasFirebaseConfig } from "./firebase.js";
 
-const FCM_TOKEN_STORAGE_KEY = "cravzoFcmToken";
-const FCM_PROMPT_STORAGE_KEY = "cravzoFcmPermissionPrompted";
-const FCM_DEVICE_STORAGE_KEY = "cravzoFcmDeviceId";
+const FCM_TOKEN_STORAGE_KEY = "dodagoFcmToken";
+const FCM_PROMPT_STORAGE_KEY = "dodagoFcmPermissionPrompted";
+const FCM_DEVICE_STORAGE_KEY = "dodagoFcmDeviceId";
 
 const getOrCreateDeviceId = () => {
   const existingDeviceId = localStorage.getItem(FCM_DEVICE_STORAGE_KEY);
@@ -64,21 +64,21 @@ const removeFcmToken = (token) =>
 const showForegroundNotification = (payload) => {
   if (Notification.permission !== "granted" || !document.hidden) return;
 
-  const title = payload.notification?.title || payload.data?.title || "CRAVZO";
+  const title = payload.notification?.title || payload.data?.title || "DODAGO";
   const body = payload.notification?.body || payload.data?.body || "You have a new update.";
   const clickUrl = payload.data?.clickUrl || "/";
 
   const notification = new Notification(title, {
     body,
-    icon: "/cravzologo.png",
-    badge: "/cravzologo.png",
+    icon: "/dodagologo.png",
+    badge: "/dodagologo.png",
     data: { clickUrl },
   });
 
   notification.onclick = () => {
     window.focus();
     window.postMessage(
-      { type: "CRAVZO_NOTIFICATION_CLICK", clickUrl },
+      { type: "DODAGO_NOTIFICATION_CLICK", clickUrl },
       window.location.origin
     );
     notification.close();
@@ -94,7 +94,7 @@ const setupForegroundNotifications = async (handler) => {
   // onMessage returns an unsubscribe function
   const unsubscribe = onMessage(messaging, (payload) => {
     showForegroundNotification(payload);
-    window.dispatchEvent(new CustomEvent("cravzo:fcm-message", { detail: payload }));
+    window.dispatchEvent(new CustomEvent("dodago:fcm-message", { detail: payload }));
     handler?.(payload);
   });
 

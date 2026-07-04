@@ -37,6 +37,7 @@ const uploadImageToCloudinary = async ({ dataUrl, folder }) => {
   const response = await fetch(`https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/image/upload`, {
     method: "POST",
     body: formData,
+    signal: AbortSignal.timeout(10000),
   });
 
   const payload = await response.json().catch(() => null);

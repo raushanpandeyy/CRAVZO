@@ -18,48 +18,68 @@ const createSchema = z.object({
 
 const updateSchema = createSchema.partial();
 
-export async function resolvePromotionRecord(promo) {
-  if (promo.referenceType === "dish") {
-    const menuItem = await prisma.menuItem.findUnique({
-      where: { id: promo.referenceId },
-      include: { restaurant: { select: { name: true } } },
-    });
-    if (!menuItem) return null;
-    return {
-      id: promo.id,
-      imageUrl: menuItem.imageUrl || "",
-      title: menuItem.name,
-      subtitle: menuItem.restaurant.name,
-      linkType: "dish",
-      linkValue: menuItem.name,
-      position: promo.position,
-      isActive: promo.isActive,
-      createdAt: promo.createdAt,
-      updatedAt: promo.updatedAt,
-    };
-  }
+async function resolvePromotionsBatch(promotions) {
+  const dishPromos = promotions.filter((p) => p.referenceType === "dish");
+  const deliveryPromos = promotions.filter((p) => p.referenceType === "free_delivery");
 
+  const dishIds = dishPromos.map((p) => p.referenceId);
+  const restIds = deliveryPromos.map((p) => p.referenceId);
+
+  const [menuItems, restaurants] = await Promise.all([
+    dishIds.length > 0
+      ? prisma.menuItem.findMany({
+          where: { id: { in: dishIds } },
+          include: { restaurant: { select: { name: true } } },
+        })
+      : [],
+    restIds.length > 0
+      ? prisma.restaurant.findMany({
+          where: { id: { in: restIds } },
+          select: { name: true, imageUrl: true, city: true, id: true },
+        })
+      : [],
+  ]);
+
+  const menuMap = new Map(menuItems.map((m) => [m.id, m]));
+  const restMap = new Map(restaurants.map((r) => [r.id, r]));
+
+  return promotions.reduce((acc, promo) => {
+    if (promo.referenceType === "dish") {
+      const menuItem = menuMap.get(promo.referenceId);
+      if (!menuItem) return acc;
+      acc.push({
+        id: promo.id,
+        imageUrl: menuItem.imageUrl || "",
+        title: menuItem.name,
+        subtitle: menuItem.restaurant.name,
+        linkType: "dish",
+        linkValue: menuItem.name,
+        position: promo.position,
+        isActive: promo.isActive,
+        createdAt: promo.createdAt,
+        updatedAt: promo.updatedAt,
+      });
+      return acc;
+    }
     if (promo.referenceType === "free_delivery") {
-    const restaurant = await prisma.restaurant.findUnique({
-      where: { id: promo.referenceId },
-      select: { name: true, imageUrl: true, city: true, id: true },
-    });
-    if (!restaurant) return null;
-    return {
-      id: promo.id,
-      imageUrl: restaurant.imageUrl || "",
-      title: restaurant.name,
-      subtitle: "Free Delivery",
-      linkType: "restaurant",
-      linkValue: restaurant.id,
-      position: promo.position,
-      isActive: promo.isActive,
-      createdAt: promo.createdAt,
-      updatedAt: promo.updatedAt,
-    };
-  }
-
-  return null;
+      const restaurant = restMap.get(promo.referenceId);
+      if (!restaurant) return acc;
+      acc.push({
+        id: promo.id,
+        imageUrl: restaurant.imageUrl || "",
+        title: restaurant.name,
+        subtitle: "Free Delivery",
+        linkType: "restaurant",
+        linkValue: restaurant.id,
+        position: promo.position,
+        isActive: promo.isActive,
+        createdAt: promo.createdAt,
+        updatedAt: promo.updatedAt,
+      });
+      return acc;
+    }
+    return acc;
+  }, []);
 }
 
 export const getActivePromotions = async (req, res) => {
@@ -73,7 +93,7 @@ export const getActivePromotions = async (req, res) => {
     orderBy: { position: "asc" },
   });
 
-  const resolved = (await Promise.all(promotions.map(resolvePromotionRecord))).filter(Boolean);
+  const resolved = await resolvePromotionsBatch(promotions);
 
   await setCache(CACHE_KEY, resolved, CACHE_TTL);
 
@@ -92,7 +112,7 @@ export const listPromotions = async (req, res) => {
     prisma.dishPromotion.count(),
   ]);
 
-  const resolved = (await Promise.all(promotions.map(resolvePromotionRecord))).filter(Boolean);
+  const resolved = await resolvePromotionsBatch(promotions);
 
   return res.status(200).json(
     apiResponse({
@@ -179,16 +199,21 @@ export const updatePromotionsOrder = async (req, res) => {
     throw new ApiError(400, "Order must be an array of { id, position }");
   }
 
-  await prisma.$transaction(
-    order.map((item) =>
-      prisma.dishPromotion.update({
-        where: { id: item.id },
-        data: { position: item.position },
-      }),
-    ),
-  );
+  if (order.length > 0) {
+    const entries = order.map(({ id, position }) => ({ id, position }));
+    const placeholders = entries.map((_, i) => `$${i * 2 + 1}::text, $${i * 2 + 2}::int`);
+    await prisma.$executeRawUnsafe(
+      `UPDATE "DishPromotion"
+       SET position = v.position
+       FROM (VALUES ${placeholders.join(", ")}) AS v(id, position)
+       WHERE "DishPromotion".id = v.id`,
+      ...entries.flatMap((e) => [e.id, e.position]),
+    );
+  }
 
   await deleteCache(CACHE_KEY);
 
   return res.status(200).json(apiResponse({ message: "Promotions order updated" }));
 };
+
+export { resolvePromotionsBatch };

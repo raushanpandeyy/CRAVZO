@@ -12,10 +12,12 @@ import {
   updateAdsOrder,
 } from "../controllers/publicController.js";
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
+import { publicLimiter } from "../middleware/rateLimiters.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const publicRouter = Router();
 
+publicRouter.use(publicLimiter);
 publicRouter.get("/home", asyncHandler(getHomeData));
 publicRouter.get("/featured-restaurants", asyncHandler(getFeaturedRestaurants));
 publicRouter.get("/ads", asyncHandler(getAds));

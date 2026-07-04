@@ -7,7 +7,7 @@ import {
 import { notifyAdminOrderCreated, notifyAdminOrderStatusChanged } from "./adminOrderAlertService.js";
 import { logger } from "../utils/logger.js";
 
-const CONCURRENCY = 5;
+const CONCURRENCY = 10;
 
 const startNotificationWorker = async () => {
   const queue = getNotificationQueue();
@@ -45,6 +45,14 @@ const startNotificationWorker = async () => {
 
   queue.on("failed", (job, error) => {
     logger.warn(`Notification job ${job.id} (${job.name}) failed:`, { error: error.message });
+  });
+
+  queue.on("stalled", (job) => {
+    logger.warn(`Notification job ${job.id} (${job.name}) stalled`);
+  });
+
+  queue.on("waiting", (jobId) => {
+    logger.debug(`Notification job ${jobId} is waiting`);
   });
 
   logger.info("Notification worker started");

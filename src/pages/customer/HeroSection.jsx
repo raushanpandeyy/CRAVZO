@@ -57,7 +57,7 @@ const HeroSection = () => {
 />
       {/* Heading */}
       <div className="text-2xl md:text-6xl text-white font-bold text-center mb-8 z-10 px-2">
-        <p>Cravzo! Partner of your cravings....</p>
+        <p>Dodago! Partner of your cravings....</p>
       </div>
 
       {/* Search */}

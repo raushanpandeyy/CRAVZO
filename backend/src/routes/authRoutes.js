@@ -1,16 +1,22 @@
 import { Router } from "express";
 
 import {
+  firebaseAuth,
+} from "../controllers/firebaseAuthController.js";
+import {
   login,
   logout,
   me,
+  phoneSignup,
   requestPasswordReset,
   resetPassword,
   sendOtpController,
   signUp,
   verifyOtpController,
+  verifyPhoneOtp,
 } from "../controllers/authController.js";
 import {
+  firebaseAuthLimiter,
   loginLimiter,
   otpLimiter,
   otpVerifyLimiter,
@@ -22,7 +28,10 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const authRouter = Router();
 
+authRouter.post("/firebase", firebaseAuthLimiter, asyncHandler(firebaseAuth));
 authRouter.post("/signup", otpLimiter, asyncHandler(signUp));
+authRouter.post("/phone-signup", otpLimiter, asyncHandler(phoneSignup));
+authRouter.post("/verify-phone-otp", otpVerifyLimiter, asyncHandler(verifyPhoneOtp));
 authRouter.post("/login", loginLimiter, asyncHandler(login));
 authRouter.get("/me", authenticate, asyncHandler(me));
 authRouter.post("/logout", authenticate, asyncHandler(logout));

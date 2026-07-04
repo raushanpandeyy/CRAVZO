@@ -1,9 +1,10 @@
 import React, { lazy, Suspense, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Bell, X } from "lucide-react";
 
 import AccessPending from "./components/common/AccessPending";
 import AppLoader from "./components/common/AppLoader";
+import ErrorBoundary from "./components/common/ErrorBoundary";
 import InstallAppPrompt from "./components/InstallAppPrompt";
 import { useAuth } from "./hooks/useAuth";
 import { useNotifications } from "./hooks/useNotifications";
@@ -54,14 +55,30 @@ const InAppToast = ({ toast, onDismiss }) => {
 const App = () => {
   const { user, isHydrating } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [toast, setToast] = useState(null);
+
+  // Auto-redirect to signin after 5 seconds if not logged in
+  useEffect(() => {
+    if (isHydrating) return;
+    if (user?.isLoggedIn) return;
+
+    const authPaths = ["/signin", "/verify-otp", "/vendor-signup", "/rider-signup"];
+    if (authPaths.includes(location.pathname)) return;
+
+    const timer = setTimeout(() => {
+      navigate("/signin");
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [isHydrating, user, location.pathname, navigate]);
 
   useNotifications(user);
 
   // Handle notification click from service worker (background tap)
   useEffect(() => {
     const handleNotificationClick = (event) => {
-      if (event.data?.type === "CRAVZO_NOTIFICATION_CLICK" && event.data.clickUrl) {
+      if (event.data?.type === "DODAGO_NOTIFICATION_CLICK" && event.data.clickUrl) {
         navigate(event.data.clickUrl);
       }
     };
@@ -85,7 +102,7 @@ const App = () => {
     const handleFcmMessage = (event) => {
       const payload = event.detail;
       const title =
-        payload?.notification?.title || payload?.data?.title || "CRAVZO";
+        payload?.notification?.title || payload?.data?.title || "DODAGO";
       const body =
         payload?.notification?.body || payload?.data?.body || null;
       const clickUrl = payload?.data?.clickUrl || null;
@@ -101,8 +118,8 @@ const App = () => {
       });
     };
 
-    window.addEventListener("cravzo:fcm-message", handleFcmMessage);
-    return () => window.removeEventListener("cravzo:fcm-message", handleFcmMessage);
+    window.addEventListener("dodago:fcm-message", handleFcmMessage);
+    return () => window.removeEventListener("dodago:fcm-message", handleFcmMessage);
   }, [navigate]);
 
   if (isHydrating) {
@@ -120,17 +137,19 @@ const App = () => {
 
     return (
       <>
-        <Suspense fallback={<AppLoader />}>
-          {(() => {
-            switch (user.accountType) {
-              case "rider":   return <RiderRoutes />;
-              case "vendor":  return <VendorRoutes />;
-              case "admin":   return <AdminRoutes />;
-              case "customer":
-              default:        return <CustomerRoutes />;
-            }
-          })()}
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<AppLoader />}>
+            {(() => {
+              switch (user.accountType) {
+                case "rider":   return <RiderRoutes />;
+                case "vendor":  return <VendorRoutes />;
+                case "admin":   return <AdminRoutes />;
+                case "customer":
+                default:        return <CustomerRoutes />;
+              }
+            })()}
+          </Suspense>
+        </ErrorBoundary>
         <InstallAppPrompt />
         {toast && (
           <InAppToast toast={toast} onDismiss={() => setToast(null)} />
@@ -141,9 +160,11 @@ const App = () => {
 
   return (
     <>
-      <Suspense fallback={<AppLoader />}>
-        <CustomerRoutes />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={<AppLoader />}>
+          <CustomerRoutes />
+        </Suspense>
+      </ErrorBoundary>
       <InstallAppPrompt />
       {toast && (
         <InAppToast toast={toast} onDismiss={() => setToast(null)} />

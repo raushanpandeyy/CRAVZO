@@ -118,35 +118,19 @@ const getAdminOverview = async (req, res) => {
         pendingVendors,
         pendingRiders,
       },
-      recentOrders: recentOrders.map((order) => ({
-        id: order.id,
-        status: order.status,
-        paymentMethod: order.paymentMethod,
-        paymentStatus: order.paymentStatus,
-        subtotal: Number(order.subtotal),
-        deliveryFee: Number(order.deliveryFee),
-        deliveryFeeBase: Number(order.deliveryFeeBase),
-        deliveryTax: Number(order.deliveryTax),
-        packagingFee: Number(order.packagingFee),
-        packagingFeeBase: Number(order.packagingFeeBase),
-        packagingTax: Number(order.packagingTax),
-        platformFee: Number(order.platformFee),
-        platformFeeBase: Number(order.platformFeeBase),
-        platformTax: Number(order.platformTax),
-        gatewayFee: Number(order.gatewayFee),
-        codCharge: Number(order.codCharge),
-        discount: Number(order.discount),
-        couponCode: order.couponCode,
-        totalTax: Number(order.totalTax),
-        totalAmount: Number(order.totalAmount),
-        deliveryDistance: order.deliveryDistance ? Number(order.deliveryDistance) : null,
-        createdAt: order.createdAt,
-        customer: order.customer,
-        restaurant: order.restaurant,
-        rider: order.rider,
-        items: order.items,
-        address: order.address,
-      })),
+      recentOrders: recentOrders.map((order) => {
+        const { __castFields, ...rest } = order;
+        for (const key of [
+          "subtotal", "deliveryFee", "deliveryFeeBase", "deliveryTax",
+          "packagingFee", "packagingFeeBase", "packagingTax",
+          "platformFee", "platformFeeBase", "platformTax",
+          "gatewayFee", "codCharge", "discount", "totalTax", "totalAmount",
+        ]) {
+          if (rest[key] != null) rest[key] = Number(rest[key]);
+        }
+        if (rest.deliveryDistance != null) rest.deliveryDistance = Number(rest.deliveryDistance);
+        return rest;
+      }),
     },
     meta: {
       recentOrders: {

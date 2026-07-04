@@ -64,7 +64,7 @@ const RestaurantPage = () => {
   const [savingReview, setSavingReview] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("cravzoCart");
+    const stored = localStorage.getItem("dodagoCart");
     if (stored) {
       try {
         const parsedCart = JSON.parse(stored);
@@ -73,12 +73,12 @@ const RestaurantPage = () => {
           setCart(parsedCart);
         } else {
           setCart([]);
-          localStorage.removeItem("cravzoCart");
+          localStorage.removeItem("dodagoCart");
         }
       } catch (error) {
         console.error("Failed to parse cart from localStorage:", error);
         setCart([]);
-        localStorage.removeItem("cravzoCart");
+        localStorage.removeItem("dodagoCart");
       }
     }
 
@@ -138,7 +138,7 @@ const RestaurantPage = () => {
 
   const updateCart = (newCart) => {
     setCart(newCart);
-    localStorage.setItem("cravzoCart", JSON.stringify(newCart));
+    localStorage.setItem("dodagoCart", JSON.stringify(newCart));
     window.dispatchEvent(new Event("cartChange"));
   };
 

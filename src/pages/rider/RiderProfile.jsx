@@ -83,7 +83,7 @@ const RiderProfile = () => {
     setError("");
 
     try {
-      const uploadedAsset = await uploadImage(file, "cravzo/riders");
+      const uploadedAsset = await uploadImage(file, "dodago/riders");
       handleFieldChange("avatarUrl", uploadedAsset.url);
       setMessage("Profile photo uploaded. Save profile to apply it.");
     } catch (requestError) {

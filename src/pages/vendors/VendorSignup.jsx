@@ -171,7 +171,7 @@ export default function VendorSignup() {
             Business Partner
           </span>
           <h1 className="mt-3 text-3xl font-extrabold leading-tight">
-            Grow your restaurant with <span className="text-indigo-300">Cravzo</span>
+            Grow your restaurant with <span className="text-indigo-300">Dodago</span>
           </h1>
           <p className="mt-3 text-sm font-semibold leading-6 text-white/90">
             Manage orders, menu, payouts, and support from one dashboard.

@@ -1,4 +1,4 @@
-# CRAVZO React Native — Execution Plan
+# DODAGO React Native — Execution Plan
 
 ## Goal
 React Native app (Android + iOS) with EXACT same UI/UX as web app mobile view.
@@ -13,7 +13,7 @@ Performance = Swiggy/Zomato level. Play Store ready.
 5. **No UI "improvements"** — Chahe kuch UI element web me behtar ho sakta hai, lekin change nahi karna. Exact copy hona chahiye.
 6. **No backend changes** — Backend me ek line bhi code change nahi hoga. Naye endpoints nahi banenge.
 7. **No database changes** — Database schema, tables, columns kuch nahi badlega.
-8. **Web app chalte rahna chahiye** — Web app (cravzo.shop) pe koi asar nahi padega.
+8. **Web app chalte rahna chahiye** — Web app (dodago.shop) pe koi asar nahi padega.
 
 ---
 
@@ -158,4 +158,4 @@ Performance = Swiggy/Zomato level. Play Store ready.
 5. **No UI "improvements"** — Chahe kuch UI element web me behtar ho sakta hai, lekin change nahi karna. Exact copy hona chahiye.
 6. **No backend changes** — Backend me ek line bhi code change nahi hoga. Naye endpoints nahi banenge.
 7. **No database changes** — Database schema, tables, columns kuch nahi badlega.
-8. **Web app chalte rahna chahiye** — Web app (cravzo.shop) pe koi asar nahi padega.
+8. **Web app chalte rahna chahiye** — Web app (dodago.shop) pe koi asar nahi padega.

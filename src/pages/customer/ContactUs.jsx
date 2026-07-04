@@ -32,7 +32,7 @@ const ContactUs = () => {
   };
 
   const openEmail = () => {
-    window.location.href = "mailto:yushpandey3@gmail.com?subject=Cravzo%20Support%20Request&body=Hello%2C%0A%0AI%20need%20help%20with%3A%0A%0A";
+    window.location.href = "mailto:yushpandey3@gmail.com?subject=Dodago%20Support%20Request&body=Hello%2C%0A%0AI%20need%20help%20with%3A%0A%0A";
   };
 
   const openPhone = () => {

@@ -277,7 +277,8 @@ model FcmToken {
 
 model OtpVerification {
   id                String     @id
-  email             String
+  email             String?
+  phone             String?
   purpose           OtpPurpose
   codeHash          String
   pendingSignupData Json?
@@ -291,6 +292,7 @@ model OtpVerification {
   updatedAt         DateTime
 
   @@index([email, purpose, createdAt])
+  @@index([phone, purpose, createdAt])
 }
 
 enum UserRole {

@@ -146,20 +146,26 @@ const deleteCacheByPattern = async (pattern) => {
   }
 
   try {
-    const match = pattern.replace(/:?\*$/, "");
-    const idx = INDEXED_PREFIXES.indexOf(match);
-    const indexKey = idx !== -1 ? `cache:ix:${INDEXED_PREFIXES[idx]}` : null;
+    // Prefer index-based deletion for known prefixes
+    if (INDEXED_PREFIXES.some((prefix) => pattern.includes(prefix))) {
+      const match = pattern.replace(/:?\*$/, "");
+      const idx = INDEXED_PREFIXES.indexOf(match);
+      const indexKey = idx !== -1 ? `cache:ix:${INDEXED_PREFIXES[idx]}` : null;
 
-    if (indexKey) {
-      const members = await client.sMembers(indexKey);
-      if (members.length > 0) {
-        await client.del([indexKey, ...members]);
-        members.forEach((k) => memoryCache.del(k));
+      if (indexKey) {
+        const members = await client.sMembers(indexKey);
+        if (members.length > 0) {
+          await client.del([indexKey, ...members]);
+          members.forEach((k) => memoryCache.del(k));
+        }
+        return;
       }
-      return;
     }
 
+    // Fallback: batch SCAN with UNLINK (non-blocking) instead of DEL
+    const UNLINK_BATCH_SIZE = 50;
     let cursor = "0";
+    let batch = [];
     do {
       const [nextCursor, keys] = await client.sendCommand([
         "SCAN",
@@ -167,16 +173,25 @@ const deleteCacheByPattern = async (pattern) => {
         "MATCH",
         pattern,
         "COUNT",
-        "100",
+        UNLINK_BATCH_SIZE,
       ]);
 
       cursor = nextCursor;
 
       if (keys.length > 0) {
-        await client.del(keys);
-        keys.forEach((k) => memoryCache.del(k));
+        batch.push(...keys);
+        if (batch.length >= UNLINK_BATCH_SIZE) {
+          await client.unlink(batch);
+          batch.forEach((k) => memoryCache.del(k));
+          batch = [];
+        }
       }
     } while (cursor !== "0");
+
+    if (batch.length > 0) {
+      await client.unlink(batch);
+      batch.forEach((k) => memoryCache.del(k));
+    }
   } catch (error) {
     console.error("Redis cache pattern delete failed:", error.message);
   }

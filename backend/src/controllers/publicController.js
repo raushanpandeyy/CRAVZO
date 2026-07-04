@@ -1,7 +1,7 @@
 import { prisma } from "../config/database.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { getCache, setCache, deleteCache, mgetCache } from "../utils/cache.js";
-import { resolvePromotionRecord } from "./promotionController.js";
+import { resolvePromotionsBatch } from "./promotionController.js";
 import { PROMOTIONS_CACHE_TTL_SECONDS } from "../utils/publicCache.js";
 
 // Fix 2: Removed duplicate `new PrismaClient()` — was creating a second connection
@@ -33,7 +33,7 @@ export const getHomeData = async (req, res) => {
       where: { isActive: true },
       orderBy: { position: "asc" },
     });
-    promotions = (await Promise.all(promos.map(resolvePromotionRecord))).filter(Boolean);
+    promotions = await resolvePromotionsBatch(promos);
     await setCache(CACHE_KEYS.PROMOTIONS, promotions, PROMOTIONS_CACHE_TTL_SECONDS);
   }
 
@@ -149,14 +149,17 @@ export const updateFeaturedRestaurantsOrder = async (req, res) => {
     return res.status(400).json(apiResponse({ message: "Order must be an array" }));
   }
 
-  await prisma.$transaction(
-    order.map((item, index) =>
-      prisma.featuredRestaurant.update({
-        where: { id: item.id },
-        data: { position: index },
-      })
-    )
-  );
+  if (order.length > 0) {
+    const entries = order.map(({ id }, index) => ({ id, position: index }));
+    const placeholders = entries.map((_, i) => `$${i * 2 + 1}::text, $${i * 2 + 2}::int`);
+    await prisma.$executeRawUnsafe(
+      `UPDATE "FeaturedRestaurant"
+       SET position = v.position
+       FROM (VALUES ${placeholders.join(", ")}) AS v(id, position)
+       WHERE "FeaturedRestaurant".id = v.id`,
+      ...entries.flatMap((e) => [e.id, e.position]),
+    );
+  }
 
   await invalidateFeaturedCache();
 
@@ -209,14 +212,17 @@ export const updateAdsOrder = async (req, res) => {
     return res.status(400).json(apiResponse({ message: "Order must be an array" }));
   }
 
-  await prisma.$transaction(
-    order.map((item, index) =>
-      prisma.ad.update({
-        where: { id: item.id },
-        data: { position: index },
-      })
-    )
-  );
+  if (order.length > 0) {
+    const entries = order.map(({ id }, index) => ({ id, position: index }));
+    const placeholders = entries.map((_, i) => `$${i * 2 + 1}::text, $${i * 2 + 2}::int`);
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Ad"
+       SET position = v.position
+       FROM (VALUES ${placeholders.join(", ")}) AS v(id, position)
+       WHERE "Ad".id = v.id`,
+      ...entries.flatMap((e) => [e.id, e.position]),
+    );
+  }
 
   await invalidateAdsCache();
 

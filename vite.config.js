@@ -18,8 +18,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],
       manifest: {
-        name: 'CRAVZO - Food Delivery',
-        short_name: 'CRAVZO',
+        name: 'DODAGO - Food Delivery',
+        short_name: 'DODAGO',
         description: 'Order food from your favorite restaurants with fast delivery',
         theme_color: '#4f46e5',
         background_color: '#ffffff',
@@ -39,7 +39,7 @@ export default defineConfig({
         // Exclude oversized public files from SW precache
         globIgnores: [
           '**/favicon.svg',
-          '**/cravzologo.png',
+          '**/dodagologo.png',
           '**/icon-512.png',
           '**/node_modules/**',
         ],

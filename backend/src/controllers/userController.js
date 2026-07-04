@@ -80,8 +80,9 @@ const uploadImage = async (req, res) => {
     throw new ApiError(400, "Image data is required");
   }
 
-  if (!dataUrl.startsWith("data:image/")) {
-    throw new ApiError(400, "Only image uploads are supported");
+  const allowedMimePrefixes = ["data:image/jpeg", "data:image/png", "data:image/webp", "data:image/avif"];
+  if (!allowedMimePrefixes.some((prefix) => dataUrl.startsWith(prefix))) {
+    throw new ApiError(400, "Only JPEG, PNG, WebP, and AVIF images are supported");
   }
 
   if (dataUrl.length > maxDataUrlLength) {

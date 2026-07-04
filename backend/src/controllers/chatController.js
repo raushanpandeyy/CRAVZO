@@ -1,4 +1,5 @@
 import { prisma } from "../config/database.js";
+import { connectRedis } from "../config/redis.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { uploadImageToCloudinary } from "../utils/cloudinary.js";
@@ -6,7 +7,9 @@ import { uploadImageToCloudinary } from "../utils/cloudinary.js";
 const CLOSED_ORDER_STATUSES = ["DELIVERED", "CANCELLED", "REJECTED"];
 const MESSAGE_LIMIT_MAX = 50;
 const MESSAGE_LIMIT_DEFAULT = 30;
-const recentMessageByUser = new Map();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const CHAT_RATE_PREFIX = "rl:chat:";
+const CHAT_RATE_TTL_SECONDS = 60;
 
 const sanitizeMessage = (message) => ({
   id: message.id,
@@ -259,12 +262,14 @@ const createRoomMessage = async (req, res) => {
 
   await assertCanAccessRoom(req, room, { forWrite: true });
 
-  const now = Date.now();
-  const rateKey = `${req.user.sub}:${room.id}`;
-  const lastSentAt = recentMessageByUser.get(rateKey) || 0;
-
-  if (now - lastSentAt < 800) {
-    throw new ApiError(429, "Please wait before sending another message");
+  const rateKey = `${CHAT_RATE_PREFIX}${req.user.sub}:${room.id}`;
+  const redis = await connectRedis();
+  if (redis?.isOpen) {
+    const exists = await redis.exists(rateKey);
+    if (exists) {
+      throw new ApiError(429, "Please wait before sending another message");
+    }
+    await redis.setEx(rateKey, CHAT_RATE_TTL_SECONDS, "1");
   }
 
   const text = typeof req.body.text === "string" ? req.body.text.trim() : "";
@@ -313,8 +318,6 @@ const createRoomMessage = async (req, res) => {
     return createdMessage;
   });
 
-  recentMessageByUser.set(rateKey, now);
-
   res.status(201).json(
     apiResponse({
       message: "Message sent successfully",
@@ -342,7 +345,7 @@ const uploadChatImage = async (req, res) => {
 
   const uploaded = await uploadImageToCloudinary({
     dataUrl,
-    folder: "cravzo/chat",
+    folder: "dodago/chat",
   });
 
   res.status(201).json(
@@ -360,12 +363,14 @@ const createMessageForRoom = async ({ user, roomId, text: rawText = "", imageUrl
 
   await assertCanAccessRoom({ user: { sub: user.sub, role: user.role } }, room, { forWrite: true });
 
-  const now = Date.now();
-  const rateKey = `${user.sub}:${room.id}`;
-  const lastSentAt = recentMessageByUser.get(rateKey) || 0;
-
-  if (now - lastSentAt < 800) {
-    throw new ApiError(429, "Please wait before sending another message");
+  const rateKey = `${CHAT_RATE_PREFIX}${user.sub}:${room.id}`;
+  const redis = await connectRedis();
+  if (redis?.isOpen) {
+    const exists = await redis.exists(rateKey);
+    if (exists) {
+      throw new ApiError(429, "Please wait before sending another message");
+    }
+    await redis.setEx(rateKey, CHAT_RATE_TTL_SECONDS, "1");
   }
 
   const text = typeof rawText === "string" ? rawText.trim() : "";
@@ -414,7 +419,6 @@ const createMessageForRoom = async ({ user, roomId, text: rawText = "", imageUrl
     return createdMessage;
   });
 
-  recentMessageByUser.set(rateKey, now);
   return sanitizeMessage(message);
 };
 

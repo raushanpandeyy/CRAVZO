@@ -8,6 +8,7 @@ import OrderProgressBar from "../../components/OrderProgressBar.jsx";
 import OrderCard from "../../components/OrderCard.jsx";
 import { SkeletonCard } from "../../components/Skeleton.jsx";
 import { cancelOrder, getMyOrders } from "../../services/orderService.js";
+import { onOrderStatusUpdate } from "../../services/chatSocket.js";
 import { getCloudinaryUrl } from "../../utils/cloudinary.js";
 
 const getOrderImage = (url, width = 400) => {
@@ -21,8 +22,8 @@ const OrderChatModal = lazy(() => import("../../components/OrderChatModal.jsx"))
 const OrderFeedbackModal = lazy(() => import("../../components/OrderFeedbackModal.jsx"));
 
 const riderChatClosedStatuses = ["DELIVERED", "CANCELLED", "REJECTED"];
-const SUBMITTED_KEY = "cravzo_feedback_submitted";
-const DISMISSED_KEY = "cravzo_feedback_dismissed";
+const SUBMITTED_KEY = "dodago_feedback_submitted";
+const DISMISSED_KEY = "dodago_feedback_dismissed";
 
 // Returns Set of order IDs the user has already submitted feedback for
 const getSubmittedIds = () => {
@@ -107,28 +108,19 @@ export default function Orders() {
     init();
   }, []);
 
-  // Auto-poll while active orders exist — pauses when tab is hidden to save data/battery
+  // Real-time order status updates via Socket.IO — replaces 45s polling
   useEffect(() => {
-    const activeStatuses = ["PENDING", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
-    const hasActive = orders.some((o) => activeStatuses.includes(o.status));
+    const cleanup = onOrderStatusUpdate(({ orderId, status }) => {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status } : o)),
+      );
+      setSelectedOrder((prev) =>
+        prev?.id === orderId ? { ...prev, status } : prev,
+      );
+    });
 
-    if (!hasActive) return;
-
-    const tick = async () => {
-      // Skip polling when tab is backgrounded — saves mobile data
-      if (document.visibilityState === "hidden") return;
-      const fresh = await loadOrders(true);
-      if (!fresh) return;
-      setSelectedOrder((prev) => {
-        if (!prev) return prev;
-        return fresh.find((o) => o.id === prev.id) || prev;
-      });
-    };
-
-    pollingRef.current = setInterval(tick, POLL_INTERVAL_MS);
-
-    return () => clearInterval(pollingRef.current);
-  }, [orders]);
+    return cleanup;
+  }, []);
 
   const calcCancelFee = (order) => {
     if (["PENDING", "ACCEPTED"].includes(order.status)) return 0;

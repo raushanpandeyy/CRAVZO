@@ -59,12 +59,20 @@ const Chat = ({
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const mountedRef = useRef(true);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
   const latestMessageAtRef = useRef("");
 
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("cravzoCurrentUser"));
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem("dodagoCurrentUser"));
     setUser(storedUser);
   }, []);
 
@@ -195,6 +203,7 @@ const Chat = ({
 
     const reader = new FileReader();
     reader.onload = async () => {
+      if (!mountedRef.current) return;
       setSending(true);
       setError("");
 
@@ -206,13 +215,18 @@ const Chat = ({
           imageUrl: uploaded.url,
           clientId: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
         });
+        if (!mountedRef.current) return;
         setNewMessage("");
         appendMessage(response.message);
       } catch (requestError) {
-        setError(requestError.message || "Failed to upload image");
+        if (mountedRef.current) {
+          setError(requestError.message || "Failed to upload image");
+        }
       } finally {
-        setSending(false);
-        event.target.value = "";
+        if (mountedRef.current) {
+          setSending(false);
+          event.target.value = "";
+        }
       }
     };
     reader.readAsDataURL(file);

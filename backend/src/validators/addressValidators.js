@@ -10,8 +10,6 @@ const baseAddressSchema = z.object({
   state: z.string().trim().min(2),
   postalCode: z.string().trim().min(4).max(12),
   isDefault: z.boolean().optional(),
-  lat: z.number().min(-90).max(90).optional().nullable(),
-  lng: z.number().min(-180).max(180).optional().nullable(),
 });
 
 const createAddressSchema = baseAddressSchema;

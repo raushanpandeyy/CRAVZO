@@ -10,6 +10,7 @@ import {
   searchRestaurantsAndDishes,
 } from "../controllers/restaurantController.js";
 import { authorize, authenticate } from "../middleware/authMiddleware.js";
+import { publicLimiter } from "../middleware/rateLimiters.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
 const cachePublic = (_req, res, next) => {
@@ -19,10 +20,10 @@ const cachePublic = (_req, res, next) => {
 
 const restaurantRouter = Router();
 
-restaurantRouter.get("/", cachePublic, asyncHandler(listRestaurants));
-restaurantRouter.get("/nearby", cachePublic, asyncHandler(getNearbyRestaurants));
+restaurantRouter.get("/", publicLimiter, cachePublic, asyncHandler(listRestaurants));
+restaurantRouter.get("/nearby", publicLimiter, cachePublic, asyncHandler(getNearbyRestaurants));
 // Unified search: GET /api/restaurants/search?q=biryani&lat=28.6&lng=77.2&radius=3
-restaurantRouter.get("/search", cachePublic, asyncHandler(searchRestaurantsAndDishes));
+restaurantRouter.get("/search", publicLimiter, cachePublic, asyncHandler(searchRestaurantsAndDishes));
 restaurantRouter.get("/mine", authenticate, authorize("VENDOR", "ADMIN"), asyncHandler(getMyRestaurant));
 restaurantRouter.get("/:restaurantId", cachePublic, asyncHandler(getRestaurantById));
 

@@ -108,7 +108,7 @@ const compressImage = async (file) => {
   return blobToDataUrl(blob);
 };
 
-const uploadImage = async (file, folder = "cravzo") => {
+const uploadImage = async (file, folder = "dodago") => {
   const dataUrl = await compressImage(file);
   const response = await apiRequest(API_ENDPOINTS.user.uploadImage, {
     method: "POST",

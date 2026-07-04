@@ -105,7 +105,7 @@ const ManageMenu = () => {
     setError("");
 
     try {
-      const uploadedAsset = await uploadImage(file, "cravzo/menu-items");
+      const uploadedAsset = await uploadImage(file, "dodago/menu-items");
       setFormData((prev) => ({
         ...prev,
         imageUrl: uploadedAsset.url,

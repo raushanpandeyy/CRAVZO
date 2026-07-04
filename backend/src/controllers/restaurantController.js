@@ -100,7 +100,6 @@ const listRestaurants = async (req, res) => {
 
   const where = {
     status: "ACTIVE",
-    isOpen: true,
     ...(city ? { city: { contains: city, mode: "insensitive" } } : {}),
     ...(search || dish
       ? {
@@ -200,7 +199,6 @@ const getRestaurantById = async (req, res) => {
     where: {
       id: req.params.restaurantId,
       status: "ACTIVE",
-      isOpen: true,
     },
     select: {
       id: true,
@@ -337,9 +335,11 @@ const getNearbyRestaurants = async (req, res) => {
   const nearbyRows = await prisma.$queryRaw`
     SELECT id, (
       6371 * acos(
-        cos(radians(${userLat})) * cos(radians(latitude)) *
-        cos(radians(longitude) - radians(${userLng})) +
-        sin(radians(${userLat})) * sin(radians(latitude))
+        LEAST(1, GREATEST(-1,
+          cos(radians(${userLat})) * cos(radians(latitude)) *
+          cos(radians(longitude) - radians(${userLng})) +
+          sin(radians(${userLat})) * sin(radians(latitude))
+        ))
       )
     ) AS distance
     FROM "Restaurant"
@@ -349,9 +349,11 @@ const getNearbyRestaurants = async (req, res) => {
       AND longitude IS NOT NULL
       AND (
         6371 * acos(
-          cos(radians(${userLat})) * cos(radians(latitude)) *
-          cos(radians(longitude) - radians(${userLng})) +
-          sin(radians(${userLat})) * sin(radians(latitude))
+          LEAST(1, GREATEST(-1,
+            cos(radians(${userLat})) * cos(radians(latitude)) *
+            cos(radians(longitude) - radians(${userLng})) +
+            sin(radians(${userLat})) * sin(radians(latitude))
+          ))
         )
       ) <= ${radiusKm}
     ORDER BY distance
@@ -403,12 +405,13 @@ const getNearbyRestaurants = async (req, res) => {
     },
   });
 
-  restaurants.sort((a, b) => distanceMap[a.id] - distanceMap[b.id]);
-
-  const nearby = restaurants.map((r) => ({
-    ...serializeRestaurant(r),
-    distance: distanceMap[r.id],
-  }));
+  const nearby = restaurants.reduce((acc, r) => {
+    const item = { ...serializeRestaurant(r), distance: distanceMap[r.id] };
+    const insertAt = acc.findIndex((e) => e.distance > item.distance);
+    if (insertAt === -1) acc.push(item);
+    else acc.splice(insertAt, 0, item);
+    return acc;
+  }, []);
 
   const response = apiResponse({
     message: "Nearby restaurants fetched",
@@ -453,73 +456,65 @@ const searchRestaurantsAndDishes = async (req, res) => {
 
   const tsQuery = query.replace(/[^\w\s]/g, "").trim();
 
+  const hasCoords = typeof lat === "number" && typeof lng === "number";
+  const distanceExpr = hasCoords
+    ? prisma.$queryRaw`(6371 * 2 * asin(sqrt(
+        power(sin(radians(${lat} - latitude) / 2), 2) +
+        cos(radians(${lat})) * cos(radians(latitude)) *
+        power(sin(radians(${lng} - longitude) / 2), 2)
+      )))`
+    : prisma.$queryRaw`NULL`;
+
   const [restaurants, dishes] = await Promise.all([
     prisma.$queryRaw`
       SELECT id, name, cuisine, city, image_url AS "imageUrl",
-             address_line1 AS "addressLine1", latitude, longitude
+             address_line1 AS "addressLine1", latitude, longitude,
+             ${distanceExpr} AS distance
       FROM "Restaurant"
       WHERE status = 'ACTIVE' AND is_open = true
         AND to_tsvector('english', coalesce(name, '') || ' ' || coalesce(cuisine, '') || ' ' || coalesce(city, ''))
             @@ plainto_tsquery('english', ${tsQuery})
-      ORDER BY ts_rank(
-        to_tsvector('english', coalesce(name, '') || ' ' || coalesce(cuisine, '') || ' ' || coalesce(city, '')),
-        plainto_tsquery('english', ${tsQuery})
-      ) DESC
-      LIMIT 15
+        ${hasCoords ? prisma.$queryRaw`AND (${distanceExpr}) <= ${radiusKm}` : prisma.$queryRaw``}
+      ORDER BY ${hasCoords ? prisma.$queryRaw`distance ASC,` : prisma.$queryRaw``}
+        ts_rank(
+          to_tsvector('english', coalesce(name, '') || ' ' || coalesce(cuisine, '') || ' ' || coalesce(city, '')),
+          plainto_tsquery('english', ${tsQuery})
+        ) DESC
+      LIMIT 8
     `,
     prisma.$queryRaw`
       SELECT mi.id, mi.name, mi.category, mi.price::float8 AS price,
              mi.image_url AS "imageUrl",
              r.id AS "restaurantId", r.name AS "restaurantName",
-             r.city, r.latitude, r.longitude
+             r.city, r.latitude, r.longitude,
+             ${distanceExpr} AS distance
       FROM "MenuItem" mi
       JOIN "Restaurant" r ON r.id = mi.restaurant_id
       WHERE mi.status = 'ACTIVE' AND r.status = 'ACTIVE' AND r.is_open = true
         AND to_tsvector('english', coalesce(mi.name, '') || ' ' || coalesce(mi.category, ''))
             @@ plainto_tsquery('english', ${tsQuery})
-      ORDER BY ts_rank(
-        to_tsvector('english', coalesce(mi.name, '') || ' ' || coalesce(mi.category, '')),
-        plainto_tsquery('english', ${tsQuery})
-      ) DESC
-      LIMIT 10
+        ${hasCoords ? prisma.$queryRaw`AND (${distanceExpr}) <= ${radiusKm}` : prisma.$queryRaw``}
+      ORDER BY ${hasCoords ? prisma.$queryRaw`distance ASC,` : prisma.$queryRaw``}
+        ts_rank(
+          to_tsvector('english', coalesce(mi.name, '') || ' ' || coalesce(mi.category, '')),
+          plainto_tsquery('english', ${tsQuery})
+        ) DESC
+      LIMIT 8
     `,
   ]);
 
-  const computeDistance = (itemLat, itemLng) => {
-    if (!lat || !lng || !itemLat || !itemLng) return null;
-    const dLat = (itemLat - lat) * Math.PI / 180;
-    const dLng = (itemLng - lng) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) ** 2 +
-      Math.cos(lat * Math.PI / 180) * Math.cos(itemLat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-    return Number((6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(2));
-  };
+  const restaurantsOut = (restaurants || []).map((r) => ({
+    id: r.id, name: r.name, cuisine: r.cuisine, city: r.city,
+    imageUrl: r.imageUrl, location: [r.addressLine1, r.city].filter(Boolean).join(", "),
+    distance: r.distance ? Number(Number(r.distance).toFixed(2)) : null, matchingDishes: [],
+  }));
 
-  const restaurantsOut = (restaurants || [])
-    .map((r) => {
-      const dist = computeDistance(r.latitude, r.longitude);
-      return (!dist || dist <= radiusKm) ? {
-        id: r.id, name: r.name, cuisine: r.cuisine, city: r.city,
-        imageUrl: r.imageUrl, location: [r.addressLine1, r.city].filter(Boolean).join(", "),
-        distance: dist, matchingDishes: [],
-      } : null;
-    })
-    .filter(Boolean)
-    .sort((a, b) => (a.distance ?? 99) - (b.distance ?? 99))
-    .slice(0, 8);
-
-  const dishesOut = (dishes || [])
-    .map((d) => {
-      const dist = computeDistance(d.latitude, d.longitude);
-      return (!dist || dist <= radiusKm) ? {
-        id: d.id, name: d.name, category: d.category,
-        price: Number(d.price), imageUrl: d.imageUrl,
-        restaurantId: d.restaurantId, restaurantName: d.restaurantName,
-        distance: dist,
-      } : null;
-    })
-    .filter(Boolean)
-    .sort((a, b) => (a.distance ?? 99) - (b.distance ?? 99))
-    .slice(0, 8);
+  const dishesOut = (dishes || []).map((d) => ({
+    id: d.id, name: d.name, category: d.category,
+    price: Number(d.price), imageUrl: d.imageUrl,
+    restaurantId: d.restaurantId, restaurantName: d.restaurantName,
+    distance: d.distance ? Number(Number(d.distance).toFixed(2)) : null,
+  }));
 
   const response = apiResponse({
     message: "Search results",

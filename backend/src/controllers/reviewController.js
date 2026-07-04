@@ -34,24 +34,28 @@ const serializeReview = (review) => ({
 });
 
 const listMyReviews = async (req, res) => {
-  const reviews = await prisma.review.findMany({
-    where: {
-      userId: req.user.sub,
-    },
-    include: {
-      restaurant: {
-        select: { id: true, name: true, imageUrl: true },
+  const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 50);
+  const skip = (page - 1) * limit;
+
+  const [reviews, total] = await Promise.all([
+    prisma.review.findMany({
+      where: { userId: req.user.sub },
+      include: {
+        restaurant: { select: { id: true, name: true, imageUrl: true } },
       },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.review.count({ where: { userId: req.user.sub } }),
+  ]);
 
   res.status(200).json(
     apiResponse({
       message: "Your reviews fetched successfully",
       data: reviews.map(serializeReview),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 },
     }),
   );
 };
