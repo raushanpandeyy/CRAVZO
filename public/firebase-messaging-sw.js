@@ -25,8 +25,8 @@ if (hasFirebaseConfig) {
 
     self.registration.showNotification(title, {
       body,
-      icon: "/cravzologo.png",
-      badge: "/cravzologo.png",
+      icon: "/dodagologo.png",
+      badge: "/dodagologo.png",
       data: {
         clickUrl: payload.data?.clickUrl || "/",
       },

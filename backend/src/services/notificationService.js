@@ -119,8 +119,8 @@ const sendNotificationToUsers = async ({ userIds = [], title, body, data = {} })
         link: data.clickUrl || "/",
       },
       notification: {
-        icon: "/cravzologo.png",
-        badge: "/cravzologo.png",
+        icon: "/dodagologo.png",
+        badge: "/dodagologo.png",
         requireInteraction: false,
       },
     },
