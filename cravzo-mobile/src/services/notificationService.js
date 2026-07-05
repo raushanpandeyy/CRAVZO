@@ -4,113 +4,134 @@ import { Platform } from "react-native";
 import { apiRequest } from "./api";
 import { storage } from "./storage";
 
-const FCM_TOKEN_KEY = "cravzoFcmToken";
-const NOTIF_GRANTED_KEY = "cravzoNotifGranted";
+const IS_WEB = Platform.OS === "web";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+const noop = () => {};
+const noopAsync = async () => {};
+const noopRemove = { remove: noop };
 
-export const setupNotificationChannel = () => {
-  if (Platform.OS === "android") {
-    Notifications.setNotificationChannelAsync("default", {
-      name: "CRAVZO",
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#4f46e5",
-      sound: "default",
-    });
-  }
-};
+const FCM_TOKEN_KEY = "dodagoFcmToken";
+const NOTIF_GRANTED_KEY = "dodagoNotifGranted";
 
-export const registerForPushNotifications = async () => {
-  if (!Device.isDevice) {
-    return null;
-  }
+if (!IS_WEB) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
+export const setupNotificationChannel = IS_WEB
+  ? noop
+  : () => {
+      if (Platform.OS === "android") {
+        Notifications.setNotificationChannelAsync("default", {
+          name: "DODAGO",
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: "#4f46e5",
+        });
+      }
+    };
 
-  if (existingStatus !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
+export const registerForPushNotifications = IS_WEB
+  ? noopAsync
+  : async () => {
+      if (!Device.isDevice) {
+        return null;
+      }
 
-  if (finalStatus !== "granted") {
-    storage.set(NOTIF_GRANTED_KEY, "false");
-    return null;
-  }
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
 
-  storage.set(NOTIF_GRANTED_KEY, "true");
+      if (existingStatus !== "granted") {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
 
-  const tokenData = await Notifications.getDevicePushTokenAsync();
-  const pushToken = tokenData.data;
-  const platform = Platform.OS === "android" ? "ANDROID" : "IOS";
+      if (finalStatus !== "granted") {
+        storage.set(NOTIF_GRANTED_KEY, "false");
+        return null;
+      }
 
-  const previousToken = storage.getString(FCM_TOKEN_KEY);
-  if (previousToken === pushToken) {
-    return pushToken;
-  }
+      storage.set(NOTIF_GRANTED_KEY, "true");
 
-  try {
-    await apiRequest("/api/notifications/fcm-token", {
-      method: "POST",
-      data: {
-        token: pushToken,
-        platform,
-        deviceId: tokenData.data?.substring(0, 20) || pushToken.substring(0, 20),
-      },
-    });
-    storage.set(FCM_TOKEN_KEY, pushToken);
-  } catch {
-    // Token registration failed silently
-  }
+      const tokenData = await Notifications.getDevicePushTokenAsync();
+      const pushToken = tokenData.data;
+      const platform = Platform.OS === "android" ? "ANDROID" : "IOS";
 
-  return pushToken;
-};
+      const previousToken = storage.getString(FCM_TOKEN_KEY);
+      if (previousToken === pushToken) {
+        return pushToken;
+      }
 
-export const unregisterPushNotifications = async () => {
-  const token = storage.getString(FCM_TOKEN_KEY);
-  if (token) {
-    try {
-      await apiRequest("/api/notifications/fcm-token", {
-        method: "DELETE",
-        data: { token },
-      });
-    } catch {}
-    storage.delete(FCM_TOKEN_KEY);
-  }
-  storage.delete(NOTIF_GRANTED_KEY);
-};
+      try {
+        await apiRequest("/api/notifications/fcm-token", {
+          method: "POST",
+          data: {
+            token: pushToken,
+            platform,
+            deviceId: tokenData.data?.substring(0, 20) || pushToken.substring(0, 20),
+          },
+        });
+        storage.set(FCM_TOKEN_KEY, pushToken);
+      } catch {
+        // Token registration failed silently
+      }
+
+      return pushToken;
+    };
+
+export const unregisterPushNotifications = IS_WEB
+  ? noopAsync
+  : async () => {
+      const token = storage.getString(FCM_TOKEN_KEY);
+      if (token) {
+        try {
+          await apiRequest("/api/notifications/fcm-token", {
+            method: "DELETE",
+            data: { token },
+          });
+        } catch {}
+        storage.delete(FCM_TOKEN_KEY);
+      }
+      storage.delete(NOTIF_GRANTED_KEY);
+    };
 
 let _notificationResponseListener = null;
 let _notificationListener = null;
 
-export const addNotificationResponseListener = (handler) => {
-  _notificationResponseListener = Notifications.addNotificationResponseReceivedListener(handler);
-  return _notificationResponseListener;
-};
+export const addNotificationResponseListener = IS_WEB
+  ? () => noopRemove
+  : (handler) => {
+      _notificationResponseListener = Notifications.addNotificationResponseReceivedListener(handler);
+      return _notificationResponseListener;
+    };
 
-export const addNotificationListener = (handler) => {
-  _notificationListener = Notifications.addNotificationReceivedListener(handler);
-  return _notificationListener;
-};
+export const addNotificationListener = IS_WEB
+  ? () => noopRemove
+  : (handler) => {
+      _notificationListener = Notifications.addNotificationReceivedListener(handler);
+      return _notificationListener;
+    };
 
-export const removeNotificationListeners = () => {
-  if (_notificationResponseListener) {
-    _notificationResponseListener.remove();
-    _notificationResponseListener = null;
-  }
-  if (_notificationListener) {
-    _notificationListener.remove();
-    _notificationListener = null;
-  }
-};
+export const removeNotificationListeners = IS_WEB
+  ? noop
+  : () => {
+      if (_notificationResponseListener) {
+        _notificationResponseListener.remove();
+        _notificationResponseListener = null;
+      }
+      if (_notificationListener) {
+        _notificationListener.remove();
+        _notificationListener = null;
+      }
+    };
 
-export const getLastNotificationResponse = async () => {
-  return Notifications.getLastNotificationResponseAsync();
-};
+export const getLastNotificationResponse = IS_WEB
+  ? noopAsync
+  : async () => {
+      return Notifications.getLastNotificationResponseAsync();
+    };

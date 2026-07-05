@@ -1,23 +1,62 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
-  View, Text, ScrollView, TouchableOpacity,
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
 } from "react-native";
 import { IndianRupee, TrendingUp, Calendar, ChevronLeft } from "lucide-react-native";
 import { colors } from "../../constants/colors";
-
-const earnings = [
-  { date: "Mon", amount: 450, trips: 9 },
-  { date: "Tue", amount: 380, trips: 7 },
-  { date: "Wed", amount: 520, trips: 11 },
-  { date: "Thu", amount: 410, trips: 8 },
-  { date: "Fri", amount: 490, trips: 10 },
-  { date: "Sat", amount: 610, trips: 13 },
-  { date: "Sun", amount: 550, trips: 12 },
-];
-
-const maxAmount = Math.max(...earnings.map((e) => e.amount));
+import { getRiderOrders } from "../../services/riderService";
+import { getMyProfile } from "../../services/riderService";
 
 export default function RiderEarningsScreen({ navigation }) {
+  const [orders, setOrders] = useState([]);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [prof, orderRes] = await Promise.all([
+          getMyProfile(),
+          getRiderOrders(),
+        ]);
+        setProfile(prof);
+        setOrders(orderRes.orders || []);
+      } catch (err) {
+        console.error("Earnings load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const deliveredOrders = orders.filter((o) => o.status === "DELIVERED");
+  const totalEarnings = deliveredOrders.reduce((sum, o) => sum + (o.deliveryFee || 0), 0);
+  const thisWeekOrders = deliveredOrders.filter((o) => {
+    if (!o.updatedAt) return false;
+    const d = new Date(o.updatedAt);
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return d >= weekAgo;
+  });
+  const weekEarnings = thisWeekOrders.reduce((sum, o) => sum + (o.deliveryFee || 0), 0);
+
+  const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dayBuckets = Array(7).fill(0);
+  thisWeekOrders.forEach((o) => {
+    const day = new Date(o.updatedAt).getDay();
+    dayBuckets[day] += o.deliveryFee || 0;
+  });
+
+  const maxAmount = Math.max(...dayBuckets, 1);
+
+  if (loading) {
+    return (
+      <View className="flex-1 bg-[#F5F5F5] items-center justify-center">
+        <ActivityIndicator size="large" color={colors.brand[600]} />
+      </View>
+    );
+  }
+
   return (
     <View className="flex-1 bg-[#F5F5F5]">
       <View className="bg-white shadow-sm pt-14 pb-4 px-4">
@@ -35,16 +74,16 @@ export default function RiderEarningsScreen({ navigation }) {
             <Text className="font-bold text-slate-900">This Week</Text>
           </View>
           <View className="flex-row items-end justify-between h-32 px-2">
-            {earnings.map((day) => {
-              const height = (day.amount / maxAmount) * 100;
+            {dayBuckets.map((amount, i) => {
+              const height = (amount / maxAmount) * 100;
               return (
-                <View key={day.date} className="items-center gap-1">
-                  <Text className="text-[10px] font-bold text-slate-700">₹{day.amount}</Text>
+                <View key={dayLabels[i]} className="items-center gap-1">
+                  <Text className="text-[10px] font-bold text-slate-700">₹{amount}</Text>
                   <View
                     className="w-8 rounded-t-lg bg-indigo-500"
                     style={{ height: Math.max(height, 8) }}
                   />
-                  <Text className="text-[10px] text-slate-500">{day.date}</Text>
+                  <Text className="text-[10px] text-slate-500">{dayLabels[i]}</Text>
                 </View>
               );
             })}
@@ -64,7 +103,7 @@ export default function RiderEarningsScreen({ navigation }) {
                   <Text className="text-xs text-slate-500">All time</Text>
                 </View>
               </View>
-              <Text className="text-xl font-extrabold text-emerald-600">₹12,580</Text>
+              <Text className="text-xl font-extrabold text-emerald-600">₹{totalEarnings}</Text>
             </View>
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center gap-3">
@@ -76,7 +115,7 @@ export default function RiderEarningsScreen({ navigation }) {
                   <Text className="text-xs text-slate-500">7 days</Text>
                 </View>
               </View>
-              <Text className="text-xl font-extrabold text-indigo-600">₹3,410</Text>
+              <Text className="text-xl font-extrabold text-indigo-600">₹{weekEarnings}</Text>
             </View>
           </View>
         </View>

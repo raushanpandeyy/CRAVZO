@@ -1,15 +1,15 @@
 {
   "expo": {
-    "name": "CRAVZO",
-    "slug": "cravzo",
+    "name": "DODAGO",
+    "slug": "dodago",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": "cravzo",
+    "scheme": "dodago",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.cravzo.app",
+      "bundleIdentifier": "com.dodago.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "We need your location to show nearby restaurants and track delivery.",
         "UIBackgroundModes": [
@@ -19,7 +19,7 @@
       }
     },
     "android": {
-      "package": "com.cravzo.app",
+      "package": "com.dodago.app",
       "adaptiveIcon": {
         "backgroundColor": "#1e1b4b",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -49,7 +49,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "cravzo-mobile"
+        "projectId": "dodago-mobile"
       }
     }
   }

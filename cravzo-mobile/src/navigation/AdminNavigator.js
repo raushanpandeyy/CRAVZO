@@ -2,12 +2,19 @@ import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { LayoutDashboard, ShoppingBag, Users, Store, Star, ChevronRight } from "lucide-react-native";
+import { LayoutDashboard, ShoppingBag, Users, Store, Star, ChevronRight, MessageCircle, BarChart3, Percent } from "lucide-react-native";
 
 import AdminDashboardScreen from "../screens/admin/AdminDashboardScreen";
 import AdminOrdersScreen from "../screens/admin/AdminOrdersScreen";
 import AdminUsersScreen from "../screens/admin/AdminUsersScreen";
 import AdminRestaurantsScreen from "../screens/admin/AdminRestaurantsScreen";
+import AdminFeaturedScreen from "../screens/admin/AdminFeaturedScreen";
+import AdminUserDetailsScreen from "../screens/admin/AdminUserDetailsScreen";
+import AdminPendingScreen from "../screens/admin/AdminPendingScreen";
+import AdminChatInboxScreen from "../screens/admin/AdminChatInboxScreen";
+import AdminAnalyticsScreen from "../screens/admin/AdminAnalyticsScreen";
+import AdminPromotionsScreen from "../screens/admin/AdminPromotionsScreen";
+import ChatScreen from "../components/ChatScreen";
 import { colors } from "../constants/colors";
 
 const Tab = createBottomTabNavigator();
@@ -56,6 +63,13 @@ export default function AdminNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="AdminTabs" component={AdminTabs} />
+      <Stack.Screen name="AdminFeatured" component={AdminFeaturedScreen} />
+      <Stack.Screen name="AdminUserDetails" component={AdminUserDetailsScreen} />
+      <Stack.Screen name="AdminPending" component={AdminPendingScreen} />
+      <Stack.Screen name="AdminChatInbox" component={AdminChatInboxScreen} />
+      <Stack.Screen name="AdminAnalytics" component={AdminAnalyticsScreen} />
+      <Stack.Screen name="AdminPromotions" component={AdminPromotionsScreen} />
+      <Stack.Screen name="AdminChat" component={ChatScreen} />
     </Stack.Navigator>
   );
 }

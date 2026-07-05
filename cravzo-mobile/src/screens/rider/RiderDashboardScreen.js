@@ -1,21 +1,105 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  View, Text, ScrollView, TouchableOpacity, Image,
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert,
 } from "react-native";
 import {
   Bike, Clock3, IndianRupee, Star, MapPin,
-  ChevronRight, CheckCircle, XCircle,
+  ChevronRight, CheckCircle,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
-
-const sampleDeliveries = [
-  { id: "1", restaurant: "Punjab Grill", customer: "Rahul S.", address: "Sector 62, Noida", amount: 45, status: "Available", distance: "2.3 km", time: "25 min" },
-  { id: "2", restaurant: "Domino's", customer: "Priya M.", address: "Sector 44, Noida", amount: 55, status: "Available", distance: "3.1 km", time: "30 min" },
-];
+import { getRiderOrders, updateOrderStatus, updateRiderStatus, getMyProfile } from "../../services/riderService";
+import { connectSocket, disconnectSocket } from "../../services/chatSocket";
 
 export default function RiderDashboardScreen() {
-  const [deliveries] = useState(sampleDeliveries);
+  const [orders, setOrders] = useState([]);
+  const [profile, setProfile] = useState(null);
   const [isOnline, setIsOnline] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [acceptingId, setAcceptingId] = useState(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      const [prof, orderRes] = await Promise.all([
+        getMyProfile(),
+        getRiderOrders(),
+      ]);
+      setProfile(prof);
+      setOrders(orderRes.orders || []);
+    } catch (err) {
+      console.error("Rider load error:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+    const socket = connectSocket();
+
+    const handleNewOrder = (order) => {
+      if (order.status === "READY_FOR_PICKUP" || order.status === "OUT_FOR_DELIVERY") {
+        setOrders((prev) => [order, ...prev]);
+      }
+    };
+    const handleStatusUpdate = ({ orderId, status }) => {
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status } : o))
+      );
+    };
+    const handleOrderClaimed = ({ orderId, riderId }) => {
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    };
+
+    socket.on("order:new", handleNewOrder);
+    socket.on("order:status-updated", handleStatusUpdate);
+    socket.on("order:claimed", handleOrderClaimed);
+
+    return () => {
+      socket.off("order:new", handleNewOrder);
+      socket.off("order:status-updated", handleStatusUpdate);
+      socket.off("order:claimed", handleOrderClaimed);
+      disconnectSocket();
+    };
+  }, [loadData]);
+
+  const handleToggleOnline = async () => {
+    const next = !isOnline;
+    try {
+      await updateRiderStatus(next);
+      setIsOnline(next);
+      if (next) loadData();
+    } catch {
+      Alert.alert("Error", "Failed to update status");
+    }
+  };
+
+  const handleAccept = async (orderId) => {
+    setAcceptingId(orderId);
+    try {
+      await updateOrderStatus(orderId, "CLAIM");
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+    } catch (err) {
+      Alert.alert("Error", "Failed to accept delivery");
+    } finally {
+      setAcceptingId(null);
+    }
+  };
+
+  const available = orders.filter((o) =>
+    ["READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(o.status)
+  );
+  const todayEarnings = orders
+    .filter((o) => o.status === "DELIVERED")
+    .reduce((sum, o) => sum + (o.deliveryFee || 0), 0);
+  const todayDeliveries = orders.filter((o) => o.status === "DELIVERED").length;
+
+  if (loading) {
+    return (
+      <View className="flex-1 bg-[#F5F5F5] items-center justify-center">
+        <ActivityIndicator size="large" color={colors.brand[600]} />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-[#F5F5F5]">
@@ -28,28 +112,26 @@ export default function RiderDashboardScreen() {
               </View>
               <View>
                 <Text className="text-lg font-extrabold text-white">Rider Dashboard</Text>
-                <Text className="text-sm text-indigo-200">Raushan Kumar</Text>
+                <Text className="text-sm text-indigo-200">{profile?.name || "Rider"}</Text>
               </View>
             </View>
             <TouchableOpacity
-              onPress={() => setIsOnline(!isOnline)}
+              onPress={handleToggleOnline}
               className={`rounded-full px-4 py-2 ${isOnline ? "bg-emerald-500" : "bg-slate-500"}`}
             >
               <Text className="text-xs font-extrabold text-white">{isOnline ? "ONLINE" : "OFFLINE"}</Text>
             </TouchableOpacity>
           </View>
-          {isOnline ? (
-            <View className="flex-row gap-4 mt-4">
-              <View className="flex-1 bg-white/10 rounded-xl p-3">
-                <Text className="text-2xl font-extrabold text-white">₹0</Text>
-                <Text className="text-xs text-indigo-200">Today's Earnings</Text>
-              </View>
-              <View className="flex-1 bg-white/10 rounded-xl p-3">
-                <Text className="text-2xl font-extrabold text-white">0</Text>
-                <Text className="text-xs text-indigo-200">Deliveries</Text>
-              </View>
+          <View className="flex-row gap-4 mt-4">
+            <View className="flex-1 bg-white/10 rounded-xl p-3">
+              <Text className="text-2xl font-extrabold text-white">₹{todayEarnings}</Text>
+              <Text className="text-xs text-indigo-200">Today's Earnings</Text>
             </View>
-          ) : null}
+            <View className="flex-1 bg-white/10 rounded-xl p-3">
+              <Text className="text-2xl font-extrabold text-white">{todayDeliveries}</Text>
+              <Text className="text-xs text-indigo-200">Deliveries</Text>
+            </View>
+          </View>
         </View>
 
         <View className="px-4 pt-6">
@@ -57,7 +139,7 @@ export default function RiderDashboardScreen() {
             {isOnline ? "Available Orders" : "Go Online to see orders"}
           </Text>
 
-          {isOnline && deliveries.length === 0 ? (
+          {isOnline && available.length === 0 ? (
             <View className="items-center justify-center py-10">
               <Bike size={48} color="#94a3b8" />
               <Text className="text-base font-bold text-slate-500 mt-4">No orders available</Text>
@@ -65,35 +147,45 @@ export default function RiderDashboardScreen() {
             </View>
           ) : isOnline ? (
             <View className="space-y-4">
-              {deliveries.map((del) => (
-                <TouchableOpacity key={del.id} className="bg-white rounded-3xl p-4 shadow-sm">
+              {available.map((order) => (
+                <TouchableOpacity key={order.id} className="bg-white rounded-3xl p-4 shadow-sm">
                   <View className="flex-row items-start gap-3">
                     <View className="h-12 w-12 rounded-2xl bg-amber-50 items-center justify-center">
                       <Bike size={24} color="#d97706" />
                     </View>
                     <View className="flex-1">
-                      <Text className="font-extrabold text-slate-900">{del.restaurant}</Text>
-                      <Text className="text-xs text-slate-500 mt-0.5">{del.customer} • {del.distance}</Text>
+                      <Text className="font-extrabold text-slate-900">{order.restaurant?.name || order.restaurantName || "Restaurant"}</Text>
+                      <Text className="text-xs text-slate-500 mt-0.5">
+                        {order.user?.name || order.customerName || "Customer"} • {order.distance ? `${order.distance} km` : ""}
+                      </Text>
                       <View className="flex-row items-center gap-2 mt-2">
                         <View className="flex-row items-center gap-1">
                           <MapPin size={12} color={colors.slate[400]} />
-                          <Text className="text-xs text-slate-400" numberOfLines={1}>{del.address}</Text>
+                          <Text className="text-xs text-slate-400" numberOfLines={1}>
+                            {order.deliveryAddress?.address || order.address || ""}
+                          </Text>
                         </View>
                       </View>
                       <View className="flex-row items-center gap-3 mt-2">
                         <View className="flex-row items-center gap-1 bg-emerald-50 rounded-full px-2 py-0.5">
                           <IndianRupee size={10} color="#059669" />
-                          <Text className="text-xs font-extrabold text-emerald-700">{del.amount}</Text>
+                          <Text className="text-xs font-extrabold text-emerald-700">{order.deliveryFee || order.total || 0}</Text>
                         </View>
                         <View className="flex-row items-center gap-1">
                           <Clock3 size={10} color={colors.slate[400]} />
-                          <Text className="text-xs text-slate-500">{del.time}</Text>
+                          <Text className="text-xs text-slate-500">{order.estimatedTime || "30 min"}</Text>
                         </View>
                       </View>
                     </View>
                     <View className="gap-2">
-                      <TouchableOpacity className="h-9 w-20 items-center justify-center rounded-xl bg-emerald-500">
-                        <Text className="text-xs font-extrabold text-white">Accept</Text>
+                      <TouchableOpacity
+                        disabled={acceptingId === order.id}
+                        onPress={() => handleAccept(order.id)}
+                        className="h-9 w-20 items-center justify-center rounded-xl bg-emerald-500"
+                      >
+                        <Text className="text-xs font-extrabold text-white">
+                          {acceptingId === order.id ? "..." : "Accept"}
+                        </Text>
                       </TouchableOpacity>
                     </View>
                   </View>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,12 +8,15 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
-import { Lock, Mail, User, Phone, ShieldCheck } from "lucide-react-native";
+import { useDispatch } from "react-redux";
+import { Lock, Mail, User, Phone } from "lucide-react-native";
 import { cravzologo } from "../../constants/images";
 import { colors } from "../../constants/colors";
-
-const emptyOtp = ["", "", "", "", "", ""];
+import { login, signup } from "../../services/authService";
+import { setUser } from "../../store/slices/userSlice";
 
 const AuthInput = ({ icon: Icon, ...props }) => (
   <View className="relative">
@@ -32,75 +35,63 @@ const AuthInput = ({ icon: Icon, ...props }) => (
   </View>
 );
 
-const OtpInput = ({ otp, setOtp }) => {
-  const refs = useRef([]);
-
-  const handleChange = (text, index) => {
-    const digit = text.replace(/\D/g, "");
-    if (digit.length > 1) {
-      const arr = digit.slice(0, 6).split("");
-      setOtp(arr.map((d) => d).concat(Array(6 - arr.length).fill("")).slice(0, 6));
-      refs.current[Math.min(arr.length - 1, 5)]?.focus();
-      return;
-    }
-    const newOtp = [...otp];
-    newOtp[index] = digit;
-    setOtp(newOtp);
-    if (digit && index < 5) refs.current[index + 1]?.focus();
-  };
-
-  const handleKeyDown = (e, index) => {
-    if (e.nativeEvent.key === "Backspace") {
-      if (otp[index] === "") {
-        if (index > 0) refs.current[index - 1]?.focus();
-      } else {
-        const newOtp = [...otp];
-        newOtp[index] = "";
-        setOtp(newOtp);
-      }
-    }
-  };
-
-  return (
-    <View className="flex-row justify-center gap-2">
-      {otp.map((digit, index) => (
-        <TextInput
-          key={index}
-          value={digit}
-          maxLength={1}
-          keyboardType="number-pad"
-          className="h-11 w-11 rounded-2xl border-2 border-indigo-200 bg-slate-50 text-center text-lg font-bold text-indigo-950"
-          onChangeText={(t) => handleChange(t, index)}
-          onKeyPress={(e) => handleKeyDown(e, index)}
-          ref={(el) => (refs.current[index] = el)}
-        />
-      ))}
-    </View>
-  );
-};
-
 export default function LoginScreen() {
+  const dispatch = useDispatch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignup, setIsSignup] = useState(false);
   const [message, setMessage] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState(emptyOtp);
-  const [showOtp, setShowOtp] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isForgotPassword, setIsForgotPassword] = useState(false);
 
-  const title = isForgotPassword
-    ? "Reset Password"
-    : isSignup
-    ? "Create Customer Account"
-    : "Welcome Back";
-  const subtitle = isForgotPassword
-    ? "Enter your email and set a fresh password securely."
-    : isSignup
-    ? "Sign up to order faster, save addresses, and track deliveries."
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setMessage("Please enter email and password.");
+      return;
+    }
+    setIsSubmitting(true);
+    setMessage("");
+    try {
+      const data = await login({ email, password });
+      dispatch(setUser(data.user || data));
+    } catch (e) {
+      setMessage(e.response?.data?.message || "Login failed. Check your credentials.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSignup = async () => {
+    if (!name || !email || !password) {
+      setMessage("Please fill in name, email and password.");
+      return;
+    }
+    setIsSubmitting(true);
+    setMessage("");
+    try {
+      const data = await signup({ name, email, password, phone, accountType: "customer" });
+      dispatch(setUser(data.user || data));
+    } catch (e) {
+      setMessage(e.response?.data?.message || "Signup failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const title = isSignup ? "Create Account" : "Welcome Back";
+  const subtitle = isSignup
+    ? "Sign up to start ordering your favourite food."
     : "Login to continue ordering your favourite food.";
+
+  if (isSubmitting) {
+    return (
+      <View className="flex-1 items-center justify-center bg-[#F4F7FB]">
+        <ActivityIndicator size="large" color={colors.brand[600]} />
+        <Text className="mt-4 text-sm text-slate-500">Please wait...</Text>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -132,7 +123,7 @@ export default function LoginScreen() {
             </View>
 
             <View className="space-y-5 p-5">
-              {!isForgotPassword && message ? (
+              {message ? (
                 <View className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3">
                   <Text className="text-center text-sm font-semibold text-indigo-800">
                     {message}
@@ -140,111 +131,69 @@ export default function LoginScreen() {
                 </View>
               ) : null}
 
-              {isForgotPassword ? null : (
-                <View className="space-y-4">
-                  {isSignup ? (
-                    <>
-                      <AuthInput
-                        icon={User}
-                        placeholder="Name"
-                        value={name}
-                        onChangeText={setName}
-                        autoCapitalize="words"
-                      />
-                      <AuthInput
-                        icon={Phone}
-                        placeholder="Phone"
-                        value={phone}
-                        onChangeText={setPhone}
-                        keyboardType="phone-pad"
-                      />
-                    </>
-                  ) : null}
+              <View className="space-y-4">
+                {isSignup ? (
+                  <>
+                    <AuthInput
+                      icon={User}
+                      placeholder="Full Name"
+                      value={name}
+                      onChangeText={setName}
+                      autoCapitalize="words"
+                    />
+                    <AuthInput
+                      icon={Phone}
+                      placeholder="Phone (optional)"
+                      value={phone}
+                      onChangeText={setPhone}
+                      keyboardType="phone-pad"
+                    />
+                  </>
+                ) : null}
 
-                  <AuthInput
-                    icon={Mail}
-                    placeholder="Email"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
+                <AuthInput
+                  icon={Mail}
+                  placeholder="Email"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
 
-                  <AuthInput
-                    icon={Lock}
-                    placeholder="Password"
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry
-                  />
-                  <Text className="-mt-2 text-xs text-slate-400">
-                    At least 8 characters
+                <AuthInput
+                  icon={Lock}
+                  placeholder="Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
+
+                <TouchableOpacity
+                  onPress={isSignup ? handleSignup : handleLogin}
+                  disabled={isSubmitting}
+                  className="w-full rounded-2xl bg-indigo-950 py-3.5 shadow-lg shadow-indigo-950/20"
+                >
+                  <Text className="text-center font-extrabold text-white">
+                    {isSignup ? "Create Account" : "Login"}
                   </Text>
+                </TouchableOpacity>
 
-                  {showOtp ? (
-                    <>
-                      <OtpInput otp={otp} setOtp={setOtp} />
-                      <TouchableOpacity
-                        disabled={isSubmitting}
-                        className="flex-row w-full items-center justify-center gap-2 rounded-2xl bg-green-600 py-3.5"
-                      >
-                        <ShieldCheck size={20} color="#fff" />
-                        <Text className="font-bold text-white">Verify OTP</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        disabled={isSubmitting}
-                        className="w-full rounded-2xl border border-indigo-200 py-3"
-                      >
-                        <Text className="text-center font-bold text-indigo-800">
-                          Resend OTP
-                        </Text>
-                      </TouchableOpacity>
-                    </>
-                  ) : null}
-
-                  <TouchableOpacity
-                    disabled={isSubmitting}
-                    className="w-full rounded-2xl bg-indigo-950 py-3.5 shadow-lg shadow-indigo-950/20"
-                  >
-                    <Text className="text-center font-extrabold text-white">
-                      {isSubmitting
-                        ? "Please wait..."
-                        : isSignup
-                        ? "Create Account"
-                        : "Login"}
-                    </Text>
-                  </TouchableOpacity>
-
-                  {!isSignup ? (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setIsForgotPassword(true);
-                        setMessage("");
-                      }}
-                      className="w-full"
-                    >
-                      <Text className="text-center text-sm font-bold text-indigo-700">
-                        Forgot password?
-                      </Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              )}
+                <Text className="text-center text-xs text-slate-400">
+                  By continuing, you agree to our Terms & Privacy Policy
+                </Text>
+              </View>
 
               <TouchableOpacity
                 onPress={() => {
                   setIsSignup((c) => !c);
-                  setIsForgotPassword(false);
                   setMessage("");
-                  setShowOtp(false);
-                  setOtp(emptyOtp);
                 }}
                 className="w-full rounded-2xl bg-slate-100 px-4 py-3"
               >
                 <Text className="text-center text-sm font-extrabold text-indigo-950">
                   {isSignup
                     ? "Already have an account? Login"
-                    : "New user? Sign Up"}
+                    : "New user? Create Account"}
                 </Text>
               </TouchableOpacity>
             </View>

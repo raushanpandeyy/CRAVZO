@@ -1,21 +1,72 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  TextInput,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
-import { Star, ChevronLeft, ThumbsUp } from "lucide-react-native";
+import { Star, ChevronLeft, Trash2 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
+import { getMyReviews, deleteReview } from "../../services/reviewService";
 
-const sampleReviews = [
-  { id: "1", restaurant: "Punjab Grill", rating: 4, review: "Great food! Butter chicken was amazing. Delivery was on time.", date: "2 days ago", likes: 5 },
-  { id: "2", restaurant: "Sagar Ratna", rating: 5, review: "Best dosa in town. Must try the masala dosa!", date: "1 week ago", likes: 12 },
-];
+const Stars = ({ rating }) => (
+  <View className="flex-row gap-1">
+    {[1, 2, 3, 4, 5].map((star) => (
+      <Star
+        key={star}
+        size={16}
+        color={star <= rating ? "#fbbf24" : "#e2e8f0"}
+        fill={star <= rating ? "#fbbf24" : "none"}
+      />
+    ))}
+  </View>
+);
 
 export default function ReviewsScreen({ navigation }) {
-  const [reviews] = useState(sampleReviews);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  const loadReviews = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const data = await getMyReviews();
+      setReviews(data);
+    } catch (requestError) {
+      setError(requestError?.message || "Failed to load reviews");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadReviews();
+  }, []);
+
+  const handleDelete = (reviewId) => {
+    Alert.alert("Delete Review", "Are you sure you want to delete this review?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setMessage("");
+            setError("");
+            await deleteReview(reviewId);
+            setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+            setMessage("Review deleted successfully.");
+          } catch (requestError) {
+            setError(requestError?.message || "Failed to delete review");
+          }
+        },
+      },
+    ]);
+  };
 
   return (
     <View className="flex-1 bg-[#F5F5F5]">
@@ -27,8 +78,37 @@ export default function ReviewsScreen({ navigation }) {
           <Text className="text-xl font-extrabold text-slate-900">My Reviews</Text>
         </View>
       </View>
+
       <ScrollView className="flex-1 px-4 pt-6">
-        {reviews.length === 0 ? (
+        {message ? (
+          <View className="rounded-2xl bg-emerald-50 px-4 py-3 mb-4">
+            <Text className="text-sm text-emerald-700">{message}</Text>
+          </View>
+        ) : null}
+        {error ? (
+          <View className="rounded-2xl bg-red-50 px-4 py-3 mb-4">
+            <Text className="text-sm text-red-700">{error}</Text>
+          </View>
+        ) : null}
+
+        {loading ? (
+          <View className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <View key={i} className="bg-white rounded-3xl p-5 shadow-sm">
+                <View className="flex-row items-center justify-between mb-2">
+                  <View className="h-5 w-40 rounded-full bg-slate-200" />
+                  <View className="h-3 w-20 rounded-full bg-slate-200" />
+                </View>
+                <View className="flex-row gap-1 mb-3">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <View key={s} className="h-4 w-4 rounded-full bg-slate-200" />
+                  ))}
+                </View>
+                <View className="h-4 w-full rounded-full bg-slate-200" />
+              </View>
+            ))}
+          </View>
+        ) : reviews.length === 0 ? (
           <View className="items-center justify-center py-20">
             <Star size={48} color="#94a3b8" />
             <Text className="text-lg font-bold text-slate-900 mt-4">No reviews yet</Text>
@@ -38,21 +118,32 @@ export default function ReviewsScreen({ navigation }) {
           <View className="space-y-4">
             {reviews.map((review) => (
               <View key={review.id} className="bg-white rounded-3xl p-5 shadow-sm">
-                <View className="flex-row items-center justify-between mb-2">
-                  <Text className="font-bold text-slate-900">{review.restaurant}</Text>
-                  <Text className="text-xs text-slate-400">{review.date}</Text>
+                <View className="flex-row items-start justify-between">
+                  <View className="flex-1 mr-4">
+                    <Text className="font-bold text-slate-900 text-base">
+                      {review.restaurant?.name || "Restaurant"}
+                    </Text>
+                    <Text className="text-xs text-slate-400 mt-0.5">
+                      {new Date(review.createdAt).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleDelete(review.id)}
+                    className="h-9 w-9 items-center justify-center rounded-full bg-red-50"
+                  >
+                    <Trash2 size={16} color="#dc2626" />
+                  </TouchableOpacity>
                 </View>
-                <View className="flex-row gap-1 mb-3">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star key={star} size={16} color={star <= review.rating ? "#f59e0b" : "#e2e8f0"}
-                      fill={star <= review.rating ? "#f59e0b" : "none"} />
-                  ))}
+                <View className="mt-3">
+                  <Stars rating={review.rating} />
                 </View>
-                <Text className="text-sm text-slate-700 leading-5">{review.review}</Text>
-                <View className="flex-row items-center gap-1 mt-3">
-                  <ThumbsUp size={14} color={colors.slate[400]} />
-                  <Text className="text-xs text-slate-400">{review.likes}</Text>
-                </View>
+                <Text className="mt-3 text-sm text-slate-700 leading-5">
+                  {review.comment || "No written comment added."}
+                </Text>
               </View>
             ))}
           </View>

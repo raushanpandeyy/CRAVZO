@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Home, Search, ReceiptText, User, Phone, Info, Shield, Download } from "lucide-react-native";
+import { Home, Search, ReceiptText, User } from "lucide-react-native";
 
 import HomeScreen from "../screens/customer/HomeScreen";
 import RestaurantListScreen from "../screens/customer/RestaurantListScreen";
@@ -14,17 +14,20 @@ import ProfileScreen from "../screens/customer/ProfileScreen";
 import AddressesScreen from "../screens/customer/AddressesScreen";
 import FavoritesScreen from "../screens/customer/FavoritesScreen";
 import ReviewsScreen from "../screens/customer/ReviewsScreen";
+import DishesListingScreen from "../screens/customer/DishesListingScreen";
+import DishScreen from "../screens/customer/DishScreen";
+import CitywiseScreen from "../screens/customer/CitywiseScreen";
+import PaymentMethodsScreen from "../screens/customer/PaymentMethodsScreen";
+import AboutUsScreen from "../screens/customer/AboutUsScreen";
+import ContactUsScreen from "../screens/customer/ContactUsScreen";
+import PrivacyPolicyScreen from "../screens/customer/PrivacyPolicyScreen";
+import AddressFormScreen from "../screens/customer/AddressFormScreen";
+import AddressMapPicker from "../components/AddressMapPicker";
+import ChatScreen from "../components/ChatScreen";
 import { colors } from "../constants/colors";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
-
-const BOTTOM_LINKS = [
-  { label: "Contact", icon: Phone },
-  { label: "About", icon: Info },
-  { label: "Privacy", icon: Shield },
-  { label: "App", icon: Download, accent: true },
-];
 
 const NAV_ITEMS = [
   { label: "Home", icon: Home, name: "Home" },
@@ -36,16 +39,6 @@ const NAV_ITEMS = [
 function BottomTabBar({ state, descriptors, navigation }) {
   return (
     <View style={{ paddingBottom: 12, backgroundColor: "transparent" }}>
-      <View style={{ marginHorizontal: 16, marginBottom: 4 }}>
-        <View className="flex-row items-center justify-center gap-4 rounded-full bg-white/90 px-3 py-1.5 shadow-lg shadow-slate-900/10">
-          {BOTTOM_LINKS.map(({ label, icon: Icon, accent }) => (
-            <TouchableOpacity key={label} className="flex-row items-center gap-1 px-2 py-1">
-              <Icon size={12} color={accent ? colors.brand.primary : colors.slate[500]} />
-              <Text className={`text-[10px] font-semibold ${accent ? "text-indigo-600" : "text-slate-500"}`}>{label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
       <View style={{ marginHorizontal: 16 }}>
         <View className="flex-row rounded-3xl border border-indigo-100 bg-white/95 p-1.5 shadow-xl shadow-indigo-900/10">
           {state.routes.map((route, index) => {
@@ -95,6 +88,16 @@ export default function CustomerNavigator() {
       <Stack.Screen name="Addresses" component={AddressesScreen} />
       <Stack.Screen name="Favorites" component={FavoritesScreen} />
       <Stack.Screen name="Reviews" component={ReviewsScreen} />
+      <Stack.Screen name="DishesListing" component={DishesListingScreen} />
+      <Stack.Screen name="DishScreen" component={DishScreen} />
+      <Stack.Screen name="Citywise" component={CitywiseScreen} />
+      <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
+      <Stack.Screen name="AboutUs" component={AboutUsScreen} />
+      <Stack.Screen name="ContactUs" component={ContactUsScreen} />
+      <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+      <Stack.Screen name="AddressForm" component={AddressFormScreen} />
+      <Stack.Screen name="AddressMapPicker" component={AddressMapPicker} />
+      <Stack.Screen name="CustomerChat" component={ChatScreen} />
     </Stack.Navigator>
   );
 }

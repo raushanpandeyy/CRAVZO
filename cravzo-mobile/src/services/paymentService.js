@@ -1,10 +1,9 @@
 import { apiRequest } from "./api";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
-import { getPrice } from "./../utils/cloudinary";
 
 let RazorpayCheckout = null;
 
-const loadRazorpay = async () => {
+export const loadRazorpayCheckout = async () => {
   if (RazorpayCheckout) return RazorpayCheckout;
   try {
     const module = await import("react-native-razorpay");
@@ -35,36 +34,3 @@ export const createCODOrder = (payload) =>
     method: "POST",
     data: payload,
   });
-
-export const openRazorpayCheckout = async ({
-  keyId,
-  amount,
-  currency,
-  name,
-  description,
-  orderId,
-  prefill,
-  themeColor,
-}) => {
-  const Razorpay = await loadRazorpay();
-  const options = {
-    key: keyId,
-    amount: Math.floor(amount * 100),
-    currency: currency || "INR",
-    name: name || "CRAVZO",
-    description: description || "Food order payment",
-    order_id: orderId,
-    prefill: {
-      name: prefill?.name || "",
-      email: prefill?.email || "",
-      contact: prefill?.phone || "",
-    },
-    theme: { color: themeColor || "#1e1b4b" },
-  };
-
-  return new Promise((resolve, reject) => {
-    Razorpay.RazorpayCheckout.open(options)
-      .then((data) => resolve(data))
-      .catch((error) => reject(error));
-  });
-};

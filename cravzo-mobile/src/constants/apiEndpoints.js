@@ -15,6 +15,8 @@ export const API_ENDPOINTS = {
   auth: {
     login: `${BASE}/auth/login`,
     signup: `${BASE}/auth/signup`,
+    phoneSignup: `${BASE}/auth/phone-signup`,
+    verifyPhoneOtp: `${BASE}/auth/verify-phone-otp`,
     sendOtp: `${BASE}/auth/send-otp`,
     verifyOtp: `${BASE}/auth/verify-otp`,
     forgotPassword: `${BASE}/auth/forgot-password`,
@@ -38,6 +40,7 @@ export const API_ENDPOINTS = {
     list: `${BASE}/favorites`,
     create: `${BASE}/favorites`,
     remove: (id) => `${BASE}/favorites/${id}`,
+    check: (restaurantId) => `${BASE}/favorites/check?restaurantId=${restaurantId}`,
   },
   reviews: {
     mine: `${BASE}/reviews/my`,
@@ -66,9 +69,10 @@ export const API_ENDPOINTS = {
     nearby: (lat, lng) =>
       `${BASE}/restaurants/nearby?lat=${lat}&lng=${lng}`,
     byId: (id) => `${BASE}/restaurants/${id}`,
-    menuItems: (restaurantId) => `${BASE}/restaurants/${restaurantId}/menu`,
+    menuItems: (restaurantId) => `${BASE}/menu-items/restaurant/${restaurantId}`,
   },
   public: {
+    home: `${BASE}/public/home`,
     featuredRestaurants: `${BASE}/public/featured-restaurants`,
     ads: `${BASE}/public/ads`,
   },

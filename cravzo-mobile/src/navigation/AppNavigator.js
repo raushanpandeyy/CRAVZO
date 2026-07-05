@@ -1,12 +1,16 @@
-import React, { createRef } from "react";
+import React, { createRef, useEffect } from "react";
+import { View, Text } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { setShowAuthModal } from "../store/slices/userSlice";
+import { Monitor } from "lucide-react-native";
 
-import AuthNavigator from "./AuthNavigator";
 import CustomerNavigator from "./CustomerNavigator";
 import RiderNavigator from "./RiderNavigator";
 import VendorNavigator from "./VendorNavigator";
-import AdminNavigator from "./AdminNavigator";
+import PhoneSignupModal from "../components/PhoneSignupModal";
+
+import { colors } from "../constants/colors";
 
 export const navigationRef = createRef();
 
@@ -31,13 +35,33 @@ export const navigateFromNotification = (clickUrl, orderId) => {
   }
 };
 
-export default function AppNavigator() {
-  const { data: user, isHydrating, isLoggedIn } = useSelector((state) => state.user);
+function AdminBlockedScreen() {
+  return (
+    <View className="flex-1 items-center justify-center bg-[#F4F7FB] px-6">
+      <View className="w-full max-w-sm rounded-3xl bg-white p-8 shadow-lg shadow-indigo-900/10">
+        <View className="mx-auto mb-4 h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50">
+          <Monitor size={32} color={colors.brand.primary} />
+        </View>
+        <Text className="text-center text-xl font-black text-slate-900">Desktop Only</Text>
+        <Text className="mt-2 text-center text-sm leading-6 text-slate-500">
+          The admin panel is optimised for larger screens. Please open it on a desktop or laptop.
+        </Text>
+      </View>
+    </View>
+  );
+}
 
-  if (isHydrating) return null;
+export default function AppNavigator() {
+  const { data: user, isLoggedIn, showAuthModal } = useSelector((state) => state.user);
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      dispatch(setShowAuthModal(true));
+    }
+  }, [isLoggedIn, dispatch]);
 
   const getNavigator = () => {
-    if (!isLoggedIn) return <AuthNavigator />;
     const accountType = user?.accountType || "customer";
     switch (accountType) {
       case "rider":
@@ -45,7 +69,7 @@ export default function AppNavigator() {
       case "vendor":
         return <VendorNavigator />;
       case "admin":
-        return <AdminNavigator />;
+        return <AdminBlockedScreen />;
       default:
         return <CustomerNavigator />;
     }
@@ -54,6 +78,10 @@ export default function AppNavigator() {
   return (
     <NavigationContainer ref={navigationRef}>
       {getNavigator()}
+      <PhoneSignupModal
+        visible={showAuthModal && !isLoggedIn}
+        onClose={() => dispatch(setShowAuthModal(false))}
+      />
     </NavigationContainer>
   );
 }

@@ -3,20 +3,21 @@ import { API_ENDPOINTS } from "../constants/apiEndpoints";
 import { storage } from "./storage";
 
 export const login = async (payload) => {
-  const data = await apiRequest(API_ENDPOINTS.auth.login, {
+  const res = await apiRequest(API_ENDPOINTS.auth.login, {
     method: "POST",
     data: payload,
   });
-  persistSession(data);
-  return data;
+  const result = res.data || res;
+  persistSession(result);
+  return result;
 };
 
 export const signup = async (payload) => {
-  const data = await apiRequest(API_ENDPOINTS.auth.signup, {
+  const res = await apiRequest(API_ENDPOINTS.auth.signup, {
     method: "POST",
     data: payload,
   });
-  return data;
+  return res.data || res;
 };
 
 export const sendOtp = async (payload) => {
@@ -27,12 +28,13 @@ export const sendOtp = async (payload) => {
 };
 
 export const verifyOtp = async (payload) => {
-  const data = await apiRequest(API_ENDPOINTS.auth.verifyOtp, {
+  const res = await apiRequest(API_ENDPOINTS.auth.verifyOtp, {
     method: "POST",
     data: payload,
   });
-  persistSession(data);
-  return data;
+  const result = res.data || res;
+  persistSession(result);
+  return result;
 };
 
 export const requestPasswordReset = async (payload) => {
@@ -67,38 +69,40 @@ export const loadCurrentUser = async () => {
   try {
     const payload = jwtDecode(token);
     if (payload.exp * 1000 < Date.now() + 10 * 60 * 1000) {
-      const data = await apiRequest(API_ENDPOINTS.auth.me);
-      persistSession(data);
-      return normalizeUser(data.user || data);
+      const res = await apiRequest(API_ENDPOINTS.auth.me);
+      const result = res.data || res;
+      const user = result.user || result;
+      persistSession({ user, token });
+      return normalizeUser(user);
     }
     const cached = storage.getString("user");
     return cached ? normalizeUser(JSON.parse(cached)) : null;
   } catch {
-    const cached = storage.getString("user");
-    return cached ? normalizeUser(JSON.parse(cached)) : null;
+    clearSession();
+    return null;
   }
 };
 
-const persistSession = ({ user, token }) => {
+export const persistSession = ({ user, token }) => {
   if (token) storage.set("authToken", token);
   if (user) storage.set("user", JSON.stringify(normalizeUser(user)));
 };
 
-const clearSession = () => {
+export const clearSession = () => {
   storage.delete("authToken");
   storage.delete("user");
 };
-
-const normalizeUser = (user) => ({
-  ...user,
-  accountType: user.accountType || user.role?.toLowerCase() || "customer",
-  isLoggedIn: true,
-});
 
 const getStoredUser = () => {
   const raw = storage.getString("user");
   return raw ? JSON.parse(raw) : null;
 };
+
+export const normalizeUser = (user) => ({
+  ...user,
+  accountType: user.accountType || user.role?.toLowerCase() || "customer",
+  isLoggedIn: true,
+});
 
 const jwtDecode = (token) => {
   try {
