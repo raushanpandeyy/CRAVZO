@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert,
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Vibration,
 } from "react-native";
 import {
   Bike, Clock3, IndianRupee, Star, MapPin,
   ChevronRight, CheckCircle,
 } from "lucide-react-native";
+import OptimizedImage from "../../components/OptimizedImage";
 import { colors } from "../../constants/colors";
 import { getRiderOrders, updateOrderStatus, updateRiderStatus, getMyProfile } from "../../services/riderService";
 import { connectSocket, disconnectSocket } from "../../services/chatSocket";
 
-export default function RiderDashboardScreen() {
+export default function RiderDashboardScreen({ navigation }) {
   const [orders, setOrders] = useState([]);
   const [profile, setProfile] = useState(null);
   const [isOnline, setIsOnline] = useState(false);
@@ -24,6 +25,7 @@ export default function RiderDashboardScreen() {
         getRiderOrders(),
       ]);
       setProfile(prof);
+      setIsOnline(Boolean(prof?.isOnline));
       setOrders(orderRes.orders || []);
     } catch (err) {
       console.error("Rider load error:", err);
@@ -37,8 +39,9 @@ export default function RiderDashboardScreen() {
     const socket = connectSocket();
 
     const handleNewOrder = (order) => {
-      if (order.status === "READY_FOR_PICKUP" || order.status === "OUT_FOR_DELIVERY") {
+      if (order.status === "PENDING" || order.status === "READY_FOR_PICKUP" || order.status === "OUT_FOR_DELIVERY") {
         setOrders((prev) => [order, ...prev]);
+        Vibration.vibrate([0, 200, 100, 200]);
       }
     };
     const handleStatusUpdate = ({ orderId, status }) => {
@@ -76,8 +79,8 @@ export default function RiderDashboardScreen() {
   const handleAccept = async (orderId) => {
     setAcceptingId(orderId);
     try {
-      await updateOrderStatus(orderId, "CLAIM");
-      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      await updateOrderStatus(orderId, "ACCEPTED");
+      navigation.navigate("ActiveDelivery", { orderId });
     } catch (err) {
       Alert.alert("Error", "Failed to accept delivery");
     } finally {
@@ -85,13 +88,17 @@ export default function RiderDashboardScreen() {
     }
   };
 
-  const available = orders.filter((o) =>
-    ["READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(o.status)
+  const active = orders.find((o) =>
+    o.rider?.id === profile?.id &&
+    ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(o.status)
   );
+
+  const available = orders.filter((order) => order.isAvailable);
+
   const todayEarnings = orders
-    .filter((o) => o.status === "DELIVERED")
+    .filter((o) => o.status === "DELIVERED" && o.rider?.id === profile?.id)
     .reduce((sum, o) => sum + (o.deliveryFee || 0), 0);
-  const todayDeliveries = orders.filter((o) => o.status === "DELIVERED").length;
+  const todayDeliveries = orders.filter((o) => o.status === "DELIVERED" && o.rider?.id === profile?.id).length;
 
   if (loading) {
     return (
@@ -101,14 +108,21 @@ export default function RiderDashboardScreen() {
     );
   }
 
+  const avatarUrl = profile?.avatarUrl || null;
+  const initialLetter = (profile?.name || "R").charAt(0).toUpperCase();
+
   return (
     <View className="flex-1 bg-[#F5F5F5]">
       <ScrollView className="flex-1">
         <View className="bg-indigo-950 pt-16 pb-6 px-4 rounded-b-[28px]">
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-3">
-              <View className="h-14 w-14 rounded-full bg-indigo-600 items-center justify-center border-2 border-indigo-400">
-                <Bike size={28} color="#fff" />
+              <View className="h-14 w-14 rounded-full bg-indigo-600 items-center justify-center border-2 border-indigo-400 overflow-hidden">
+                {avatarUrl ? (
+                  <OptimizedImage source={{ uri: avatarUrl }} className="h-full w-full" resizeMode="cover" />
+                ) : (
+                  <Bike size={28} color="#fff" />
+                )}
               </View>
               <View>
                 <Text className="text-lg font-extrabold text-white">Rider Dashboard</Text>
@@ -138,6 +152,17 @@ export default function RiderDashboardScreen() {
           <Text className="text-lg font-extrabold text-slate-900 mb-4">
             {isOnline ? "Available Orders" : "Go Online to see orders"}
           </Text>
+
+          {active ? (
+            <TouchableOpacity
+              onPress={() => navigation.navigate("ActiveDelivery", { orderId: active.id })}
+              className="mb-4 rounded-3xl bg-indigo-950 p-5"
+            >
+              <Text className="text-xs font-bold text-indigo-200">ACTIVE DELIVERY</Text>
+              <Text className="mt-1 text-lg font-extrabold text-white">{active.restaurant?.name || "Restaurant"}</Text>
+              <Text className="mt-2 text-sm text-indigo-300">Tap to view delivery details</Text>
+            </TouchableOpacity>
+          ) : null}
 
           {isOnline && available.length === 0 ? (
             <View className="items-center justify-center py-10">
@@ -206,3 +231,5 @@ export default function RiderDashboardScreen() {
     </View>
   );
 }
+
+

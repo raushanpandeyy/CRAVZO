@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { getAdminOverview } from "../controllers/adminController.js";
+import { initiateAdminRefund, reconcileAdminRefund } from "../controllers/adminRefundController.js";
 import {
   approveRider,
   approveVendor,
@@ -25,6 +26,8 @@ const adminRouter = Router();
 adminRouter.use(authenticate, authorize("ADMIN"));
 
 adminRouter.get("/overview", asyncHandler(getAdminOverview));
+adminRouter.post("/orders/:orderId/refund/initiate", asyncHandler(initiateAdminRefund));
+adminRouter.post("/orders/:orderId/refund/reconcile", asyncHandler(reconcileAdminRefund));
 adminRouter.get("/support/user-search", asyncHandler(searchUserSupportDetails));
 adminRouter.get("/users", asyncHandler(listUsers));
 adminRouter.get("/users/:userId", asyncHandler(getUserDetails));

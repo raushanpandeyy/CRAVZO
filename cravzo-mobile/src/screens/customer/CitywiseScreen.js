@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, ScrollView, TouchableOpacity, Image } from "react-native";
 import { ChevronLeft, MapPin } from "lucide-react-native";
 import { colors } from "../../constants/colors";
+import OptimizedImage from "../../components/OptimizedImage";
 
 const cities = [
   { name: "Noida", img: "https://res.cloudinary.com/dxsmdarcp/image/upload/v1739613124/cities/noida.jpg" },
@@ -33,7 +34,7 @@ export default function CitywiseScreen({ navigation }) {
               onPress={() => navigation.navigate("Search", { query: city.name })}
               className="bg-white rounded-3xl overflow-hidden shadow-sm"
             >
-              <Image source={{ uri: city.img }} className="w-full h-40" resizeMode="cover" />
+              <OptimizedImage source={{ uri: city.img }} className="w-full h-40" resizeMode="cover" />
               <View className="flex-row items-center gap-2 px-4 py-3">
                 <MapPin size={16} color={colors.brand[600]} />
                 <Text className="font-bold text-slate-900">{city.name}</Text>

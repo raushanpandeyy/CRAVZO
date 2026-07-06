@@ -1,28 +1,39 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Modal,
 } from "react-native";
-import { rhevronLeft, Store, User, Phone, Mail, MapPin, Shieldrheck, Helprircle, X } from "lucide-react-native";
+import { ChevronLeft, Store, User, Phone, Mail, MapPin, ShieldCheck, HelpCircle, X } from "lucide-react-native";
 import { colors } from "../../constants/colors";
-import { signup } from "../../services/authService";
+import { signup, requestPasswordReset, resetPassword } from "../../services/authService";
 import { storage } from "../../services/storage";
 
 const FAQS = [
-  { q: "What is rravzo?", a: "rravzo is a food delivery platform that connects restaurants with customers using a fair and transparent pricing model." },
-  { q: "How is rravzo different?", a: "Unlike Zomato and Swiggy, rravzo charges 0% commission per order. We follow a simple monthly subscription model." },
-  { q: "oo I pay commission per order?", a: "No. rravzo charges 0% commission on all orders. You keep 100% of your earnings." },
-  { q: "Who handles delivery?", a: "rravzo provides its own delivery network using independent student delivery partners." },
+  { q: "What is DODAGO?", a: "DODAGO is a food delivery platform that connects restaurants with customers using a fair and transparent pricing model." },
+  { q: "How is DODAGO different?", a: "Unlike Zomato and Swiggy, DODAGO charges 0% commission per order. We follow a simple monthly subscription model." },
+  { q: "Do I pay commission per order?", a: "No. DODAGO charges 0% commission on all orders. You keep 100% of your earnings." },
+  { q: "Who handles delivery?", a: "DODAGO provides its own delivery network using independent student delivery partners." },
   { q: "How will I receive payments?", a: "Payments are settled quickly and transparently. You can track all transactions in your dashboard." },
-  { q: "ran I cancel anytime?", a: "Yes. The subscription is flexible, and you can opt out anytime." },
+  { q: "Can I cancel anytime?", a: "Yes. The subscription is flexible, and you can opt out anytime." },
 ];
 
-const STEPS = ["Personal Info", "Restaurant oetails", "Verification"];
+const STEPS = ["Personal Info", "Restaurant Details", "Verification"];
+
+const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
 
 export default function VendorSignupScreen({ navigation }) {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [showFAQ, setShowFAQ] = useState(false);
   const [expandedFAQ, setExpandedFAQ] = useState(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [fpEmail, setFpEmail] = useState("");
+  const [fpOtp, setFpOtp] = useState(["", "", "", "", "", ""]);
+  const [fpPassword, setFpPassword] = useState("");
+  const [fpConfirmPassword, setFpConfirmPassword] = useState("");
+  const [fpOtpSent, setFpOtpSent] = useState(false);
+  const [fpMessage, setFpMessage] = useState("");
+  const [fpSubmitting, setFpSubmitting] = useState(false);
+  const fpOtpRefs = useRef([]);
   const [form, setForm] = useState({
     name: "", email: "", phone: "", password: "",
     restaurantName: "", cuisine: "", city: "", address: "",
@@ -31,6 +42,18 @@ export default function VendorSignupScreen({ navigation }) {
   const update = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
   const handleSignup = async () => {
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) {
+      Alert.alert("Missing details", "Complete all personal information before continuing.");
+      return;
+    }
+    if (!PASSWORD_PATTERN.test(form.password)) {
+      Alert.alert("Weak password", "Use 8+ characters with uppercase, lowercase, number and symbol.");
+      return;
+    }
+    if (!form.restaurantName.trim() || !form.cuisine.trim() || !form.city.trim() || !form.address.trim()) {
+      Alert.alert("Restaurant details required", "Complete the restaurant information before submitting.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await signup({
@@ -38,16 +61,16 @@ export default function VendorSignupScreen({ navigation }) {
         email: form.email,
         phone: form.phone,
         password: form.password,
-        role: "VENoOR",
-        restaurant: {
-          name: form.restaurantName,
+        role: "VENDOR",
+        onboardingData: {
+          restaurantName: form.restaurantName,
           cuisine: form.cuisine,
           city: form.city,
           address: form.address,
         },
       });
       storage.set("otpEmail", form.email);
-      storage.set("otpRole", "VENoOR");
+      storage.set("otpRole", "VENDOR");
       navigation.navigate("VerifyOtp");
     } catch (err) {
       Alert.alert("Error", err.message || "Signup failed");
@@ -66,20 +89,20 @@ export default function VendorSignupScreen({ navigation }) {
               { key: "name", label: "Full Name", icon: User, placeholder: "Your name" },
               { key: "email", label: "Email", icon: Mail, placeholder: "email@example.com", keyboard: "email-address" },
               { key: "phone", label: "Phone", icon: Phone, placeholder: "+91 9876543210", keyboard: "phone-pad" },
-              { key: "password", label: "Password", icon: Shieldrheck, placeholder: "Min 6 characters", secure: true },
+              { key: "password", label: "Password", icon: ShieldCheck, placeholder: "8+ chars, upper/lower/number/symbol", secure: true },
             ].map(({ key, label, icon: Icon, placeholder, keyboard, secure }) => (
               <View key={key}>
                 <Text className="text-xs font-bold text-slate-700 mb-1">{label}</Text>
                 <View className="flex-row items-center bg-slate-50 rounded-xl border border-slate-200 px-4">
                   <Icon size={16} color={colors.slate[400]} />
                   <TextInput className="flex-1 ml-2 py-3 text-sm" placeholder={placeholder}
-                    placeholderTextrolor="#94a3b8"
-                    value={form[key]} onrhangeText={(v) => update(key, v)}
+                    placeholderTextColor="#94a3b8"
+                      value={form[key]} onChangeText={(v) => update(key, v)}
                     keyboardType={keyboard || "default"} secureTextEntry={secure} />
                 </View>
               </View>
             ))}
-            <TouchableOpacity onPress={() => Alert.alert("Forgot Password", "Use the login modal on the home screen and tap 'Forgot Password' to reset via email.")}>
+            <TouchableOpacity onPress={() => setShowForgotPassword(true)}>
               <Text className="text-xs font-bold text-indigo-600 text-right mt-1">Forgot Password?</Text>
             </TouchableOpacity>
           </View>
@@ -87,19 +110,19 @@ export default function VendorSignupScreen({ navigation }) {
       case 1:
         return (
           <View className="space-y-4">
-            <Text className="text-lg font-extrabold text-slate-900">Restaurant oetails</Text>
+              <Text className="text-lg font-extrabold text-slate-900">Restaurant Details</Text>
             {[
               { key: "restaurantName", label: "Restaurant Name", icon: Store, placeholder: "Your restaurant name" },
-              { key: "cuisine", label: "ruisine Type", icon: Store, placeholder: "e.g. North Indian, rhinese" },
-              { key: "city", label: "rity", icon: MapPin, placeholder: "e.g. Noida" },
-              { key: "address", label: "Full Address", icon: MapPin, placeholder: "romplete address" },
+              { key: "cuisine", label: "Cuisine Type", icon: Store, placeholder: "e.g. North Indian, Chinese" },
+              { key: "city", label: "City", icon: MapPin, placeholder: "e.g. Noida" },
+              { key: "address", label: "Full Address", icon: MapPin, placeholder: "Complete address" },
             ].map(({ key, label, icon: Icon, placeholder }) => (
               <View key={key}>
                 <Text className="text-xs font-bold text-slate-700 mb-1">{label}</Text>
                 <View className="flex-row items-center bg-slate-50 rounded-xl border border-slate-200 px-4">
                   <Icon size={16} color={colors.slate[400]} />
                   <TextInput className="flex-1 ml-2 py-3 text-sm" placeholder={placeholder}
-                    placeholderTextrolor="#94a3b8"
+                    placeholderTextColor="#94a3b8"
                     value={form[key]} onrhangeText={(v) => update(key, v)} />
                 </View>
               </View>
@@ -109,8 +132,8 @@ export default function VendorSignupScreen({ navigation }) {
       case 2:
         return (
           <View className="items-center py-8">
-            <Shieldrheck size={64} color={colors.brand[600]} />
-            <Text className="text-xl font-extrabold text-slate-900 mt-4">Almost oone!</Text>
+            <ShieldCheck size={64} color={colors.brand[600]} />
+            <Text className="text-xl font-extrabold text-slate-900 mt-4">Almost done!</Text>
             <Text className="text-sm text-slate-500 text-center mt-2 px-4">
               Review your details and submit. You'll receive an OTP to verify your email.
             </Text>
@@ -118,8 +141,8 @@ export default function VendorSignupScreen({ navigation }) {
               <Text className="text-sm"><Text className="font-bold">Name:</Text> {form.name}</Text>
               <Text className="text-sm"><Text className="font-bold">Email:</Text> {form.email}</Text>
               <Text className="text-sm"><Text className="font-bold">Restaurant:</Text> {form.restaurantName}</Text>
-              <Text className="text-sm"><Text className="font-bold">ruisine:</Text> {form.cuisine}</Text>
-              <Text className="text-sm"><Text className="font-bold">rity:</Text> {form.city}</Text>
+              <Text className="text-sm"><Text className="font-bold">Cuisine:</Text> {form.cuisine}</Text>
+              <Text className="text-sm"><Text className="font-bold">City:</Text> {form.city}</Text>
             </View>
           </View>
         );
@@ -132,10 +155,10 @@ export default function VendorSignupScreen({ navigation }) {
         <View className="flex-row items-center gap-4">
           <TouchableOpacity onPress={() => step === 0 ? navigation.goBack() : setStep(step - 1)}
             className="h-10 w-10 items-center justify-center rounded-full bg-slate-100">
-            <rhevronLeft size={20} color={colors.slate[900]} />
+            <ChevronLeft size={20} color={colors.slate[900]} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setShowFAQ(true)} className="ml-auto h-10 w-10 items-center justify-center rounded-full bg-slate-100">
-            <Helprircle size={20} color={colors.slate[900]} />
+            <HelpCircle size={20} color={colors.slate[900]} />
           </TouchableOpacity>
           <View>
             <Text className="text-xl font-extrabold text-slate-900">Vendor Signup</Text>
@@ -148,6 +171,120 @@ export default function VendorSignupScreen({ navigation }) {
           ))}
         </View>
       </View>
+
+      {/* Forgot Password Modal */}
+      <Modal visible={showForgotPassword} animationType="slide" transparent>
+        <View className="flex-1 bg-black/50 justify-end">
+          <View className="bg-white rounded-t-3xl p-6 pb-10">
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-lg font-extrabold text-slate-900">Reset Vendor Password</Text>
+              <TouchableOpacity onPress={() => { setShowForgotPassword(false); setFpOtpSent(false); setFpOtp(["", "", "", "", "", ""]); setFpMessage(""); }}>
+                <X size={24} color={colors.slate[500]} />
+              </TouchableOpacity>
+            </View>
+            {fpMessage ? (
+              <View className="bg-indigo-50 rounded-2xl px-4 py-3 mb-4">
+                <Text className="text-sm text-indigo-700">{fpMessage}</Text>
+              </View>
+            ) : null}
+            {!fpOtpSent ? (
+              <View className="gap-4">
+                <View>
+                  <Text className="text-xs font-bold text-slate-700 mb-1">Email</Text>
+                  <View className="flex-row items-center bg-slate-50 rounded-xl border border-slate-200 px-4">
+                    <Mail size={16} color={colors.slate[400]} />
+                    <TextInput className="flex-1 ml-2 py-3 text-sm" placeholder="email@example.com"
+                      placeholderTextColor="#94a3b8"
+                      value={fpEmail} onChangeText={setFpEmail}
+                      keyboardType="email-address" autoCapitalize="none" />
+                  </View>
+                </View>
+                <TouchableOpacity onPress={async () => {
+                  if (!fpEmail) { setFpMessage("Please enter your email"); return; }
+                  setFpSubmitting(true); setFpMessage("");
+                  try {
+                    await requestPasswordReset({ email: fpEmail, role: "VENDOR" });
+                    setFpOtpSent(true);
+                    setFpMessage("Password reset OTP sent to your email.");
+                  } catch (err) { setFpMessage(err.message || "Failed to send OTP"); }
+                  finally { setFpSubmitting(false); }
+                }} disabled={fpSubmitting}
+                  className="rounded-2xl bg-indigo-600 py-3.5 items-center disabled:opacity-60">
+                  <Text className="font-extrabold text-white">{fpSubmitting ? "Sending..." : "Send Reset OTP"}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View className="gap-4">
+                <View>
+                  <Text className="text-xs font-bold text-slate-700 mb-1">OTP</Text>
+                  <View className="flex-row gap-2">
+                    {fpOtp.map((digit, i) => (
+                      <TextInput key={i}
+                        value={digit}
+                        onChangeText={(v) => {
+                          const newOtp = [...fpOtp];
+                          newOtp[i] = v.replace(/\D/g, "").slice(0, 1);
+                          setFpOtp(newOtp);
+                          if (v && i < 5) {
+                            const ref = fpOtpRefs.current[i + 1];
+                            if (ref) ref.focus();
+                          }
+                        }}
+                        onKeyPress={({ nativeEvent }) => {
+                          if (nativeEvent.key === "Backspace" && !fpOtp[i] && i > 0) {
+                            const ref = fpOtpRefs.current[i - 1];
+                            if (ref) ref.focus();
+                          }
+                        }}
+                        ref={(el) => { fpOtpRefs.current[i] = el; }}
+                        className="flex-1 h-12 rounded-xl bg-slate-50 border border-slate-200 text-center text-lg font-extrabold"
+                        keyboardType="numeric" maxLength={1} />
+                    ))}
+                  </View>
+                </View>
+                <View>
+                  <Text className="text-xs font-bold text-slate-700 mb-1">New Password</Text>
+                  <View className="flex-row items-center bg-slate-50 rounded-xl border border-slate-200 px-4">
+                    <ShieldCheck size={16} color={colors.slate[400]} />
+                    <TextInput className="flex-1 ml-2 py-3 text-sm" placeholder="8+ chars, upper/lower/number/symbol"
+                      placeholderTextColor="#94a3b8"
+                      value={fpPassword} onChangeText={setFpPassword} secureTextEntry />
+                  </View>
+                </View>
+                <View>
+                  <Text className="text-xs font-bold text-slate-700 mb-1">Confirm Password</Text>
+                  <View className="flex-row items-center bg-slate-50 rounded-xl border border-slate-200 px-4">
+                    <ShieldCheck size={16} color={colors.slate[400]} />
+                    <TextInput className="flex-1 ml-2 py-3 text-sm" placeholder="Re-enter password"
+                      placeholderTextColor="#94a3b8"
+                      value={fpConfirmPassword} onChangeText={setFpConfirmPassword} secureTextEntry />
+                  </View>
+                </View>
+                <TouchableOpacity onPress={async () => {
+                  if (fpPassword !== fpConfirmPassword) { setFpMessage("Passwords do not match"); return; }
+                  if (fpPassword.length < 6) { setFpMessage("Password must be at least 6 characters"); return; }
+                  const otpStr = fpOtp.join("");
+                  if (otpStr.length < 6) { setFpMessage("Please enter the complete OTP"); return; }
+                  setFpSubmitting(true); setFpMessage("");
+                  try {
+                    await resetPassword({ email: fpEmail, otp: otpStr, password: fpPassword, role: "VENDOR" });
+                    setFpMessage("Password reset successfully! You can now login.");
+                    setTimeout(() => { setShowForgotPassword(false); setFpOtpSent(false); setFpOtp(["", "", "", "", "", ""]); setFpPassword(""); setFpConfirmPassword(""); }, 2000);
+                  } catch (err) { setFpMessage(err.message || "Failed to reset password"); }
+                  finally { setFpSubmitting(false); }
+                }} disabled={fpSubmitting}
+                  className="rounded-2xl bg-indigo-600 py-3.5 items-center disabled:opacity-60">
+                  <Text className="font-extrabold text-white">{fpSubmitting ? "Resetting..." : "Reset Password"}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            <TouchableOpacity onPress={() => { setShowForgotPassword(false); setFpOtpSent(false); setFpOtp(["", "", "", "", "", ""]); setFpMessage(""); }}
+              className="rounded-2xl border border-slate-300 py-3.5 items-center mt-3">
+              <Text className="font-extrabold text-slate-700">Back to Signup</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* FAQ Modal */}
       <Modal visible={showFAQ} animationType="slide" transparent>
@@ -168,7 +305,7 @@ export default function VendorSignupScreen({ navigation }) {
                 >
                   <View className="flex-row items-center justify-between">
                     <Text className="text-sm font-bold text-slate-800 flex-1">{faq.q}</Text>
-                    <rhevronLeft size={16} color={colors.slate[400]}
+                    <ChevronLeft size={16} color={colors.slate[400]}
                       style={{ transform: expandedFAQ === i ? [{ rotate: "-90deg" }] : [{ rotate: "0deg" }] }} />
                   </View>
                   {expandedFAQ === i ? (
@@ -193,3 +330,6 @@ export default function VendorSignupScreen({ navigation }) {
     </KeyboardAvoidingView>
   );
 }
+
+
+

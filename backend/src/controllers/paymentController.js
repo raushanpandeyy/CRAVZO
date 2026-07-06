@@ -65,7 +65,7 @@ const getRazorpayConfig = async (_req, res) => {
 
 
 const createCODOrder = async (req, res) => {
-  const { restaurantId, items, address = null, addressId = null, notes = null } = createOrderSchema.parse({
+  const { restaurantId, items, address = null, addressId = null, notes = null, restaurantInstructions = null, deliveryInstructions = null, tipAmount = 0, couponCode = null } = createOrderSchema.parse({
     ...req.body,
     paymentMethod: "COD",
   });
@@ -77,8 +77,12 @@ const createCODOrder = async (req, res) => {
     address,
     addressId,
     paymentMethod: "COD",
-    paymentStatus: "PENDING", // 🔥 COD = unpaid
+    paymentStatus: "PENDING", // Ã°Å¸â€Â¥ COD = unpaid
     notes,
+    restaurantInstructions,
+    deliveryInstructions,
+    tipAmount,
+    couponCode,
   });
 
   runNotificationTask(notifyVendorNewOrder(order), "notifyVendorNewOrder");
@@ -94,7 +98,7 @@ const createCODOrder = async (req, res) => {
 
 
 const createCheckoutOrder = async (req, res) => {
-  const { restaurantId, items, address = null, addressId = null, paymentMethod, notes = null } =
+  const { restaurantId, items, address = null, addressId = null, paymentMethod, notes = null, restaurantInstructions = null, deliveryInstructions = null, tipAmount = 0, couponCode = null } =
     createCheckoutOrderSchema.parse(req.body);
   const draft = await prepareOrderDraft({
     customerId: req.user.sub,
@@ -104,11 +108,16 @@ const createCheckoutOrder = async (req, res) => {
     addressId,
     paymentMethod,
     notes,
+    restaurantInstructions,
+    deliveryInstructions,
+    tipAmount,
+    couponCode,
+    persistAddress: false,
   });
 
   const razorpayOrder = await createRazorpayOrder({
     amount: Math.round(Number(draft.totalAmount) * 100),
-    receipt: `dodago_${Date.now()}`,
+    receipt: `cravzo_${Date.now()}`,
     notes: {
       customerId: req.user.sub,
       restaurantId,
@@ -136,9 +145,14 @@ const verifyAndCreatePaidOrder = async (req, res) => {
     address = null,
     addressId = null,
     notes = null,
+    restaurantInstructions = null,
+    deliveryInstructions = null,
+    tipAmount = 0,
     razorpayOrderId,
     razorpayPaymentId,
     razorpaySignature,
+    paymentMethod,
+    couponCode = null,
   } = verifyPaymentOrderSchema.parse(req.body);
 
   const generatedSignature = crypto
@@ -170,12 +184,21 @@ const verifyAndCreatePaidOrder = async (req, res) => {
     items,
     address,
     addressId,
-    paymentMethod: "UPI",
+    paymentMethod,
     notes,
+    restaurantInstructions,
+    deliveryInstructions,
+    tipAmount,
+    couponCode,
   });
 
   const expectedAmount = Math.round(Number(draft.totalAmount) * 100);
-  if (Number(razorpayOrder.amount_paid) < expectedAmount) {
+  const belongsToCustomer = razorpayOrder.notes?.customerId === req.user.sub;
+  const belongsToRestaurant = razorpayOrder.notes?.restaurantId === restaurantId;
+  if (!belongsToCustomer || !belongsToRestaurant || razorpayOrder.status !== "paid") {
+    throw new ApiError(400, "Razorpay order does not match this checkout");
+  }
+  if (Number(razorpayOrder.amount_paid) !== expectedAmount) {
     throw new ApiError(400, "Payment amount does not match order total");
   }
 
@@ -185,9 +208,13 @@ const verifyAndCreatePaidOrder = async (req, res) => {
     items,
     address,
     addressId,
-    paymentMethod: "UPI",
+    paymentMethod,
     paymentStatus: "PAID",
     notes,
+    restaurantInstructions,
+    deliveryInstructions,
+    tipAmount,
+    couponCode,
     gatewayProvider: "RAZORPAY",
     gatewayOrderId: razorpayOrderId,
     gatewayPaymentId: razorpayPaymentId,

@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
@@ -16,6 +18,8 @@ const serializeMenuItem = (item) => ({
   sizes: item.sizes,
   sideDishes: item.sideDishes,
   isVeg: item.isVeg,
+  trackInventory: item.trackInventory,
+  stockQuantity: item.stockQuantity,
   status: item.status,
   createdAt: item.createdAt,
   updatedAt: item.updatedAt,
@@ -45,6 +49,8 @@ const listMenuItems = async (req, res) => {
       sizes: true,
       sideDishes: true,
       isVeg: true,
+      trackInventory: true,
+      stockQuantity: true,
       status: true,
       createdAt: true,
       updatedAt: true,
@@ -91,6 +97,8 @@ const createMenuItem = async (req, res) => {
       sizes: payload.sizes || undefined,
       sideDishes: payload.sideDishes || undefined,
       isVeg: Boolean(payload.isVeg),
+      trackInventory: Boolean(payload.trackInventory),
+      stockQuantity: payload.stockQuantity ?? null,
       status: payload.status || "ACTIVE",
     },
   });
@@ -133,6 +141,8 @@ const updateMenuItem = async (req, res) => {
       sizes: payload.sizes !== undefined ? payload.sizes : existingItem.sizes,
       sideDishes: payload.sideDishes !== undefined ? payload.sideDishes : existingItem.sideDishes,
       isVeg: typeof payload.isVeg === "boolean" ? payload.isVeg : existingItem.isVeg,
+      trackInventory: typeof payload.trackInventory === "boolean" ? payload.trackInventory : existingItem.trackInventory,
+      stockQuantity: payload.stockQuantity !== undefined ? payload.stockQuantity : existingItem.stockQuantity,
       status: payload.status ?? existingItem.status,
     },
   });
@@ -177,4 +187,127 @@ const deleteMenuItem = async (req, res) => {
   );
 };
 
-export { createMenuItem, deleteMenuItem, listMenuItems, updateMenuItem };
+const bulkImportMenuItems = async (req, res) => {
+  const { items } = req.body;
+  if (!Array.isArray(items) || items.length === 0) {
+    throw new ApiError(400, "Items array is required with at least one item");
+  }
+
+  const restaurant = await prisma.restaurant.findFirst({
+    where: { vendorId: req.user.sub },
+  });
+  if (!restaurant) {
+    throw new ApiError(404, "No restaurant found for this vendor");
+  }
+
+  const restaurantId = restaurant.id;
+
+  const bulkItemSchema = z.object({
+    name: z.string().trim().min(2).max(120),
+    price: z.coerce.number().positive().max(100000),
+    category: z.string().trim().min(2).max(80),
+    description: z.string().trim().max(1000).optional().nullable(),
+    imageUrl: z.string().trim().url().optional().nullable(),
+    isVeg: z.coerce.boolean().optional(),
+    sizes: z.array(z.object({
+      size: z.enum(["S", "M", "L"]),
+      price: z.coerce.number().positive().max(100000),
+    })).max(3).optional().nullable(),
+    sideDishes: z.array(z.object({
+      name: z.string().trim().min(1).max(100),
+      price: z.coerce.number().positive().max(100000),
+    })).max(20).optional().nullable(),
+    trackInventory: z.coerce.boolean().optional(),
+    stockQuantity: z.coerce.number().int().min(0).max(1000000).optional().nullable(),
+  });
+
+  const validItems = [];
+  const errors = [];
+
+  for (let i = 0; i < items.length; i++) {
+    const result = bulkItemSchema.safeParse(items[i]);
+    if (result.success) {
+      validItems.push(result.data);
+    } else {
+      errors.push({
+        index: i,
+        item: items[i],
+        errors: result.error.issues.map((iss) => iss.message),
+      });
+    }
+  }
+
+  const createdItems = await prisma.$transaction(
+    validItems.map((data) =>
+      prisma.menuItem.create({
+        data: {
+          restaurantId,
+          name: data.name,
+          price: data.price,
+          category: data.category,
+          description: data.description || null,
+          imageUrl: data.imageUrl || null,
+          isVeg: Boolean(data.isVeg),
+          sizes: data.sizes || undefined,
+          sideDishes: data.sideDishes || undefined,
+          trackInventory: Boolean(data.trackInventory),
+          stockQuantity: data.stockQuantity ?? null,
+          status: "ACTIVE",
+        },
+      }),
+    ),
+  );
+
+  res.status(201).json(
+    apiResponse({
+      message: `${createdItems.length} menu items imported successfully`,
+      data: {
+        created: createdItems.map(serializeMenuItem),
+        errors: errors.length > 0 ? errors : undefined,
+        totalProcessed: items.length,
+        successCount: createdItems.length,
+        errorCount: errors.length,
+      },
+    }),
+  );
+};
+
+const getLowStockItems = async (req, res) => {
+  const threshold = Math.max(1, Number.parseInt(req.query.threshold, 10) || 10);
+
+  const restaurant = await prisma.restaurant.findFirst({
+    where: { vendorId: req.user.sub },
+  });
+  if (!restaurant) {
+    throw new ApiError(404, "No restaurant found for this vendor");
+  }
+
+  const items = await prisma.menuItem.findMany({
+    where: {
+      restaurantId: restaurant.id,
+      trackInventory: true,
+      stockQuantity: { lt: threshold },
+      status: "ACTIVE",
+    },
+    orderBy: { stockQuantity: "asc" },
+  });
+
+  res.status(200).json(
+    apiResponse({
+      message: "Low stock items fetched successfully",
+      data: items.map((item) => ({
+        ...serializeMenuItem(item),
+        stockQuantity: item.stockQuantity,
+      })),
+    }),
+  );
+};
+
+export {
+  bulkImportMenuItems,
+  createMenuItem,
+  deleteMenuItem,
+  getLowStockItems,
+  listMenuItems,
+  updateMenuItem,
+};

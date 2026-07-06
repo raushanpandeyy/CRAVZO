@@ -30,6 +30,8 @@ const menuItemPayloadSchema = z.object({
     .optional()
     .nullable(),
   isVeg: z.boolean().optional(),
+  trackInventory: z.boolean().optional(),
+  stockQuantity: z.coerce.number().int().min(0).max(1000000).optional().nullable(),
   status: menuItemStatusSchema.optional(),
 });
 

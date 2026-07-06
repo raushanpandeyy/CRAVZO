@@ -4,7 +4,7 @@ import {
 } from "react-native";
 import { ChevronLeft, ShieldCheck } from "lucide-react-native";
 import { colors } from "../../constants/colors";
-import { verifyOtp } from "../../services/authService";
+import { verifyOtp, resendOtp } from "../../services/authService";
 import { storage } from "../../services/storage";
 
 export default function VerifyOtpScreen({ navigation, route }) {
@@ -26,6 +26,22 @@ export default function VerifyOtpScreen({ navigation, route }) {
   const handleKeyPress = (key, index) => {
     if (key === "Backspace" && !otp[index] && index > 0) {
       inputs.current[index - 1]?.focus();
+    }
+  };
+
+  const [isResending, setIsResending] = useState(false);
+
+  const handleResend = async () => {
+    const email = storage.getString("otpEmail");
+    if (!email) { Alert.alert("Error", "Email not found"); return; }
+    setIsResending(true);
+    try {
+      await resendOtp({ email });
+      Alert.alert("OTP Sent", "A new OTP has been sent to your email");
+    } catch (err) {
+      Alert.alert("Error", err.message || "Failed to resend OTP");
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -91,8 +107,8 @@ export default function VerifyOtpScreen({ navigation, route }) {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity className="mt-6 items-center">
-          <Text className="text-sm text-indigo-600 font-bold">Resend OTP</Text>
+        <TouchableOpacity onPress={handleResend} disabled={isResending} className="mt-6 items-center">
+          <Text className="text-sm text-indigo-600 font-bold">{isResending ? "Sending..." : "Resend OTP"}</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>

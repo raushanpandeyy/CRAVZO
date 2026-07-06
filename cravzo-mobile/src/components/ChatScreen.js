@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
+  View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image,
 } from "react-native";
-import { Send, ChevronLeft, MessageCircle } from "lucide-react-native";
+import { Send, ChevronLeft, MessageCircle, ImagePlus } from "lucide-react-native";
+import * as ImagePicker from "expo-image-picker";
 import { colors } from "../constants/colors";
 import { connectSocket, disconnectSocket, joinChatRoom, leaveChatRoom, sendSocketMessage, onSocketMessage } from "../services/chatSocket";
 import { apiRequest } from "../services/api";
@@ -14,9 +15,11 @@ export default function ChatScreen({ navigation, route }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [roomId, setRoomId] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [chatPartner, setChatPartner] = useState({ name: "Chat", status: "..." });
   const flatListRef = useRef(null);
   const socketRef = useRef(null);
+  const roomIdRef = useRef(null);
 
   const { orderId, room: roomType } = route.params || {};
 
@@ -39,6 +42,7 @@ export default function ChatScreen({ navigation, route }) {
         if (!mounted) return;
 
         setRoomId(room.id);
+        roomIdRef.current = room.id;
         setChatPartner({
           name: room.name || `Order #${orderId?.slice(-6) || ""}` || "Chat",
           status: "Online",
@@ -47,7 +51,7 @@ export default function ChatScreen({ navigation, route }) {
         const msgRes = await apiRequest(`/api/chats/rooms/${room.id}/messages`);
         setMessages(msgRes.data || []);
       } catch (err) {
-        console.error("Chat init error:", err);
+        Alert.alert("Chat unavailable", err.message || "Could not open this chat");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -56,10 +60,16 @@ export default function ChatScreen({ navigation, route }) {
     init();
 
     socketRef.current = connectSocket();
-    const cleanupMsg = onSocketMessage((msg) => {
-      if (msg.roomId === roomId || !roomId) {
-        setMessages((prev) => [...prev, msg]);
-      }
+    const cleanupMsg = onSocketMessage((payload) => {
+      const message = payload?.message || payload;
+      if (!message?.roomId || message.roomId !== roomIdRef.current) return;
+      setMessages((prev) => {
+        if (prev.some((item) => item.id === message.id)) return prev;
+        const withoutTemp = payload?.clientId
+          ? prev.filter((item) => item.clientId !== payload.clientId)
+          : prev;
+        return [...withoutTemp, message];
+      });
     });
 
     return () => {
@@ -82,30 +92,72 @@ export default function ChatScreen({ navigation, route }) {
   const handleSend = async () => {
     if (!input.trim() || !roomId) return;
     const text = input.trim();
+    const clientId = `temp-${Date.now()}`;
     setInput("");
 
     const tempMsg = {
-      id: `temp-${Date.now()}`,
+      id: clientId,
+      clientId,
+      roomId,
       text,
-      sender: "customer",
       senderId: user?.id,
       createdAt: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, tempMsg]);
 
+    sendSocketMessage({ roomId, text, clientId }, (result) => {
+      if (!result?.ok) {
+        setMessages((prev) => prev.filter((message) => message.clientId !== clientId));
+        Alert.alert("Message not sent", result?.message || "Please try again");
+      }
+    });
+  };
+  const handlePickImage = async () => {
+    if (!roomId || uploadingImage) return;
     try {
-      await apiRequest(`/api/chats/rooms/${roomId}/messages`, {
-        method: "POST",
-        data: { text },
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("Permission required", "Allow photo access to send an image in chat.");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.65,
+        base64: true,
       });
-      sendSocketMessage({ roomId, text, sender: user?.name || "You" });
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset?.base64) throw new Error("Could not read the selected image");
+
+      setUploadingImage(true);
+      const uploadResponse = await apiRequest(`/api/chats/rooms/${roomId}/images`, {
+        method: "POST",
+        data: { dataUrl: `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}` },
+      });
+      const uploaded = uploadResponse.data || uploadResponse;
+      if (!uploaded?.url) throw new Error("Image upload did not return a URL");
+
+      const clientId = `image-${Date.now()}`;
+      setMessages((prev) => [...prev, {
+        id: clientId,
+        clientId,
+        roomId,
+        imageUrl: uploaded.url,
+        senderId: user?.id,
+        createdAt: new Date().toISOString(),
+      }]);
+      sendSocketMessage({ roomId, imageUrl: uploaded.url, clientId }, (response) => {
+        if (!response?.ok) {
+          setMessages((prev) => prev.filter((message) => message.clientId !== clientId));
+          Alert.alert("Image not sent", response?.message || "Please try again");
+        }
+      });
     } catch (err) {
-      console.error("Send message error:", err);
-      Alert.alert("Error", "Failed to send message");
-      setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
+      Alert.alert("Image not sent", err.response?.data?.message || err.message || "Please try again");
+    } finally {
+      setUploadingImage(false);
     }
   };
-
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center">
@@ -115,13 +167,18 @@ export default function ChatScreen({ navigation, route }) {
   }
 
   const renderMessage = ({ item }) => {
-    const isMe = item.senderId === user?.id || item.sender === "customer";
+    const isMe = item.senderId === user?.id || item.sender?.id === user?.id || item.sender === "customer";
     return (
       <View className={`max-w-[80%] ${isMe ? "self-end" : "self-start"}`}>
         <View className={`rounded-2xl px-4 py-3 ${isMe ? "bg-indigo-600" : "bg-slate-100"}`}>
-          <Text className={`text-sm ${isMe ? "text-white" : "text-slate-900"}`}>
-            {item.text}
-          </Text>
+          {item.imageUrl ? (
+            <Image source={{ uri: item.imageUrl }} className="mb-2 h-48 w-56 rounded-xl" resizeMode="cover" />
+          ) : null}
+          {item.text ? (
+            <Text className={`text-sm ${isMe ? "text-white" : "text-slate-900"}`}>
+              {item.text}
+            </Text>
+          ) : null}
         </View>
         <Text className={`text-[10px] text-slate-400 mt-1 ${isMe ? "text-right" : "text-left"}`}>
           {item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
@@ -151,7 +208,7 @@ export default function ChatScreen({ navigation, route }) {
         ref={flatListRef}
         className="flex-1 px-4"
         data={messages}
-        keyExtractor={(item) => item.id || String(Math.random())}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingVertical: 16, gap: 8 }}
         renderItem={renderMessage}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
@@ -159,7 +216,13 @@ export default function ChatScreen({ navigation, route }) {
 
       <View className="px-4 py-3 border-t border-slate-100 bg-white">
         <View className="flex-row items-center gap-2">
-          <TextInput
+          <TouchableOpacity
+            onPress={handlePickImage}
+            disabled={uploadingImage || !roomId}
+            className="h-11 w-11 items-center justify-center rounded-full bg-slate-100"
+          >
+            {uploadingImage ? <ActivityIndicator size="small" color={colors.brand[600]} /> : <ImagePlus size={18} color={colors.brand[600]} />}
+          </TouchableOpacity>          <TextInput
             className="flex-1 rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-sm"
             placeholder="Type a message..."
             placeholderTextColor="#94a3b8"

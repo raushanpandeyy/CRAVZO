@@ -36,8 +36,8 @@ export const leaveChatRoom = (roomId) => {
   socket?.emit("chat:leave", { roomId });
 };
 
-export const sendSocketMessage = (payload) => {
-  socket?.emit("chat:message", payload);
+export const sendSocketMessage = (payload, callback) => {
+  socket?.emit("chat:send", payload, callback);
 };
 
 export const onSocketMessage = (handler) => {
@@ -49,3 +49,5 @@ export const onChatNotification = (handler) => {
   socket?.on("chat:notification", handler);
   return () => socket?.off("chat:notification", handler);
 };
+
+

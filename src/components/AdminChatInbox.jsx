@@ -15,10 +15,10 @@ const roomLabel = (room) => {
 
 const roomSubtitle = (room) => {
   if (room.type === "SUPPORT") {
-    return [room.supportUser?.role, room.supportUser?.phone || room.supportUser?.email].filter(Boolean).join(" • ");
+    return [room.supportUser?.role, room.supportUser?.phone || room.supportUser?.email].filter(Boolean).join(" â€¢ ");
   }
 
-  return [room.order?.customer?.name, room.order?.rider?.name || "No rider", room.order?.restaurant?.name].filter(Boolean).join(" • ");
+  return [room.order?.customer?.name, room.order?.rider?.name || "No rider", room.order?.restaurant?.name].filter(Boolean).join(" â€¢ ");
 };
 
 const AdminChatInbox = () => {
@@ -64,7 +64,7 @@ const AdminChatInbox = () => {
           <p className="text-sm text-slate-500">Live support and order chats with Socket.IO.</p>
         </div>
         <div className="flex gap-2">
-          {["SUPPORT", "ORDER_RIDER"].map((item) => (
+          {["SUPPORT", "ORDER_RIDER", "ORDER_VENDOR"].map((item) => (
             <button
               key={item}
               type="button"
@@ -73,7 +73,7 @@ const AdminChatInbox = () => {
                 type === item ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-700"
               }`}
             >
-              {item === "SUPPORT" ? "Support" : "Orders"}
+              {item === "SUPPORT" ? "Support" : item === "ORDER_RIDER" ? "Rider Chats" : "Restaurant Chats"}
             </button>
           ))}
           <button

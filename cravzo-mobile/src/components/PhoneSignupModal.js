@@ -372,7 +372,7 @@ export default function PhoneSignupModal({ visible, onClose }) {
 
               <Text className="mb-3 text-sm font-bold text-slate-700">I want to</Text>
               <View className="mb-4 gap-2">
-                {ROLES.map((r) => {
+                {ROLES.filter((option) => authMethod !== "phone" || option.key !== "VENDOR").map((r) => {
                   const Icon = r.icon;
                   const selected = role === r.key;
                   return (
@@ -441,3 +441,4 @@ export default function PhoneSignupModal({ visible, onClose }) {
     </Modal>
   );
 }
+

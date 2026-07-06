@@ -1,7 +1,7 @@
 import { Router } from "express";
 
-import { deleteReview, listMyReviews, listRestaurantReviews, upsertReview } from "../controllers/reviewController.js";
-import { authenticate } from "../middleware/authMiddleware.js";
+import { deleteReview, listMyReviews, listRestaurantReviews, replyToReview, upsertReview } from "../controllers/reviewController.js";
+import { authenticate, authorize } from "../middleware/authMiddleware.js";
 import { publicLimiter } from "../middleware/rateLimiters.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 
@@ -15,7 +15,8 @@ const reviewRouter = Router();
 reviewRouter.get("/restaurant/:restaurantId", publicLimiter, cachePublic, asyncHandler(listRestaurantReviews));
 reviewRouter.use(authenticate);
 reviewRouter.get("/my", asyncHandler(listMyReviews));
-reviewRouter.post("/", asyncHandler(upsertReview));
+reviewRouter.post("/", authorize("CUSTOMER"), asyncHandler(upsertReview));
+reviewRouter.post("/:reviewId/reply", authorize("VENDOR"), asyncHandler(replyToReview));
 reviewRouter.delete("/:reviewId", asyncHandler(deleteReview));
 
 export { reviewRouter };

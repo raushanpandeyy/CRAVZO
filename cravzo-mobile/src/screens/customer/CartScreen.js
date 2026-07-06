@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
+  TextInput,
+  Alert,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -11,49 +13,99 @@ import {
   ChevronDown, ChevronUp, Tag,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
-import { updateQuantity, removeItem, clearCart } from "../../store/slices/cartSlice";
+import { updateQuantity, removeItem, updateItemNotes, clearCart } from "../../store/slices/cartSlice";
+import { setShowAuthModal, setPendingNavigationRoute } from "../../store/slices/userSlice";
 import CouponInput from "../../components/CouponInput";
-
-const FOOD_GST_RATE = 0.05;
-const DELIVERY_GST_RATE = 0.18;
-const PLATFORM_FEE = 0;
-const PACKAGING_PERCENT = 0.01;
-
-const DELIVERY_SLABS = [
-  { maxKm: 1, fee: 17 },
-  { maxKm: 2, fee: 23 },
-  { maxKm: 3, fee: 30 },
-  { maxKm: 4, fee: 35 },
-];
-
-const VALID_COUPONS = { DODAGO10: 10, SAVE20: 20, FIRST50: 50 };
+import { apiRequest } from "../../services/api";
+import { getAppConfig } from "../../services/configService";
 
 const formatCurrency = (amount) => `\u20B9${Math.floor(amount)}`;
 const getPrice = (price) => (typeof price === "number" ? price : parseInt(String(price).replace(/[^0-9]/g, ""), 10) || 0);
 
-const calculateDeliveryBase = (distanceKm) => {
+const calculateDeliveryBase = (distanceKm, pricing) => {
   const d = distanceKm || 1;
-  for (const slab of DELIVERY_SLABS) { if (d <= slab.maxKm) return slab.fee; }
-  const last = DELIVERY_SLABS[DELIVERY_SLABS.length - 1];
-  return last.fee + Math.ceil(d - last.maxKm) * 10;
+  const slabs = pricing?.deliverySlabs || [];
+  for (const slab of slabs) { if (d <= slab.maxKm) return slab.fee; }
+  const last = slabs[slabs.length - 1];
+  if (last) return last.fee + Math.ceil(d - last.maxKm) * Number(pricing.deliveryPerKmRate || 0);
+  return Number(pricing?.deliveryBaseFee || 0);
+};
+const toRadians = (v) => (v * Math.PI) / 180;
+const getDistanceKm = (lat1, lng1, lat2, lng2) => {
+  const R = 6371;
+  const dLat = toRadians(lat2 - lat1);
+  const dLng = toRadians(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
 export default function CartScreen({ navigation }) {
   const dispatch = useDispatch();
+  const isLoggedIn = useSelector((state) => state.user.isLoggedIn);
   const cart = useSelector((state) => state.cart.items);
   const [showTax, setShowTax] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [msg, setMsg] = useState("");
-  const distanceKm = 3;
+  const [distanceKm, setDistanceKm] = useState(3);
+  const [pricingConfig, setPricingConfig] = useState(null);
+
+  useEffect(() => {
+    getAppConfig()
+      .then((config) => setPricingConfig(config.pricing))
+      .catch((err) => Alert.alert("Pricing unavailable", err.message || "Could not load current fees and taxes."));
+  }, []);
+  useEffect(() => {
+    (async () => {
+      if (cart.length === 0) return;
+      const restaurantId = cart[0]?.restaurantId || cart[0]?.itemKey?.split("|")[1];
+      if (!restaurantId) return;
+      try {
+        const res = await apiRequest(`/api/restaurants/${restaurantId}`);
+        const rest = res.data || res.restaurant || res;
+        if (rest?.latitude && rest?.longitude) {
+          const addrRes = await apiRequest("/api/users/profile");
+          const profile = addrRes.data || addrRes.user || addrRes;
+          const addr = profile?.defaultAddress || profile?.addresses?.[0];
+          if (addr?.latitude && addr?.longitude) {
+            const dist = getDistanceKm(addr.latitude, addr.longitude, rest.latitude, rest.longitude);
+            setDistanceKm(Math.round(dist * 10) / 10);
+          }
+        }
+      } catch (err) {
+        setMsg(err.message || "Could not calculate delivery distance.");
+      }
+    })();
+  }, [cart]);
 
   const handleApplyCoupon = async (code) => {
-    if (VALID_COUPONS[code]) {
-      setCouponDiscount(VALID_COUPONS[code]);
-      setMsg("Coupon applied!");
-      setTimeout(() => setMsg(""), 3000);
-    } else {
-      throw new Error("Invalid coupon code");
+    const subtotal = cart.reduce((acc, item) => {
+      const baseTotal = getPrice(item.price) * item.quantity;
+      const sideTotal = (item.selectedSideDishes || []).reduce((s, sd) => s + Number(sd.price), 0) * item.quantity;
+      return acc + baseTotal + sideTotal;
+    }, 0);
+    const res = await apiRequest("/api/coupons/validate", {
+      method: "POST",
+      data: {
+        code: code.toUpperCase(),
+        restaurantId: cart[0]?.restaurantId,
+        subtotal,
+      },
+    });
+    const result = res.data || res;
+    if (!result.valid) {
+      throw new Error(result.message || "Invalid coupon code");
     }
+    const coupon = result.coupon;
+    let discount = 0;
+    if (coupon.discountType === "PERCENTAGE") {
+      discount = Math.floor((coupon.discountValue / 100) * subtotal);
+      if (coupon.maxDiscount) discount = Math.min(discount, Number(coupon.maxDiscount));
+    } else {
+      discount = Number(coupon.discountValue);
+    }
+    setCouponDiscount(discount);
+    setMsg(`Coupon applied! You saved ${formatCurrency(discount)}`);
+    setTimeout(() => setMsg(""), 3000);
   };
 
   const handleRemoveCoupon = () => {
@@ -62,42 +114,45 @@ export default function CartScreen({ navigation }) {
 
   const increase = (item) => {
     dispatch(updateQuantity({
-      menuItemId: item.menuItemId,
-      restaurantId: item.restaurantId,
+      itemKey: item.itemKey,
       quantity: item.quantity + 1,
     }));
   };
 
   const decrease = (item) => {
     if (item.quantity <= 1) {
-      dispatch(removeItem({ menuItemId: item.menuItemId, restaurantId: item.restaurantId }));
+      dispatch(removeItem({ itemKey: item.itemKey }));
     } else {
       dispatch(updateQuantity({
-        menuItemId: item.menuItemId,
-        restaurantId: item.restaurantId,
+        itemKey: item.itemKey,
         quantity: item.quantity - 1,
       }));
     }
   };
 
   const handleRemoveItem = (item) => {
-    dispatch(removeItem({ menuItemId: item.menuItemId, restaurantId: item.restaurantId }));
+    dispatch(removeItem({ itemKey: item.itemKey }));
   };
 
   const pricing = useMemo(() => {
-    const itemTotal = cart.reduce((acc, item) => acc + getPrice(item.price) * item.quantity, 0);
-    const deliveryBase = calculateDeliveryBase(distanceKm);
-    const deliveryGst = deliveryBase * DELIVERY_GST_RATE;
+    const itemTotal = cart.reduce((acc, item) => {
+      const baseTotal = getPrice(item.price) * item.quantity;
+      const sideTotal =
+        (item.selectedSideDishes || []).reduce((s, sd) => s + Number(sd.price), 0) * item.quantity;
+      return acc + baseTotal + sideTotal;
+    }, 0);
+    const deliveryBase = calculateDeliveryBase(distanceKm, pricingConfig);
+    const deliveryGst = deliveryBase * Number(pricingConfig?.deliveryGstRate || 0);
     const deliveryTotal = deliveryBase + deliveryGst;
-    const packagingFeeBase = Math.floor(itemTotal * PACKAGING_PERCENT);
-    const foodGst = itemTotal * FOOD_GST_RATE;
-    const packagingTax = packagingFeeBase * FOOD_GST_RATE;
+    const packagingFeeBase = Math.floor(itemTotal * Number(pricingConfig?.packagingPercent || 0));
+    const foodGst = itemTotal * Number(pricingConfig?.foodGstRate || 0);
+    const packagingTax = packagingFeeBase * Number(pricingConfig?.foodGstRate || 0);
     const totalTax = foodGst + packagingTax + deliveryGst;
-    const grandTotal = itemTotal + foodGst + packagingFeeBase + packagingTax + deliveryTotal + PLATFORM_FEE;
+    const grandTotal = itemTotal + foodGst + packagingFeeBase + packagingTax + deliveryTotal + Number(pricingConfig?.platformFee || 0);
     const coupon = Math.min(couponDiscount, grandTotal);
     const finalTotal = grandTotal - coupon;
     return { itemTotal, deliveryBase, deliveryGst, deliveryTotal, packagingFeeBase, packagingTax, foodGst, totalTax, grandTotal, cgst: totalTax / 2, sgst: totalTax / 2, coupon, finalTotal };
-  }, [cart, distanceKm, couponDiscount]);
+  }, [cart, distanceKm, couponDiscount, pricingConfig]);
 
   if (cart.length === 0) {
     return (
@@ -132,12 +187,23 @@ export default function CartScreen({ navigation }) {
 
       <ScrollView className="flex-1 px-4 pt-6 pb-6">
         <View className="space-y-4">
-          {cart.map((item) => (
-            <View key={`${item.menuItemId}-${item.restaurantId}`} className="bg-white rounded-3xl p-5 shadow-sm">
+          {cart.map((item) => {
+            const sides = item.selectedSideDishes || [];
+            const sideTotal = sides.reduce((s, sd) => s + Number(sd.price), 0);
+            return (
+            <View key={item.itemKey} className="bg-white rounded-3xl p-5 shadow-sm">
               <View className="flex-row items-start gap-3">
                 <View className="flex-1 min-w-0">
                   <Text className="font-bold text-slate-900" numberOfLines={1}>{item.name}</Text>
                   <Text className="text-sm text-slate-500">{formatCurrency(getPrice(item.price))} each</Text>
+                  {item.size ? (
+                    <Text className="text-xs text-indigo-600 font-bold mt-0.5">{item.size}</Text>
+                  ) : null}
+                  {sides.length > 0 ? (
+                    <Text className="text-xs text-amber-700 mt-0.5">
+                      + {sides.map((s) => s.name).join(", ")} ({formatCurrency(sideTotal)})
+                    </Text>
+                  ) : null}
                 </View>
                 <View className="flex-row items-center gap-2">
                   <TouchableOpacity onPress={() => decrease(item)}
@@ -151,14 +217,22 @@ export default function CartScreen({ navigation }) {
                   </TouchableOpacity>
                 </View>
                 <View className="items-end">
-                  <Text className="font-bold text-slate-900">{formatCurrency(getPrice(item.price) * item.quantity)}</Text>
+                  <Text className="font-bold text-slate-900">{formatCurrency((getPrice(item.price) + sideTotal) * item.quantity)}</Text>
                   <TouchableOpacity onPress={() => handleRemoveItem(item)} className="mt-2">
                     <Trash2 size={14} color={colors.red[400]} />
                   </TouchableOpacity>
                 </View>
               </View>
+              <TextInput
+                placeholder="Add note for restaurant (extra spicy, no onion, etc.)"
+                placeholderTextColor={colors.slate[400]}
+                value={item.notes || ""}
+                onChangeText={(text) => dispatch(updateItemNotes({ itemKey: item.itemKey, notes: text }))}
+                className="mt-3 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900"
+              />
             </View>
-          ))}
+          );
+          })}
         </View>
 
         <View className="bg-white rounded-3xl p-5 shadow-sm mt-4">
@@ -234,7 +308,14 @@ export default function CartScreen({ navigation }) {
       </ScrollView>
 
       <View className="border-t border-slate-200 bg-white px-4 pt-4 pb-8">
-        <TouchableOpacity onPress={() => navigation.navigate("Checkout")}
+        <TouchableOpacity onPress={() => {
+          if (!isLoggedIn) {
+            dispatch(setPendingNavigationRoute("Checkout"));
+            dispatch(setShowAuthModal(true));
+            return;
+          }
+          navigation.navigate("Checkout");
+        }}
           className="rounded-2xl bg-indigo-600 py-4 shadow-lg shadow-indigo-200"
         >
           <Text className="text-base font-extrabold text-white text-center">
@@ -245,3 +326,5 @@ export default function CartScreen({ navigation }) {
     </View>
   );
 }
+
+

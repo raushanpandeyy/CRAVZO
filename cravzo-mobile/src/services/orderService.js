@@ -31,3 +31,18 @@ export const updateOrderStatus = async (orderId, status) => {
 };
 
 export const cancelOrder = async (orderId) => updateOrderStatus(orderId, "CANCELLED");
+
+export const getOrderTracking = async (orderId) => {
+  const response = await apiRequest(`/api/orders/${orderId}/tracking`);
+  return response.data;
+};
+
+export const requestDeliveryOtp = async (orderId) => {
+  const response = await apiRequest(`/api/orders/${orderId}/delivery-otp`, { method: "POST" });
+  return response.data;
+};
+
+export const getReorderData = async (orderId) => {
+  const response = await apiRequest(`/api/orders/${orderId}/reorder`);
+  return response.data;
+};

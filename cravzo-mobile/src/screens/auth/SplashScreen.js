@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { View, Text, Image } from "react-native";
-import { cravzologo } from "../../constants/images";
+import { dodagologo } from "../../constants/images";
+import OptimizedImage from "../../components/OptimizedImage";
 
 export default function SplashScreen({ onFinish }) {
   useEffect(() => {
@@ -10,7 +11,7 @@ export default function SplashScreen({ onFinish }) {
 
   return (
     <View className="flex-1 bg-indigo-950 items-center justify-center">
-      <Image source={{ uri: cravzologo }} className="h-20 w-20 rounded-2xl mb-4" resizeMode="cover" />
+      <OptimizedImage source={{ uri: dodagologo }} className="h-20 w-20 rounded-2xl mb-4" resizeMode="cover" />
       <Text className="text-3xl font-bold text-white tracking-widest">DODAGO</Text>
       <Text className="text-sm text-indigo-200 mt-2">Affordable food delivery</Text>
     </View>

@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, ScrollView, TouchableOpacity, Image } from "react-native";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react-native";
 import { colors } from "../../constants/colors";
+import OptimizedImage from "../../components/OptimizedImage";
 import {
   burger, dosa, biryaniplate, momos, cake, chinese, indianthali,
   rolls, parathe, Chaat, icecream, Snacks, southindian, salad, northindian,
@@ -39,7 +40,7 @@ export default function DishesListingScreen({ navigation }) {
               onPress={() => navigation.navigate("DishScreen", { dishName: dish.name })}
               className="w-[46%] bg-white rounded-3xl p-4 shadow-sm items-center min-h-[160px]"
             >
-              <Image source={{ uri: dish.image }} className="h-24 w-24 rounded-full" resizeMode="cover" />
+              <OptimizedImage source={{ uri: dish.image }} className="h-24 w-24 rounded-full" resizeMode="cover" />
               <Text className="mt-3 font-bold text-slate-900 text-center">{dish.name}</Text>
               <View className="flex-row items-center gap-1 mt-1">
                 <Text className="text-xs text-indigo-600">Find restaurants</Text>

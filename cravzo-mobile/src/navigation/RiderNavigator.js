@@ -13,6 +13,7 @@ import RiderMyReviewsScreen from "../screens/rider/RiderMyReviewsScreen";
 import RiderEditProfileScreen from "../screens/rider/RiderEditProfileScreen";
 import DeliveryHistoryScreen from "../screens/rider/DeliveryHistoryScreen";
 import ContactsScreen from "../screens/rider/ContactsScreen";
+import ActiveDeliveryScreen from "../screens/rider/ActiveDeliveryScreen";
 import ChatScreen from "../components/ChatScreen";
 import { colors } from "../constants/colors";
 
@@ -68,6 +69,7 @@ export default function RiderNavigator() {
       <Stack.Screen name="RiderEditProfile" component={RiderEditProfileScreen} />
       <Stack.Screen name="DeliveryHistory" component={DeliveryHistoryScreen} />
       <Stack.Screen name="Contacts" component={ContactsScreen} />
+      <Stack.Screen name="ActiveDelivery" component={ActiveDeliveryScreen} />
     </Stack.Navigator>
   );
 }

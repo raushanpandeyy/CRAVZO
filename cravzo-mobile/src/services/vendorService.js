@@ -1,8 +1,18 @@
 import { apiRequest } from "./api";
 
-export const getMyRestaurant = async () => {
+export const getMyRestaurant = async (index = 0) => {
   const res = await apiRequest("/api/restaurants/mine");
-  return res.data || res.restaurant || res;
+  const data = res.data || res.restaurant || res;
+  if (Array.isArray(data)) {
+    return data[index] || data[0] || null;
+  }
+  return data;
+};
+
+export const getMyRestaurants = async () => {
+  const res = await apiRequest("/api/restaurants/mine");
+  const data = res.data || res.restaurant || res;
+  return Array.isArray(data) ? data : (data ? [data] : []);
 };
 
 export const createRestaurant = async (data) => {
@@ -69,4 +79,55 @@ export const uploadImage = async (formData) => {
     data: formData,
     headers: { "Content-Type": "multipart/form-data" },
   });
+};
+
+export const getVendorAnalytics = async () => {
+  const res = await apiRequest("/api/analytics/vendor");
+  return res.data;
+};
+
+export const getCoupons = async () => {
+  const res = await apiRequest("/api/coupons");
+  return res.data || [];
+};
+
+export const createCoupon = async (data) => {
+  const res = await apiRequest("/api/coupons", { method: "POST", data });
+  return res.data;
+};
+
+export const updateCoupon = async (id, data) => {
+  const res = await apiRequest(`/api/coupons/${id}`, { method: "PUT", data });
+  return res.data;
+};
+
+export const deleteCoupon = async (id) => {
+  const res = await apiRequest(`/api/coupons/${id}`, { method: "DELETE" });
+  return res.data;
+};
+
+export const getRestaurantReviews = async (restaurantId) => {
+  const res = await apiRequest(`/api/reviews/restaurant/${restaurantId}`);
+  return res.data || [];
+};
+
+export const replyToReview = async (reviewId, reply) => {
+  const res = await apiRequest(`/api/reviews/${reviewId}/reply`, {
+    method: "POST",
+    data: { reply },
+  });
+  return res.data;
+};
+
+export const bulkImportMenuItems = async (items) => {
+  const res = await apiRequest("/api/menu-items/bulk-import", {
+    method: "POST",
+    data: { items },
+  });
+  return res.data;
+};
+
+export const getLowStockItems = async (threshold = 10) => {
+  const res = await apiRequest(`/api/menu-items/low-stock?threshold=${threshold}`);
+  return res.data || [];
 };

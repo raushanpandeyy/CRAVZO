@@ -76,6 +76,8 @@ export const API_ENDPOINTS = {
     approveVendor: (id) => `${BASE}/admin/vendors/${id}/approve`,
     pendingRiders: `${BASE}/admin/riders/pending`,
     approveRider: (id) => `${BASE}/admin/riders/${id}/approve`,
+    initiateRefund: (orderId) => `${BASE}/admin/orders/${orderId}/refund/initiate`,
+    reconcileRefund: (orderId) => `${BASE}/admin/orders/${orderId}/refund/reconcile`,
   },
 
 restaurant: {

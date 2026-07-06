@@ -1,3 +1,5 @@
+import { randomInt } from "node:crypto";
+import bcrypt from "bcryptjs";
 import { prisma } from "../config/database.js";
 import { connectRedis } from "../config/redis.js";
 import { ApiError } from "../utils/apiError.js";
@@ -5,11 +7,24 @@ import { apiResponse } from "../utils/apiResponse.js";
 import { createPersistedOrder, serializeOrder } from "../services/orderCheckoutService.js";
 import { queueNotification } from "../services/notificationQueue.js";
 import { emitOrderStatusUpdate, emitNewOrderToVendor, emitNewOrderToRiders } from "../services/orderSocketService.js";
+import { initiateRazorpayRefund } from "../services/razorpayRefundService.js";
 import { createOrderSchema } from "../validators/orderValidators.js";
 
 const RIDER_GEO_KEY = "rider:geo";
 
 const ACTIVE_DELIVERY_STATUSES = ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
+const VENDOR_STATUS_TRANSITIONS = {
+  PENDING: ["ACCEPTED", "REJECTED"],
+  ACCEPTED: ["PREPARING"],
+  PREPARING: ["READY_FOR_PICKUP"],
+};
+
+const assertVendorStatusTransition = (currentStatus, nextStatus) => {
+  const allowed = VENDOR_STATUS_TRANSITIONS[currentStatus] || [];
+  if (!allowed.includes(nextStatus)) {
+    throw new ApiError(400, `Restaurant cannot move an order from ${currentStatus} to ${nextStatus}`);
+  }
+};
 
 const sanitizeCustomerForNonAdmin = (customer, userRole) => {
   if (userRole === "ADMIN") {
@@ -46,6 +61,9 @@ const createOrder = async (req, res) => {
     addressId = null,
     paymentMethod,
     notes = null,
+    restaurantInstructions = null,
+    deliveryInstructions = null,
+    tipAmount = 0,
   } = createOrderSchema.parse(req.body);
 
   // Fix #3: Pre-geocode address before transaction opens
@@ -68,14 +86,17 @@ const createOrder = async (req, res) => {
     paymentMethod,
     paymentStatus: paymentMethod === "COD" ? "PENDING" : "PAID",
     notes,
+    restaurantInstructions,
+    deliveryInstructions,
+    tipAmount,
   });
 
-  // Queue notifications after order is persisted — background worker handles FCM
+  // Queue notifications after order is persisted ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â background worker handles FCM
   // This removes ~500ms of FCM send time from the request lifecycle
   queueNotification("vendor-new-order", { order });
   queueNotification("rider-new-order", { order });
 
-  // Real-time socket push — replaces frontend polling for new orders
+  // Real-time socket push ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â replaces frontend polling for new orders
   emitNewOrderToVendor(order);
 
   res.status(201).json(
@@ -87,7 +108,7 @@ const createOrder = async (req, res) => {
 };
 
 const getMyOrders = async (req, res) => {
-  // Fix #7: No pagination on getMyOrders — previously returned ALL orders ever.
+  // Fix #7: No pagination on getMyOrders ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â previously returned ALL orders ever.
   // A user with 200 orders = 200 restaurants + 600 items + 200 riders fetched
   // in one shot. 100 such users simultaneously = 100K+ DB rows per second.
   //
@@ -164,7 +185,7 @@ const getMyOrders = async (req, res) => {
 };
 
 const getVendorOrders = async (req, res) => {
-  // Fix 7: Pagination added — a vendor with 1000+ orders was fetching everything
+  // Fix 7: Pagination added ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â a vendor with 1000+ orders was fetching everything
   // in one shot. Using cursor-based pagination (same pattern as getMyOrders).
   // Default page size = 50 for vendor dashboard (vendors need more context than customers).
   const VENDOR_PAGE_SIZE = 50;
@@ -176,6 +197,10 @@ const getVendorOrders = async (req, res) => {
     : { take: VENDOR_PAGE_SIZE, skip: (page - 1) * VENDOR_PAGE_SIZE };
 
   const where = { restaurant: { vendorId: req.user.sub } };
+
+  if (req.query.restaurantId) {
+    where.restaurantId = req.query.restaurantId;
+  }
 
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
@@ -235,9 +260,9 @@ const getVendorOrders = async (req, res) => {
 };
 
 const getRiderOrders = async (req, res) => {
-  // Fix #2: Previously fired 4 sequential DB queries + O(orders × riders)
+  // Fix #2: Previously fired 4 sequential DB queries + O(orders ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â riders)
   // haversine loop synchronously in Node's event loop.
-  // With 50 riders × 200 active orders = 10,000 distance calculations per request,
+  // With 50 riders ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 200 active orders = 10,000 distance calculations per request,
   // and 100 concurrent riders = 1,000,000 CPU ops blocking the event loop.
   //
   // New approach:
@@ -245,7 +270,7 @@ const getRiderOrders = async (req, res) => {
   //   2. The expensive nearest-rider calculation is moved to a separate
   //      dedicated endpoint (GET /api/orders/rider/suggestions) that is
   //      called far less frequently than the main polling loop.
-  //   3. `isAvailable` is computed with a simple Set lookup — O(1) per order.
+  //   3. `isAvailable` is computed with a simple Set lookup ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â O(1) per order.
   const rider = await prisma.user.findUnique({
     where: { id: req.user.sub },
     select: {
@@ -261,7 +286,7 @@ const getRiderOrders = async (req, res) => {
 
   const riderCity = rider.riderOnboarding?.city?.trim();
 
-  // Run both queries in parallel — saves ~50% of latency vs sequential
+  // Run both queries in parallel ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â saves ~50% of latency vs sequential
   const [orders, engagedRiderRows] = await Promise.all([
     prisma.order.findMany({
       where: {
@@ -303,7 +328,7 @@ const getRiderOrders = async (req, res) => {
       },
       orderBy: { createdAt: "desc" },
     }),
-    // Only fetch the IDs we need — no heavy includes
+    // Only fetch the IDs we need ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â no heavy includes
     prisma.order.findMany({
       where: {
         riderId: { not: null },
@@ -313,7 +338,7 @@ const getRiderOrders = async (req, res) => {
     }),
   ]);
 
-  // Build engaged-rider set in O(n) — used for O(1) lookup below
+  // Build engaged-rider set in O(n) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â used for O(1) lookup below
   const engagedRiderIds = new Set(
     engagedRiderRows.map((row) => row.riderId).filter(Boolean),
   );
@@ -330,14 +355,14 @@ const getRiderOrders = async (req, res) => {
           : order.customer
             ? { id: order.customer.id, name: order.customer.name }
             : null,
-        // isAvailable: O(1) Set lookup — no haversine here
+        // isAvailable: O(1) Set lookup ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â no haversine here
         isAvailable:
           rider.isOnline &&
           !order.riderId &&
           ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP"].includes(order.status) &&
           !(order.rejectedRiderIds || []).includes(rider.id) &&
           !engagedRiderIds.has(rider.id),
-        // suggestedRiderId removed from hot path — use /rider/suggestions endpoint
+        // suggestedRiderId removed from hot path ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â use /rider/suggestions endpoint
         suggestedRiderId: null,
       })),
     }),
@@ -345,7 +370,7 @@ const getRiderOrders = async (req, res) => {
 };
 
 // Fix #2 (cont.): Nearest-rider suggestions moved to a dedicated endpoint.
-// This is called by the vendor/admin dashboard — far less frequently than
+// This is called by the vendor/admin dashboard ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â far less frequently than
 // the per-rider polling loop. Keeps the main getRiderOrders fast.
 const getRiderOrderSuggestions = async (req, res) => {
   const rider = await prisma.user.findUnique({
@@ -495,6 +520,10 @@ const updateOrderStatus = async (req, res) => {
     throw new ApiError(403, "You do not have permission to update this order");
   }
 
+  if (req.user.role === "VENDOR") {
+    assertVendorStatusTransition(order.status, status);
+  }
+
   if (req.user.role === "CUSTOMER") {
     if (order.customerId !== req.user.sub) {
       throw new ApiError(403, "You do not have permission to update this order");
@@ -519,7 +548,7 @@ const updateOrderStatus = async (req, res) => {
         throw new ApiError(400, "This order is no longer available to reject");
       }
 
-      const updatedOrder = await prisma.order.update({
+  const updatedOrder = await prisma.order.update({
         where: { id: req.params.orderId },
         data: {
           rejectedRiderIds: {
@@ -563,7 +592,7 @@ const updateOrderStatus = async (req, res) => {
           },
         }),
       );
-      emitOrderStatusUpdate(updatedOrder, req.user.role);
+  emitOrderStatusUpdate(updatedOrder, req.user.role);
       queueNotification("rider-rejected-order", { order: updatedOrder, actorRole: req.user.role });
       return;
     }
@@ -607,19 +636,23 @@ const updateOrderStatus = async (req, res) => {
       throw new ApiError(400, "Pickup is available only after the restaurant marks the order ready");
     }
 
+    if (status === "DELIVERED") {
+      throw new ApiError(400, "Verify the customer delivery OTP to complete this order");
+    }
+
     if (status === "DELIVERED" && order.status !== "OUT_FOR_DELIVERY") {
       throw new ApiError(400, "Deliver the order only after pickup");
     }
 
     // Fix #6: Rider claim race condition (TOCTOU).
     //
-    // Old flow:  read riderId=null → check → write riderId=me
-    //            Two riders can both read null and both write — last write wins,
+    // Old flow:  read riderId=null ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ check ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ write riderId=me
+    //            Two riders can both read null and both write ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â last write wins,
     //            resulting in ghost assignment (two riders think they own one order).
     //
     // New flow for "claim" (canClaimOrder):
     //   Use updateMany with WHERE riderId IS NULL as an atomic conditional update.
-    //   If another rider claimed between our read and our write, count=0 → 409.
+    //   If another rider claimed between our read and our write, count=0 ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ 409.
     if (canClaimOrder) {
       const claimed = await prisma.order.updateMany({
         where: {
@@ -637,7 +670,7 @@ const updateOrderStatus = async (req, res) => {
         throw new ApiError(409, "This order was just claimed by another rider. Please try a different order.");
       }
 
-      // Fix 5: Avoid duplicate full fetch — the initial fetch already has
+      // Fix 5: Avoid duplicate full fetch ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â the initial fetch already has
       // restaurant, address, customer, items. Just fetch rider data.
       const riderData = await prisma.order.findUnique({
         where: { id: req.params.orderId },
@@ -678,10 +711,31 @@ const updateOrderStatus = async (req, res) => {
   })();
 
   const totalAmountNum = Number(order.totalAmount);
-  const cancelFee = Math.round((totalAmountNum * cancelFeePercent) / 100 * 100) / 100;
+  const cancellationFeeBase = Math.max(0, totalAmountNum - Number(order.tipAmount || 0));
+  const cancelFee = Math.round((cancellationFeeBase * cancelFeePercent) / 100 * 100) / 100;
   const refundAmount = totalAmountNum - cancelFee;
+  const gatewayRefund =
+    status === "CANCELLED" && order.paymentStatus === "PAID"
+      ? await initiateRazorpayRefund({
+          paymentId: order.gatewayPaymentId,
+          amount: refundAmount,
+          orderId: order.id,
+          customerId: order.customerId,
+        })
+      : null;
 
-  const updatedOrder = await prisma.order.update({
+  const updatedOrder = await prisma.$transaction(async (tx) => {
+    if (status === "CANCELLED" && order.status !== "CANCELLED") {
+      await Promise.all(
+        order.items
+          .filter((item) => item.menuItem?.trackInventory)
+          .map((item) => tx.menuItem.update({
+            where: { id: item.menuItemId },
+            data: { stockQuantity: { increment: item.quantity } },
+          })),
+      );
+    }
+    return tx.order.update({
     where: { id: req.params.orderId },
     data: {
       status,
@@ -692,12 +746,16 @@ const updateOrderStatus = async (req, res) => {
       ...(req.user.role === "RIDER" && status === order.status
         ? { rejectedRiderIds: [] }
         : {}),
-      ...(status === "DELIVERED" ? { paymentStatus: "PAID" } : {}),
-      ...(status === "CANCELLED" && order.paymentStatus === "PAID"
-        ? { paymentStatus: "REFUNDED" }
-        : {}),
-      ...(status === "CANCELLED" && cancelFee > 0
-        ? { totalAmount: refundAmount }
+      ...(status === "OUT_FOR_DELIVERY" ? { pickedUpAt: new Date() } : {}),
+      ...(status === "DELIVERED" ? { paymentStatus: "PAID", deliveredAt: new Date() } : {}),
+      ...(gatewayRefund
+        ? {
+            paymentStatus: gatewayRefund.status === "processed" ? "REFUNDED" : "REFUND_PENDING",
+            refundId: gatewayRefund.id,
+            refundStatus: gatewayRefund.status,
+            refundAmount,
+            refundInitiatedAt: new Date(),
+          }
         : {}),
     },
     include: {
@@ -727,23 +785,23 @@ const updateOrderStatus = async (req, res) => {
       },
     },
   });
-
-  // Real-time socket push — eliminates frontend polling for this update
+  });
+  // Real-time socket push ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â eliminates frontend polling for this update
   emitOrderStatusUpdate(updatedOrder, req.user.role);
 
-  // Queue notification — background worker handles FCM send
+  // Queue notification ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â background worker handles FCM send
   queueNotification("order-status-changed", { order: updatedOrder, actorRole: req.user.role });
 
   // NOTE: notifyRiderNewOrder is NOT called here.
   // New order alerts to riders are sent only when an order is first created
   // (createOrder) or when a rider claims an order (the canClaimOrder block above).
-  // Calling it here on every status update was a bug — it was blasting all
+  // Calling it here on every status update was a bug ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â it was blasting all
   // online riders with notifications for every DELIVERED / CANCELLED etc.
 
   res.status(200).json(
     apiResponse({
       message: status === "CANCELLED" && cancelFee > 0
-        ? `Order cancelled. ${cancelFeePercent}% fee deducted (₹${cancelFee}).`
+        ? `Order cancelled. ${cancelFeePercent}% fee deducted (ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹${cancelFee}).`
         : "Order status updated successfully",
       data: {
         ...serializeOrder(updatedOrder),
@@ -758,4 +816,144 @@ const updateOrderStatus = async (req, res) => {
   );
 };
 
-export { createOrder, getMyOrders, getRiderOrderSuggestions, getRiderOrders, getVendorOrders, updateOrderStatus };
+const getOrderTracking = async (req, res) => {
+  const order = await prisma.order.findUnique({
+    where: { id: req.params.orderId },
+    include: {
+      address: true,
+      restaurant: true,
+      rider: { select: { id: true, name: true, phone: true, avatarUrl: true, latitude: true, longitude: true } },
+    },
+  });
+  if (!order) throw new ApiError(404, "Order not found");
+  const allowed = req.user.role === "ADMIN" ||
+    (req.user.role === "CUSTOMER" && order.customerId === req.user.sub) ||
+    (req.user.role === "RIDER" && order.riderId === req.user.sub) ||
+    (req.user.role === "VENDOR" && order.restaurant.vendorId === req.user.sub);
+  if (!allowed) throw new ApiError(403, "You do not have permission to track this order");
+
+  res.status(200).json(apiResponse({ message: "Order tracking fetched", data: {
+    id: order.id,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    paymentMethod: order.paymentMethod,
+    deliveryInstructions: order.deliveryInstructions,
+    restaurantInstructions: order.restaurantInstructions,
+    tipAmount: Number(order.tipAmount || 0),
+    pickedUpAt: order.pickedUpAt,
+    deliveredAt: order.deliveredAt,
+    rider: order.rider,
+    restaurant: { id: order.restaurant.id, name: order.restaurant.name, phone: order.restaurant.phone, latitude: order.restaurant.latitude, longitude: order.restaurant.longitude },
+    destination: order.address ? { fullName: order.address.fullName, phone: order.address.phone, line1: order.address.line1, line2: order.address.line2, city: order.address.city, latitude: order.address.latitude, longitude: order.address.longitude } : null,
+  }}));
+};
+
+const createDeliveryOtp = async (req, res) => {
+  const order = await prisma.order.findUnique({ where: { id: req.params.orderId } });
+  if (!order) throw new ApiError(404, "Order not found");
+  if (order.customerId !== req.user.sub) throw new ApiError(403, "You can only request OTP for your own order");
+  if (!["READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(order.status) || !order.riderId) {
+    throw new ApiError(400, "Delivery OTP is available after a rider is assigned");
+  }
+  const otp = String(randomInt(1000, 10000));
+  await prisma.order.update({ where: { id: order.id }, data: {
+    deliveryOtpHash: await bcrypt.hash(otp, 10),
+    deliveryOtpExpiresAt: new Date(Date.now() + 30 * 60 * 1000),
+  }});
+  res.status(200).json(apiResponse({ message: "Delivery OTP generated", data: { otp, expiresInMinutes: 30 } }));
+};
+
+const verifyDeliveryOtp = async (req, res) => {
+  const otp = String(req.body.otp || "").trim();
+  if (!/^\d{4}$/.test(otp)) throw new ApiError(400, "Enter a valid 4-digit OTP");
+  const order = await prisma.order.findUnique({ where: { id: req.params.orderId } });
+  if (!order) throw new ApiError(404, "Order not found");
+  if (order.riderId !== req.user.sub) throw new ApiError(403, "This delivery is not assigned to you");
+  if (order.status !== "OUT_FOR_DELIVERY") throw new ApiError(400, "Order must be out for delivery");
+  if (!order.deliveryOtpHash || !order.deliveryOtpExpiresAt || order.deliveryOtpExpiresAt < new Date()) {
+    throw new ApiError(400, "Delivery OTP has expired. Ask the customer to generate a new OTP");
+  }
+  if (!(await bcrypt.compare(otp, order.deliveryOtpHash))) throw new ApiError(400, "Incorrect delivery OTP");
+  const updated = await prisma.order.update({ where: { id: order.id }, data: {
+    status: "DELIVERED", paymentStatus: "PAID", deliveredAt: new Date(), deliveryOtpHash: null, deliveryOtpExpiresAt: null,
+  }, include: { restaurant: true, address: true, customer: true, rider: true, items: { include: { menuItem: true } } } });
+  emitOrderStatusUpdate(updated, req.user.role);
+  queueNotification("order-status-changed", { order: updated, actorRole: req.user.role });
+  res.status(200).json(apiResponse({ message: "Delivery completed successfully", data: serializeOrder(updated) }));
+};
+const getVendorPayouts = async (req, res) => {
+  const restaurant = await prisma.restaurant.findFirst({ where: { vendorId: req.user.sub } });
+  if (!restaurant) throw new ApiError(404, "Restaurant not found");
+  const [earnings, reserved, payouts] = await Promise.all([
+    prisma.order.aggregate({ where: { restaurantId: restaurant.id, status: "DELIVERED" }, _sum: { subtotal: true } }),
+    prisma.vendorPayout.aggregate({ where: { vendorId: req.user.sub, status: { in: ["REQUESTED", "PROCESSING", "PAID"] } }, _sum: { amount: true } }),
+    prisma.vendorPayout.findMany({ where: { vendorId: req.user.sub }, orderBy: { requestedAt: "desc" }, take: 50 }),
+  ]);
+  const grossEarnings = Number(earnings._sum.subtotal || 0);
+  const reservedAmount = Number(reserved._sum.amount || 0);
+  res.status(200).json(apiResponse({ message: "Payout summary fetched", data: {
+    grossEarnings, reservedAmount, availableAmount: Math.max(0, grossEarnings - reservedAmount),
+    payouts: payouts.map((p) => ({ ...p, amount: Number(p.amount) })),
+  }}));
+};
+
+const requestVendorPayout = async (req, res) => {
+  const requestedAmount = Number(req.body.amount);
+  if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) throw new ApiError(400, "Enter a valid payout amount");
+  const payout = await prisma.$transaction(async (tx) => {
+    const restaurant = await tx.restaurant.findFirst({ where: { vendorId: req.user.sub } });
+    if (!restaurant) throw new ApiError(404, "Restaurant not found");
+    const [earnings, reserved] = await Promise.all([
+      tx.order.aggregate({ where: { restaurantId: restaurant.id, status: "DELIVERED" }, _sum: { subtotal: true } }),
+      tx.vendorPayout.aggregate({ where: { vendorId: req.user.sub, status: { in: ["REQUESTED", "PROCESSING", "PAID"] } }, _sum: { amount: true } }),
+    ]);
+    const available = Number(earnings._sum.subtotal || 0) - Number(reserved._sum.amount || 0);
+    if (requestedAmount > available) throw new ApiError(400, `Only Rs ${Math.max(0, available).toFixed(2)} is available for payout`);
+    return tx.vendorPayout.create({ data: { vendorId: req.user.sub, restaurantId: restaurant.id, amount: requestedAmount } });
+  });
+  res.status(201).json(apiResponse({ message: "Payout request submitted", data: { ...payout, amount: Number(payout.amount) } }));
+};
+const reorderOrder = async (req, res) => {
+  const { orderId } = req.params;
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          menuItem: {
+            select: { id: true, name: true, price: true, imageUrl: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new ApiError(404, "Order not found");
+  }
+
+  if (order.customerId !== req.user.sub) {
+    throw new ApiError(403, "You can only reorder your own orders");
+  }
+
+  const items = order.items.map((item) => ({
+    menuItemId: item.menuItemId,
+    name: item.menuItem.name,
+    price: Number(item.menuItem.price),
+    quantity: item.quantity,
+    size: item.size,
+    selectedSideDishes: item.selectedSideDishes,
+    notes: item.notes,
+    imageUrl: item.menuItem.imageUrl,
+  }));
+
+  res.status(200).json(
+    apiResponse({
+      message: "Reorder data fetched successfully",
+      data: { items },
+    }),
+  );
+};
+
+export { assertVendorStatusTransition, createDeliveryOtp, createOrder, getMyOrders, getOrderTracking, getRiderOrderSuggestions, getRiderOrders, getVendorOrders, getVendorPayouts, reorderOrder, requestVendorPayout, updateOrderStatus, verifyDeliveryOtp };

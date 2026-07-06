@@ -8,6 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import OptimizedImage from "../../components/OptimizedImage";
 import { Heart, Star, Clock3, ChevronLeft } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { getFavorites, removeFavorite } from "../../services/favoriteService";
@@ -71,7 +72,7 @@ export default function FavoritesScreen({ navigation }) {
                   >
                     <View className="relative h-36 w-full bg-slate-100">
                       {dish.imageUrl ? (
-                        <Image source={{ uri: dish.imageUrl }} className="h-full w-full" resizeMode="cover" />
+                        <OptimizedImage source={{ uri: dish.imageUrl }} className="h-full w-full" resizeMode="cover" />
                       ) : (
                         <View className="h-full w-full items-center justify-center bg-indigo-100">
                           <Text className="text-4xl font-black text-indigo-600">{dish.name?.[0] || dish.dishName?.[0]}</Text>
@@ -91,7 +92,7 @@ export default function FavoritesScreen({ navigation }) {
                     <View className="p-4">
                       <Text className="text-lg font-black text-slate-950" numberOfLines={1}>{dish.name || dish.dishName}</Text>
                       <Text className="mt-1 text-sm font-semibold text-slate-500" numberOfLines={1}>
-                        {dish.cuisine || dish.category || "Popular dish"}
+                        {dish.cuisine || dish.category || ""}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -106,7 +107,7 @@ export default function FavoritesScreen({ navigation }) {
                 >
                   <View className="relative h-44 w-full bg-slate-100">
                     {restaurant.imageUrl ? (
-                      <Image source={{ uri: restaurant.imageUrl }} className="h-full w-full" resizeMode="cover" />
+                      <OptimizedImage source={{ uri: restaurant.imageUrl }} className="h-full w-full" resizeMode="cover" />
                     ) : (
                       <View className="h-full w-full items-center justify-center bg-indigo-100">
                         <Text className="text-4xl font-black text-indigo-600">{restaurant.name?.[0]}</Text>
@@ -118,7 +119,7 @@ export default function FavoritesScreen({ navigation }) {
                     </View>
                     <View className="absolute bottom-3 left-3 flex-row items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1">
                       <Star size={14} color="#fff" fill="#fff" />
-                      <Text className="text-xs font-black text-white">{restaurant.rating || "4.2"}</Text>
+                      <Text className="text-xs font-black text-white">{restaurant.rating || ""}</Text>
                     </View>
                     <TouchableOpacity
                       onPress={() => handleRemove(fav)}
@@ -130,12 +131,12 @@ export default function FavoritesScreen({ navigation }) {
                   <View className="p-4">
                     <Text className="text-lg font-black text-slate-950" numberOfLines={1}>{restaurant.name}</Text>
                     <Text className="mt-1 text-sm font-semibold text-slate-500" numberOfLines={1}>
-                      {restaurant.cuisine || "Fresh meals"} • {restaurant.location || restaurant.city || "Near you"}
+                      {restaurant.cuisine || ""} • {restaurant.location || restaurant.city || ""}
                     </Text>
                     <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
                       <View className="flex-row items-center gap-1">
                         <Clock3 size={16} color={colors.brand[700]} />
-                        <Text className="text-xs font-extrabold text-slate-700">{restaurant.deliveryTime || "30-40 min"}</Text>
+                        <Text className="text-xs font-extrabold text-slate-700">{restaurant.deliveryTime || ""}</Text>
                       </View>
                     </View>
                   </View>

@@ -4,6 +4,7 @@ import { apiResponse } from "../utils/apiResponse.js";
 import { uploadImageToCloudinary } from "../utils/cloudinary.js";
 import { sanitizeUser } from "../utils/userResponse.js";
 import { updateProfileSchema } from "../validators/userValidators.js";
+import { deleteCache } from "../utils/cache.js";
 
 const getProfile = async (req, res) => {
   const user = await prisma.user.findUnique({
@@ -71,6 +72,81 @@ const updateProfile = async (req, res) => {
   );
 };
 
+const deleteAccount = async (req, res) => {
+  if (req.body?.confirmation !== "DELETE") {
+    throw new ApiError(400, "Type DELETE to confirm account deletion");
+  }
+
+  const activeStatuses = ["PENDING", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
+  const activeOrders = await prisma.order.count({
+    where: {
+      status: { in: activeStatuses },
+      OR: [
+        { customerId: req.user.sub },
+        { riderId: req.user.sub },
+        { restaurant: { vendorId: req.user.sub } },
+      ],
+    },
+  });
+  if (activeOrders > 0) {
+    throw new ApiError(409, "Complete or cancel active orders before deleting your account");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await Promise.all([
+      tx.fcmToken.deleteMany({ where: { userId: req.user.sub } }),
+      tx.favorite.deleteMany({ where: { userId: req.user.sub } }),
+      tx.review.deleteMany({ where: { userId: req.user.sub } }),
+      tx.riderRating.deleteMany({ where: { OR: [{ userId: req.user.sub }, { riderId: req.user.sub }] } }),
+      tx.chatMessage.updateMany({
+        where: { senderId: req.user.sub },
+        data: { text: "[deleted]", imageUrl: null, kind: "TEXT" },
+      }),
+      tx.address.updateMany({
+        where: { userId: req.user.sub },
+        data: {
+          label: "Deleted address",
+          fullName: "Deleted user",
+          phone: "0000000000",
+          line1: "Deleted",
+          line2: null,
+          city: "Deleted",
+          state: "Deleted",
+          postalCode: "000000",
+          latitude: null,
+          longitude: null,
+          isDefault: false,
+        },
+      }),
+      tx.restaurant.updateMany({
+        where: { vendorId: req.user.sub },
+        data: { isOpen: false, status: "INACTIVE", phone: null, bankDetails: null },
+      }),
+    ]);
+
+    await tx.user.update({
+      where: { id: req.user.sub },
+      data: {
+        name: "Deleted user",
+        email: `deleted-${req.user.sub}@deleted.invalid`,
+        phone: null,
+        avatarUrl: null,
+        status: "BLOCKED",
+        isOnline: false,
+        latitude: null,
+        longitude: null,
+        vendorOnboarding: null,
+        riderOnboarding: null,
+        bankDetails: null,
+        vehicleDetails: null,
+        paymentMethods: null,
+      },
+    });
+  });
+
+  await deleteCache(`auth:user:${req.user.sub}`);
+  return res.status(200).json(apiResponse({ message: "Account and personal data deleted successfully" }));
+};
 const uploadImage = async (req, res) => {
   const dataUrl = req.body.dataUrl?.trim();
   const folder = req.body.folder?.trim();
@@ -99,4 +175,5 @@ const uploadImage = async (req, res) => {
   );
 };
 
-export { getProfile, updateProfile, uploadImage };
+export { deleteAccount, getProfile, updateProfile, uploadImage };
+

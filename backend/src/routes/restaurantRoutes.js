@@ -6,6 +6,7 @@ import {
   getRestaurantById,
   listRestaurants,
   updateRestaurant,
+  deleteRestaurant,
   getNearbyRestaurants,
   searchRestaurantsAndDishes,
 } from "../controllers/restaurantController.js";
@@ -33,6 +34,12 @@ restaurantRouter.put(
   authenticate,
   authorize("VENDOR", "ADMIN"),
   asyncHandler(updateRestaurant),
+);
+restaurantRouter.delete(
+  "/:restaurantId",
+  authenticate,
+  authorize("VENDOR", "ADMIN"),
+  asyncHandler(deleteRestaurant),
 );
 
 export { restaurantRouter };

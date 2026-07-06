@@ -19,10 +19,9 @@ export const useCart = () => {
     itemCount,
     total,
     addItem: (item) => dispatch(addItem(item)),
-    updateQuantity: (menuItemId, restaurantId, quantity) =>
-      dispatch(updateQuantity({ menuItemId, restaurantId, quantity })),
-    removeItem: (menuItemId, restaurantId) =>
-      dispatch(removeItem({ menuItemId, restaurantId })),
+    updateQuantity: (itemKey, quantity) =>
+      dispatch(updateQuantity({ itemKey, quantity })),
+    removeItem: (itemKey) => dispatch(removeItem({ itemKey })),
     clearCart: () => dispatch(clearCart()),
   };
 };

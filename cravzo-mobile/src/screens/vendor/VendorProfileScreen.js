@@ -6,13 +6,14 @@ import {
 import {
   Store, Clock, CreditCard, MapPin, ImagePlus, Edit,
   CheckCircle, ChevronRight, LogOut, User, Save, Phone,
+  IndianRupee, Calendar, Tag, BarChart3, MessageSquare, Upload, X, Plus,
 } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 import { colors } from "../../constants/colors";
 import { getMyRestaurant, createRestaurant, updateRestaurant, uploadImage } from "../../services/vendorService";
-import { clearSession } from "../../services/authService";
 import { useDispatch } from "react-redux";
-import { clearUser } from "../../store/slices/userSlice";
+import { logoutUser } from "../../store/slices/userSlice";
+import OptimizedImage from "../../components/OptimizedImage";
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -29,10 +30,13 @@ const emptyProfile = {
   postalCode: "",
   latitude: null,
   longitude: null,
+  fssaiNumber: "",
+  minimumOrder: 0,
   isOpen: true,
   openingTime: "09:00",
   closingTime: "22:00",
   openDays: [...DAYS_OF_WEEK],
+  closureDates: [],
   bankDetails: {
     accountHolderName: "",
     bankName: "",
@@ -43,7 +47,7 @@ const emptyProfile = {
 
 function VerifiedBadge({ restaurant }) {
   if (!restaurant) return null;
-  const fields = [restaurant.name, restaurant.cuisine, restaurant.phone, restaurant.imageUrl, restaurant.addressLine1, restaurant.city, restaurant.state, restaurant.postalCode];
+  const fields = [restaurant.name, restaurant.cuisine, restaurant.phone, restaurant.imageUrl, restaurant.addressLine1, restaurant.city, restaurant.state, restaurant.postalCode, restaurant.fssaiNumber];
   const filled = fields.filter(Boolean).length;
   const pct = Math.round((filled / fields.length) * 100);
   const complete = pct >= 85;
@@ -100,10 +104,13 @@ export default function VendorProfileScreen({ navigation }) {
           postalCode: data.postalCode || "",
           latitude: data.latitude ?? null,
           longitude: data.longitude ?? null,
+          fssaiNumber: data.fssaiNumber || "",
+          minimumOrder: data.minimumOrder ?? 0,
           isOpen: data.isOpen ?? true,
           openingTime: data.openingTime || "09:00",
           closingTime: data.closingTime || "22:00",
           openDays: data.openDays?.length ? data.openDays : [...DAYS_OF_WEEK],
+          closureDates: data.closureDates || [],
           bankDetails: {
             accountHolderName: data.bankDetails?.accountHolderName || "",
             bankName: data.bankDetails?.bankName || "",
@@ -123,6 +130,25 @@ export default function VendorProfileScreen({ navigation }) {
 
   const handleInputChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const [closureInput, setClosureInput] = useState("");
+
+  const addClosureDate = () => {
+    if (!closureInput.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      Alert.alert("Invalid", "Use format YYYY-MM-DD");
+      return;
+    }
+    if (form.closureDates.includes(closureInput)) {
+      Alert.alert("Duplicate", "Already added");
+      return;
+    }
+    setForm((prev) => ({ ...prev, closureDates: [...prev.closureDates, closureInput].sort() }));
+    setClosureInput("");
+  };
+
+  const removeClosureDate = (date) => {
+    setForm((prev) => ({ ...prev, closureDates: prev.closureDates.filter((d) => d !== date) }));
   };
 
   const handleBankChange = (field, value) => {
@@ -211,12 +237,15 @@ export default function VendorProfileScreen({ navigation }) {
         addressLine1: form.addressLine1,
         addressLine2: form.addressLine2 || null,
         city: form.city,
+        fssaiNumber: form.fssaiNumber || null,
+        minimumOrder: Number(form.minimumOrder) || 0,
         state: form.state,
         postalCode: form.postalCode,
         isOpen: form.isOpen,
         openingTime: form.openingTime,
         closingTime: form.closingTime,
         openDays: form.openDays,
+        closureDates: form.closureDates?.length ? form.closureDates : null,
         latitude: form.latitude ?? null,
         longitude: form.longitude ?? null,
         bankDetails: form.bankDetails.accountHolderName || form.bankDetails.bankName
@@ -236,13 +265,7 @@ export default function VendorProfileScreen({ navigation }) {
   };
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Logout", style: "destructive", onPress: () => {
-        clearSession();
-        dispatch(clearUser());
-      }},
-    ]);
+    dispatch(logoutUser());
   };
 
   if (loading) {
@@ -259,7 +282,7 @@ export default function VendorProfileScreen({ navigation }) {
         <View className="items-center">
           <View className="h-20 w-20 rounded-2xl bg-indigo-600 items-center justify-center mb-3 border-2 border-indigo-400">
             {form.imageUrl ? (
-              <Image source={{ uri: form.imageUrl }} className="h-20 w-20 rounded-2xl" />
+              <OptimizedImage source={{ uri: form.imageUrl }} className="h-20 w-20 rounded-2xl" />
             ) : (
               <Store size={36} color="#fff" />
             )}
@@ -301,7 +324,7 @@ export default function VendorProfileScreen({ navigation }) {
                 value={form.name}
                 onChangeText={(v) => handleInputChange("name", v)}
                 className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
-                placeholder="Dodago Kitchen"
+                placeholder="Your restaurant name"
                 placeholderTextColor={colors.slate[400]}
               />
             </View>
@@ -343,9 +366,32 @@ export default function VendorProfileScreen({ navigation }) {
             </View>
 
             <View>
+              <Text className="text-sm font-semibold text-slate-700 mb-2">FSSAI Number</Text>
+              <TextInput
+                value={form.fssaiNumber}
+                onChangeText={(v) => handleInputChange("fssaiNumber", v)}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+                placeholder="FSSAI License Number"
+                placeholderTextColor={colors.slate[400]}
+              />
+            </View>
+
+            <View>
+              <Text className="text-sm font-semibold text-slate-700 mb-2">Minimum Order Amount (₹)</Text>
+              <TextInput
+                value={String(form.minimumOrder)}
+                onChangeText={(v) => handleInputChange("minimumOrder", v)}
+                className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+                placeholder="0"
+                placeholderTextColor={colors.slate[400]}
+                keyboardType="decimal-pad"
+              />
+            </View>
+
+            <View>
               <Text className="text-sm font-semibold text-slate-700 mb-2">Restaurant Image</Text>
               {form.imageUrl ? (
-                <Image source={{ uri: form.imageUrl }} className="w-full h-40 rounded-2xl mb-2" />
+                <OptimizedImage source={{ uri: form.imageUrl }} className="w-full h-40 rounded-2xl mb-2" />
               ) : null}
               <TouchableOpacity
                 onPress={handlePickImage}
@@ -474,6 +520,42 @@ export default function VendorProfileScreen({ navigation }) {
           <Text className="text-xs text-slate-500 mt-2">Selected: {form.openDays.length} days</Text>
         </View>
 
+        {/* Closure Dates */}
+        <View className="bg-white rounded-3xl p-5 shadow-sm mb-4">
+          <View className="flex-row items-center gap-2 mb-4">
+            <Calendar size={18} color={colors.slate[700]} />
+            <Text className="text-lg font-extrabold text-slate-900">Closure Dates (Holidays)</Text>
+          </View>
+
+          <View className="flex-row items-center gap-2 mb-3">
+            <TextInput
+              value={closureInput}
+              onChangeText={setClosureInput}
+              className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={colors.slate[400]}
+            />
+            <TouchableOpacity onPress={addClosureDate} className="h-11 w-11 items-center justify-center rounded-2xl bg-indigo-600">
+              <Plus size={18} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          {form.closureDates.length === 0 ? (
+            <Text className="text-xs text-slate-400">No closure dates set</Text>
+          ) : (
+            <View className="flex-row flex-wrap gap-2">
+              {form.closureDates.map((d) => (
+                <View key={d} className="flex-row items-center gap-1 px-3 py-1.5 rounded-full bg-rose-50 border border-rose-200">
+                  <Text className="text-xs font-medium text-rose-700">{d}</Text>
+                  <TouchableOpacity onPress={() => removeClosureDate(d)}>
+                    <X size={12} color="#e11d48" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
         {/* Bank Details */}
         <View className="bg-white rounded-3xl p-5 shadow-sm mb-4">
           <View className="flex-row items-center gap-2 mb-5">
@@ -531,24 +613,22 @@ export default function VendorProfileScreen({ navigation }) {
         {/* Profile menu items */}
         <View className="bg-white rounded-3xl p-2 shadow-sm mb-4">
           {[
-            { icon: Clock, label: "Business Hours" },
-            { icon: CreditCard, label: "Earnings & Reports", color: "#10b981" },
-            { icon: User, label: "Reviews", color: "#6366f1" },
-            { icon: Phone, label: "Support Chat", color: "#8b5cf6" },
-            { icon: MapPin, label: "Delivery Area", color: "#ef4444" },
+            { icon: BarChart3, label: "Sales Analytics", color: "#6366f1", screen: "SalesAnalytics" },
+            { icon: Tag, label: "Coupons & Offers", color: "#e11d48", screen: "CouponManagement" },
+            { icon: MessageSquare, label: "Reviews & Ratings", color: "#f59e0b", screen: "ReviewManagement" },
+            { icon: Upload, label: "Bulk Import Menu", color: "#8b5cf6", screen: "BulkImport" },
+            { icon: CreditCard, label: "Earnings & Reports", color: "#10b981", screen: "Earnings" },
+            { icon: Phone, label: "Support Chat", color: "#8b5cf6", screen: "Chat" },
           ].map((item, i, arr) => (
             <TouchableOpacity
               key={item.label}
               className={`flex-row items-center gap-4 px-4 py-4 ${i < arr.length - 1 ? "border-b border-slate-100" : ""}`}
               onPress={() => {
-                if (item.label === "Support Chat") navigation.navigate("Chat");
-                else if (item.label === "Earnings & Reports") navigation.navigate("Earnings");
-                else if (item.label === "Delivery Area") navigation.navigate("DeliveryArea");
-                else Alert.alert(item.label, "Coming soon");
+                navigation.navigate(item.screen);
               }}
             >
-              <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${item.color || "#f59e0b"}15` }}>
-                <item.icon size={20} color={item.color || "#f59e0b"} />
+              <View className="h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${item.color}15` }}>
+                <item.icon size={20} color={item.color} />
               </View>
               <Text className="flex-1 font-bold text-slate-900">{item.label}</Text>
               <ChevronRight size={18} color={colors.slate[400]} />

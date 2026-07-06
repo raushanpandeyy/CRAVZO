@@ -10,13 +10,16 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Modal,
 } from "react-native";
 import { useDispatch } from "react-redux";
-import { Lock, Mail, User, Phone } from "lucide-react-native";
-import { cravzologo } from "../../constants/images";
+import { Lock, Mail, User, Phone, X } from "lucide-react-native";
+import { dodagologo } from "../../constants/images";
+import OptimizedImage from "../../components/OptimizedImage";
 import { colors } from "../../constants/colors";
-import { login, signup } from "../../services/authService";
+import { login, signup, requestPasswordReset, resetPassword } from "../../services/authService";
 import { setUser } from "../../store/slices/userSlice";
+import { storage } from "../../services/storage";
 
 const AuthInput = ({ icon: Icon, ...props }) => (
   <View className="relative">
@@ -35,7 +38,7 @@ const AuthInput = ({ icon: Icon, ...props }) => (
   </View>
 );
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }) {
   const dispatch = useDispatch();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -44,6 +47,14 @@ export default function LoginScreen() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [fpEmail, setFpEmail] = useState("");
+  const [fpOtpSent, setFpOtpSent] = useState(false);
+  const [fpOtp, setFpOtp] = useState(["", "", "", "", "", ""]);
+  const [fpPassword, setFpPassword] = useState("");
+  const [fpConfirmPassword, setFpConfirmPassword] = useState("");
+  const [fpMessage, setFpMessage] = useState("");
+  const [fpSubmitting, setFpSubmitting] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -70,8 +81,10 @@ export default function LoginScreen() {
     setIsSubmitting(true);
     setMessage("");
     try {
-      const data = await signup({ name, email, password, phone, accountType: "customer" });
-      dispatch(setUser(data.user || data));
+      await signup({ name, email, password, phone, role: "CUSTOMER" });
+      storage.set("otpEmail", email.trim().toLowerCase());
+      storage.set("otpRole", "CUSTOMER");
+      navigation.navigate("VerifyOtp");
     } catch (e) {
       setMessage(e.response?.data?.message || "Signup failed.");
     } finally {
@@ -103,8 +116,8 @@ export default function LoginScreen() {
           <View className="w-full overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-indigo-950/10">
             <View className="bg-indigo-950 px-6 pb-8 pt-7">
               <View className="mb-5 flex-row items-center justify-between">
-                <Image
-                  source={{ uri: cravzologo }}
+                <OptimizedImage
+                  source={{ uri: dodagologo }}
                   className="h-12 w-12 rounded-2xl"
                   resizeMode="cover"
                 />
@@ -168,6 +181,12 @@ export default function LoginScreen() {
                   secureTextEntry
                 />
 
+                {!isSignup ? (
+                  <TouchableOpacity onPress={() => setShowForgotPassword(true)}>
+                    <Text className="text-xs font-bold text-indigo-600 text-right">Forgot Password?</Text>
+                  </TouchableOpacity>
+                ) : null}
+
                 <TouchableOpacity
                   onPress={isSignup ? handleSignup : handleLogin}
                   disabled={isSubmitting}
@@ -200,6 +219,77 @@ export default function LoginScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={showForgotPassword} animationType="slide" transparent>
+        <View className="flex-1 bg-black/50 justify-end">
+          <View className="bg-white rounded-t-3xl p-6 pb-10">
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-lg font-extrabold text-slate-900">Reset Password</Text>
+              <TouchableOpacity onPress={() => { setShowForgotPassword(false); setFpOtpSent(false); setFpOtp(["", "", "", "", "", ""]); setFpMessage(""); }}>
+                <X size={24} color={colors.slate[500]} />
+              </TouchableOpacity>
+            </View>
+            {fpMessage ? (
+              <View className="bg-indigo-50 rounded-2xl px-4 py-3 mb-4">
+                <Text className="text-sm text-indigo-700">{fpMessage}</Text>
+              </View>
+            ) : null}
+            {!fpOtpSent ? (
+              <View className="gap-4">
+                <AuthInput icon={Mail} placeholder="Email" value={fpEmail} onChangeText={setFpEmail} keyboardType="email-address" autoCapitalize="none" />
+                <TouchableOpacity onPress={async () => {
+                  if (!fpEmail) { setFpMessage("Please enter your email"); return; }
+                  setFpSubmitting(true); setFpMessage("");
+                  try {
+                    await requestPasswordReset({ email: fpEmail, role: "CUSTOMER" });
+                    setFpOtpSent(true);
+                    setFpMessage("Password reset OTP sent to your email.");
+                  } catch (err) { setFpMessage(err.message || "Failed to send OTP"); }
+                  finally { setFpSubmitting(false); }
+                }} disabled={fpSubmitting}
+                  className="rounded-2xl bg-indigo-600 py-3.5 items-center disabled:opacity-60">
+                  <Text className="font-extrabold text-white">{fpSubmitting ? "Sending..." : "Send Reset OTP"}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View className="gap-4">
+                <Text className="text-xs font-bold text-slate-700">OTP</Text>
+                <View className="flex-row gap-2">
+                  {fpOtp.map((digit, i) => (
+                    <TextInput key={i} value={digit} maxLength={1} keyboardType="number-pad"
+                      className="flex-1 h-12 rounded-xl bg-slate-50 border border-slate-200 text-center text-lg font-extrabold"
+                      onChangeText={(v) => {
+                        const newOtp = [...fpOtp];
+                        newOtp[i] = v.replace(/\D/g, "").slice(0, 1);
+                        setFpOtp(newOtp);
+                      }} />
+                  ))}
+                </View>
+                <AuthInput icon={Lock} placeholder="New Password" value={fpPassword} onChangeText={setFpPassword} secureTextEntry />
+                <AuthInput icon={Lock} placeholder="Confirm Password" value={fpConfirmPassword} onChangeText={setFpConfirmPassword} secureTextEntry />
+                <TouchableOpacity onPress={async () => {
+                  if (fpPassword !== fpConfirmPassword) { setFpMessage("Passwords do not match"); return; }
+                  if (fpPassword.length < 6) { setFpMessage("Password must be at least 6 characters"); return; }
+                  const otpStr = fpOtp.join("");
+                  if (otpStr.length < 6) { setFpMessage("Please enter the complete OTP"); return; }
+                  setFpSubmitting(true); setFpMessage("");
+                  try {
+                    await resetPassword({ email: fpEmail, otp: otpStr, password: fpPassword, role: "CUSTOMER" });
+                    setFpMessage("Password reset successfully!");
+                    setTimeout(() => { setShowForgotPassword(false); setFpOtpSent(false); setFpOtp(["", "", "", "", "", ""]); setFpPassword(""); setFpConfirmPassword(""); }, 2000);
+                  } catch (err) { setFpMessage(err.message || "Failed to reset password"); }
+                  finally { setFpSubmitting(false); }
+                }} disabled={fpSubmitting}
+                  className="rounded-2xl bg-indigo-600 py-3.5 items-center disabled:opacity-60">
+                  <Text className="font-extrabold text-white">{fpSubmitting ? "Resetting..." : "Reset Password"}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
+
+

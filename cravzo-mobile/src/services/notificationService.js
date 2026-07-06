@@ -67,20 +67,15 @@ export const registerForPushNotifications = IS_WEB
         return pushToken;
       }
 
-      try {
-        await apiRequest("/api/notifications/fcm-token", {
-          method: "POST",
-          data: {
-            token: pushToken,
-            platform,
-            deviceId: tokenData.data?.substring(0, 20) || pushToken.substring(0, 20),
-          },
-        });
-        storage.set(FCM_TOKEN_KEY, pushToken);
-      } catch {
-        // Token registration failed silently
-      }
-
+      await apiRequest("/api/notifications/fcm-token", {
+        method: "POST",
+        data: {
+          token: pushToken,
+          platform,
+          deviceId: pushToken.substring(0, 20),
+        },
+      });
+      storage.set(FCM_TOKEN_KEY, pushToken);
       return pushToken;
     };
 
@@ -94,7 +89,9 @@ export const unregisterPushNotifications = IS_WEB
             method: "DELETE",
             data: { token },
           });
-        } catch {}
+        } catch (error) {
+          console.warn("Could not unregister push token:", error.message);
+        }
         storage.delete(FCM_TOKEN_KEY);
       }
       storage.delete(NOTIF_GRANTED_KEY);
@@ -135,3 +132,4 @@ export const getLastNotificationResponse = IS_WEB
   : async () => {
       return Notifications.getLastNotificationResponseAsync();
     };
+

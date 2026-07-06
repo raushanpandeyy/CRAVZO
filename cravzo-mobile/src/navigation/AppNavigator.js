@@ -1,9 +1,9 @@
-import React, { createRef, useEffect } from "react";
+import React, { createRef, useEffect, useRef } from "react";
 import { View, Text } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { useSelector, useDispatch } from "react-redux";
-import { setShowAuthModal } from "../store/slices/userSlice";
 import { Monitor } from "lucide-react-native";
+import { setShowAuthModal, setPendingNavigationRoute } from "../store/slices/userSlice";
 
 import CustomerNavigator from "./CustomerNavigator";
 import RiderNavigator from "./RiderNavigator";
@@ -14,27 +14,35 @@ import { colors } from "../constants/colors";
 
 export const navigationRef = createRef();
 
-const NOTIFICATION_ROUTES = {
-  "/account/orders": { screen: "MainTabs", params: { screen: "Orders" } },
-  "/vendor-dashboard/orders": { screen: "VendorTabs", params: { screen: "Orders" } },
-  "/vendor-dashboard": { screen: "VendorTabs", params: { screen: "Dashboard" } },
-  "/rider-dashboard": { screen: "RiderTabs", params: { screen: "Dashboard" } },
-};
 
-export const navigateFromNotification = (clickUrl, orderId) => {
+
+export const navigateFromNotification = (clickUrl, providedOrderId) => {
   const rootNav = navigationRef.current;
-  if (!rootNav) return;
+  if (!rootNav || !clickUrl) return;
 
-  const entry = Object.entries(NOTIFICATION_ROUTES).find(([prefix]) =>
-    clickUrl?.startsWith(prefix)
-  );
+  const queryOrderId = clickUrl.match(/[?&]orderId=([^&]+)/)?.[1];
+  const orderId = providedOrderId || (queryOrderId ? decodeURIComponent(queryOrderId) : null);
 
-  if (entry) {
-    const route = entry[1];
-    rootNav.navigate(route.screen, route.params);
+  if (clickUrl.startsWith("/account/orders")) {
+    rootNav.navigate(orderId ? "OrderTracking" : "MainTabs", orderId
+      ? { orderId }
+      : { screen: "Orders" });
+    return;
+  }
+  if (clickUrl.startsWith("/vendor-dashboard/orders")) {
+    rootNav.navigate("VendorTabs", { screen: "Orders" });
+    return;
+  }
+  if (clickUrl.startsWith("/vendor-dashboard")) {
+    rootNav.navigate("VendorTabs", { screen: "Dashboard" });
+    return;
+  }
+  if (clickUrl.startsWith("/rider-dashboard")) {
+    rootNav.navigate(orderId ? "ActiveDelivery" : "RiderTabs", orderId
+      ? { orderId }
+      : { screen: "Dashboard" });
   }
 };
-
 function AdminBlockedScreen() {
   return (
     <View className="flex-1 items-center justify-center bg-[#F4F7FB] px-6">
@@ -52,36 +60,37 @@ function AdminBlockedScreen() {
 }
 
 export default function AppNavigator() {
-  const { data: user, isLoggedIn, showAuthModal } = useSelector((state) => state.user);
+  const { data: user, isLoggedIn, showAuthModal, pendingNavigationRoute } = useSelector((state) => state.user);
   const dispatch = useDispatch();
+  const lastRole = useRef(user?.accountType || "customer");
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      dispatch(setShowAuthModal(true));
+    if (isLoggedIn && pendingNavigationRoute && navigationRef.current) {
+      navigationRef.current.navigate(pendingNavigationRoute);
+      dispatch(setPendingNavigationRoute(null));
     }
-  }, [isLoggedIn, dispatch]);
+  }, [isLoggedIn, pendingNavigationRoute, dispatch]);
 
-  const getNavigator = () => {
-    const accountType = user?.accountType || "customer";
-    switch (accountType) {
-      case "rider":
-        return <RiderNavigator />;
-      case "vendor":
-        return <VendorNavigator />;
-      case "admin":
-        return <AdminBlockedScreen />;
-      default:
-        return <CustomerNavigator />;
-    }
-  };
+  lastRole.current = user?.accountType || lastRole.current;
+  const accountType = isLoggedIn ? user?.accountType : lastRole.current;
+
+  const Navigator = accountType === "rider" ? RiderNavigator
+    : accountType === "vendor" ? VendorNavigator
+    : accountType === "admin" ? AdminBlockedScreen
+    : CustomerNavigator;
 
   return (
     <NavigationContainer ref={navigationRef}>
-      {getNavigator()}
+      <Navigator />
       <PhoneSignupModal
         visible={showAuthModal && !isLoggedIn}
-        onClose={() => dispatch(setShowAuthModal(false))}
+        onClose={() => {
+          dispatch(setPendingNavigationRoute(null));
+          dispatch(setShowAuthModal(false));
+        }}
       />
     </NavigationContainer>
   );
 }
+
+

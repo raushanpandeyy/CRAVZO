@@ -124,7 +124,7 @@ const getAdminOverview = async (req, res) => {
           "subtotal", "deliveryFee", "deliveryFeeBase", "deliveryTax",
           "packagingFee", "packagingFeeBase", "packagingTax",
           "platformFee", "platformFeeBase", "platformTax",
-          "gatewayFee", "codCharge", "discount", "totalTax", "totalAmount",
+          "gatewayFee", "codCharge", "discount", "totalTax", "tipAmount", "totalAmount",
         ]) {
           if (rest[key] != null) rest[key] = Number(rest[key]);
         }

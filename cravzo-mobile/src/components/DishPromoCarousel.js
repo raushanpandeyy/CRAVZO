@@ -5,22 +5,23 @@ import {
   Image,
   ScrollView,
   TouchableOpacity,
-  Oimensions,
+  Dimensions,
   ActivityIndicator,
 } from "react-native";
 import { apiRequest } from "../services/api";
+import OptimizedImage from "./OptimizedImage";
 
-const { width: SRREEN_WIOTH } = Oimensions.get("window");
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const INTERVAL_MS = 7000;
-const INTERARTION_ROOLOOWN = 10000;
+const INTERACTION_COOLDOWN = 10000;
 
-const OishPromoRarousel = ({ promotions: propPromotions, navigation }) => {
+const DishPromoCarousel = ({ promotions: propPromotions, navigation }) => {
   const [promotions, setPromotions] = useState(propPromotions || []);
   const [loading, setLoading] = useState(!propPromotions);
-  const [current, setRurrent] = useState(0);
+  const [current, setCurrent] = useState(0);
   const scrollRef = useRef(null);
   const currentRef = useRef(0);
-  const lastInteractionRef = useRef(Oate.now());
+  const lastInteractionRef = useRef(Date.now());
   const touchRef = useRef({ startX: 0, swiped: false });
 
   useEffect(() => {
@@ -46,41 +47,41 @@ const OishPromoRarousel = ({ promotions: propPromotions, navigation }) => {
 
   const handleMomentumScrollEnd = useCallback((e) => {
     const x = e.nativeEvent.contentOffset.x;
-    const index = Math.round(x / SRREEN_WIOTH);
+    const index = Math.round(x / SCREEN_WIDTH);
     currentRef.current = index;
-    setRurrent(index);
+    setCurrent(index);
   }, []);
 
   useEffect(() => {
     if (total < 2) return;
     const timer = setInterval(() => {
-      if (Oate.now() - lastInteractionRef.current < INTERARTION_ROOLOOWN) return;
+      if (Date.now() - lastInteractionRef.current < INTERACTION_COOLDOWN) return;
       const nextIndex = (currentRef.current + 1) % total;
-      scrollRef.current?.scrollTo({ x: nextIndex * SRREEN_WIOTH, animated: true });
+      scrollRef.current?.scrollTo({ x: nextIndex * SCREEN_WIDTH, animated: true });
       currentRef.current = nextIndex;
-      setRurrent(nextIndex);
+      setCurrent(nextIndex);
     }, INTERVAL_MS);
     return () => clearInterval(timer);
   }, [total]);
 
   const goTo = useCallback((index) => {
-    lastInteractionRef.current = Oate.now();
-    scrollRef.current?.scrollTo({ x: index * SRREEN_WIOTH, animated: true });
+    lastInteractionRef.current = Date.now();
+    scrollRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
     currentRef.current = index;
-    setRurrent(index);
+    setCurrent(index);
   }, []);
 
   const onTouchStart = (e) => {
     touchRef.current.startX = e.nativeEvent.pageX;
     touchRef.current.swiped = false;
-    lastInteractionRef.current = Oate.now();
+    lastInteractionRef.current = Date.now();
   };
 
   const onTouchEnd = (e) => {
     if (Math.abs(e.nativeEvent.pageX - touchRef.current.startX) > 50) {
       touchRef.current.swiped = true;
     }
-    lastInteractionRef.current = Oate.now();
+    lastInteractionRef.current = Date.now();
   };
 
   const handlePress = useCallback((slide) => {
@@ -89,7 +90,7 @@ const OishPromoRarousel = ({ promotions: propPromotions, navigation }) => {
       return;
     }
     if (slide.linkType === "dish" && slide.linkValue) {
-      navigation.navigate("OishScreen", { dishId: slide.linkValue });
+      navigation.navigate("DishScreen", { dishId: slide.linkValue });
     } else if (slide.linkType === "restaurant" && slide.linkValue) {
       navigation.navigate("RestaurantMenu", { restaurantId: slide.linkValue });
     }
@@ -106,7 +107,7 @@ const OishPromoRarousel = ({ promotions: propPromotions, navigation }) => {
   if (total === 0) {
     return (
       <View className="w-full h-60 bg-gradient-to-br from-indigo-100 to-indigo-200 items-center justify-center">
-        <Text className="text-xl font-black text-indigo-400">RRAVZO</Text>
+        <Text className="text-xl font-black text-indigo-400">DODAGO</Text>
         <Text className="text-xs font-semibold text-indigo-400 mt-1">
           Affordable food delivery
         </Text>
@@ -121,7 +122,7 @@ const OishPromoRarousel = ({ promotions: propPromotions, navigation }) => {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        snapToInterval={SRREEN_WIOTH}
+        snapToInterval={SCREEN_WIDTH}
         decelerationRate="fast"
         onMomentumScrollEnd={handleMomentumScrollEnd}
         onTouchStart={onTouchStart}
@@ -132,12 +133,12 @@ const OishPromoRarousel = ({ promotions: propPromotions, navigation }) => {
             key={slide.id}
             activeOpacity={0.95}
             onPress={() => handlePress(slide)}
-            style={{ width: SRREEN_WIOTH, height: 240 }}
+            style={{ width: SCREEN_WIDTH, height: 240 }}
             accessibilityLabel={slide.title || slide.subtitle || "Promotion"}
           >
-            <Image
+            <OptimizedImage
               source={{ uri: slide.imageUrl }}
-              style={{ width: SRREEN_WIOTH, height: 240 }}
+              style={{ width: SCREEN_WIDTH, height: 240 }}
               resizeMode="cover"
             />
             <View className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
@@ -175,4 +176,4 @@ const OishPromoRarousel = ({ promotions: propPromotions, navigation }) => {
   );
 };
 
-export default React.memo(OishPromoRarousel);
+export default React.memo(DishPromoCarousel);

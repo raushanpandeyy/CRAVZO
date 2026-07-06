@@ -10,6 +10,8 @@ import {
   Alert,
   Image,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import OptimizedImage from "../../components/OptimizedImage";
 import {
   User,
   Mail,
@@ -20,30 +22,29 @@ import {
   MapPin,
   Heart,
   Star,
-  CreditCard,
   MessageCircle,
   Info,
   Shield,
   ChevronRight,
   LogOut,
+  Trash2,
   Calendar,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
-import { getProfile, updateProfile } from "../../services/userService";
+import { deleteAccount, getProfile, updateProfile, uploadImage } from "../../services/userService";
 import {
   registerForPushNotifications,
   unregisterPushNotifications,
 } from "../../services/notificationService";
 import { useDispatch, useSelector } from "react-redux";
-import { setUser, clearUser, setShowAuthModal } from "../../store/slices/userSlice";
-import { normalizeUser, clearSession } from "../../services/authService";
+import { clearUser, setUser, logoutUser, setShowAuthModal } from "../../store/slices/userSlice";
+import { clearSession, normalizeUser } from "../../services/authService";
 import { storage } from "../../services/storage";
 
 const menuItems = [
   { icon: MapPin, label: "Addresses", color: "#4f46e5", screen: "Addresses" },
   { icon: Heart, label: "Favourites", color: "#f43f5e", screen: "Favorites" },
   { icon: Star, label: "Reviews", color: "#f59e0b", screen: "Reviews" },
-  { icon: CreditCard, label: "Payments", color: "#10b981", screen: "PaymentMethods" },
   { icon: MessageCircle, label: "Support Chat", color: "#8b5cf6", screen: "CustomerChat" },
 ];
 
@@ -55,12 +56,18 @@ const infoItems = [
 
 export default function ProfileScreen({ navigation }) {
   const dispatch = useDispatch();
-  const { isLoggedIn } = useSelector((state) => state.user);
+  const { isLoggedIn, data: userData } = useSelector((state) => state.user);
 
   const [profile, setProfile] = useState(null);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", avatarUrl: "" });
-  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({
+    name: userData?.name || "",
+    email: userData?.email || "",
+    phone: userData?.phone || "",
+    avatarUrl: userData?.avatarUrl || "",
+  });
+  const [loading, setLoading] = useState(!userData);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [notificationsEnabled, setNotificationsEnabled] = useState(
@@ -97,24 +104,40 @@ export default function ProfileScreen({ navigation }) {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const pickImage = async (useCamera) => {
+    const permission = useCamera
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission Required", `${useCamera ? "Camera" : "Gallery"} permission is needed`);
+      return;
+    }
+    const result = useCamera
+      ? await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.7, base64: true })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.7, base64: true });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    if (!asset.base64) return;
+    setUploadingImage(true);
+    try {
+      const uploadRes = await uploadImage({ dataUrl: `data:${asset.mimeType};base64,${asset.base64}`, folder: "avatars" });
+      const url = uploadRes.data?.url || uploadRes.url || uploadRes.secure_url;
+      if (url) {
+        setForm((prev) => ({ ...prev, avatarUrl: url }));
+        await updateProfile({ avatarUrl: url });
+        setMessage("Profile photo updated!");
+      }
+    } catch {
+      Alert.alert("Upload Failed", "Could not upload image");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleAvatarTap = () => {
     Alert.alert("Change Profile Photo", "Choose an option", [
-      {
-        text: "Take Photo",
-        onPress: () =>
-          Alert.alert(
-            "Coming Soon",
-            "Camera capture requires expo-image-picker. Install it to enable this feature."
-          ),
-      },
-      {
-        text: "Choose from Gallery",
-        onPress: () =>
-          Alert.alert(
-            "Coming Soon",
-            "Gallery picker requires expo-image-picker. Install it to enable this feature."
-          ),
-      },
+      { text: "Take Photo", onPress: () => pickImage(true) },
+      { text: "Choose from Gallery", onPress: () => pickImage(false) },
       { text: "Cancel", style: "cancel" },
     ]);
   };
@@ -173,18 +196,34 @@ export default function ProfileScreen({ navigation }) {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: () => {
-          clearSession();
-          dispatch(clearUser());
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete account permanently?",
+      "Your personal data will be removed. You cannot undo this action, and active orders must be completed or cancelled first.",
+      [
+        { text: "Keep account", style: "cancel" },
+        {
+          text: "Delete permanently",
+          style: "destructive",
+          onPress: async () => {
+            setSaving(true);
+            setError("");
+            try {
+              await deleteAccount();
+              clearSession();
+              dispatch(clearUser());
+            } catch (err) {
+              setError(err.response?.data?.message || err.message || "Could not delete account");
+            } finally {
+              setSaving(false);
+            }
+          },
         },
-      },
-    ]);
+      ],
+    );
+  };
+  const handleLogout = () => {
+    dispatch(logoutUser());
   };
 
   if (!isLoggedIn) {
@@ -216,7 +255,7 @@ export default function ProfileScreen({ navigation }) {
   const previewAvatar = form.avatarUrl || null;
   const initialLetter = (form.name || "U").charAt(0).toUpperCase();
 
-  if (loading) {
+  if (loading && !form.name) {
     return (
       <View className="flex-1 bg-[#F4F7FB] items-center justify-center">
         <ActivityIndicator size="large" color={colors.brand[600]} />
@@ -230,7 +269,7 @@ export default function ProfileScreen({ navigation }) {
         <View className="items-center">
           <TouchableOpacity onPress={handleAvatarTap} className="relative mb-3">
             {previewAvatar ? (
-              <Image
+              <OptimizedImage
                 source={{ uri: previewAvatar }}
                 className="h-20 w-20 rounded-full border-2 border-indigo-400"
               />
@@ -242,7 +281,11 @@ export default function ProfileScreen({ navigation }) {
               </View>
             )}
             <View className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-amber-400 items-center justify-center border-2 border-indigo-950">
-              <Camera size={12} color="#1e1b4b" />
+              {uploadingImage ? (
+                <ActivityIndicator size="small" color="#1e1b4b" />
+              ) : (
+                <Camera size={12} color="#1e1b4b" />
+              )}
             </View>
           </TouchableOpacity>
           <Text className="text-xl font-extrabold text-white">
@@ -451,6 +494,19 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         <TouchableOpacity
+          onPress={handleDeleteAccount}
+          disabled={saving}
+          className="flex-row items-center gap-4 bg-rose-50 rounded-3xl p-4 border border-rose-200 mt-4"
+        >
+          <View className="h-10 w-10 items-center justify-center rounded-xl bg-rose-100">
+            <Trash2 size={20} color={colors.red[600]} />
+          </View>
+          <View className="flex-1">
+            <Text className="font-extrabold text-rose-700">Delete account</Text>
+            <Text className="text-xs text-rose-500">Permanently remove your personal data</Text>
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity
           onPress={handleLogout}
           className="flex-row items-center gap-4 bg-white rounded-3xl p-4 shadow-sm mt-4 mb-8"
         >
@@ -463,3 +519,5 @@ export default function ProfileScreen({ navigation }) {
     </ScrollView>
   );
 }
+
+

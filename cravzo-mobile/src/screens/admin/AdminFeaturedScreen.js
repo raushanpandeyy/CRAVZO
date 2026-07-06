@@ -5,6 +5,7 @@ import {
 import { Star, Trash2, ChevronLeft, Plus, X } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { apiRequest } from "../../services/api";
+import OptimizedImage from "../../components/OptimizedImage";
 
 export default function AdminFeaturedScreen({ navigation }) {
   const [featured, setFeatured] = useState([]);
@@ -93,7 +94,7 @@ export default function AdminFeaturedScreen({ navigation }) {
             </View>
           ) : ads.map((ad) => (
             <View key={ad.id} className="bg-white rounded-3xl overflow-hidden shadow-sm">
-              <Image source={{ uri: ad.imageUrl }} className="w-full h-32" resizeMode="cover" />
+              <OptimizedImage source={{ uri: ad.imageUrl }} className="w-full h-32" resizeMode="cover" />
               <View className="p-3 flex-row items-center justify-between">
                 <View className="flex-1">
                   <Text className="font-bold text-slate-900">{ad.title || "Ad"}</Text>

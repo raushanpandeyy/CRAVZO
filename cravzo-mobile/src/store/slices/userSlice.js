@@ -16,6 +16,7 @@ const userSlice = createSlice({
     isHydrating: false,
     isLoggedIn: false,
     showAuthModal: false,
+    pendingNavigationRoute: null,
   },
   reducers: {
     setUser: (state, action) => {
@@ -31,8 +32,14 @@ const userSlice = createSlice({
     setShowAuthModal: (state, action) => {
       state.showAuthModal = action.payload;
     },
-    clearUser: () => {
-      return { data: null, isHydrating: false, isLoggedIn: false, showAuthModal: true };
+    setPendingNavigationRoute: (state, action) => {
+      state.pendingNavigationRoute = action.payload;
+    },
+    clearUser: (state) => {
+      state.data = null;
+      state.isHydrating = false;
+      state.isLoggedIn = false;
+      state.showAuthModal = true;
     },
   },
   extraReducers: (builder) => {
@@ -51,9 +58,10 @@ const userSlice = createSlice({
         state.data = null;
         state.isLoggedIn = false;
         state.isHydrating = false;
+        state.showAuthModal = true;
       });
   },
 });
 
-export const { setUser, setShowAuthModal, clearUser } = userSlice.actions;
+export const { setUser, setShowAuthModal, setPendingNavigationRoute, clearUser } = userSlice.actions;
 export default userSlice.reducer;

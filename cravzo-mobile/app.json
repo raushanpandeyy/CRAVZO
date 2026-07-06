@@ -45,7 +45,8 @@
           "icon": "./assets/android-icon-foreground.png",
           "color": "#4f46e5"
         }
-      ]
+      ],
+      "@maplibre/maplibre-react-native"
     ],
     "extra": {
       "eas": {

@@ -16,6 +16,8 @@ const AdminOrders = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [liveAlert, setLiveAlert] = useState(null);
+  const [refundAction, setRefundAction] = useState(false);
+  const [refundError, setRefundError] = useState("");
 
   const loadOrders = async () => {
     setLoading(true);
@@ -81,6 +83,33 @@ const AdminOrders = () => {
     return unsubscribe;
   }, []);
 
+  const runRefundAction = async (action) => {
+    if (!selectedOrder || refundAction) return;
+    const isInitiate = action === "initiate";
+    if (isInitiate && !window.confirm(`Initiate an irreversible refund of ${formatCurrency(selectedOrder.refundAmount ?? selectedOrder.totalAmount)}?`)) return;
+
+    setRefundAction(true);
+    setRefundError("");
+    try {
+      const response = await apiRequest(
+        isInitiate
+          ? API_ENDPOINTS.admin.initiateRefund(selectedOrder.id)
+          : API_ENDPOINTS.admin.reconcileRefund(selectedOrder.id),
+        {
+          method: "POST",
+          body: JSON.stringify(isInitiate ? { confirmation: "REFUND" } : {}),
+          skipCache: true,
+        },
+      );
+      const updated = response.data;
+      setSelectedOrder((current) => ({ ...current, ...updated }));
+      setOrders((current) => current.map((order) => order.id === updated.id ? { ...order, ...updated } : order));
+    } catch (err) {
+      setRefundError(err.message || "Refund action failed");
+    } finally {
+      setRefundAction(false);
+    }
+  };
   const getStatusColor = (status) => {
     switch (status) {
       case "DELIVERED": return "bg-emerald-50 text-emerald-700";
@@ -163,7 +192,7 @@ const AdminOrders = () => {
               <div className="flex items-start justify-between mb-2">
                 <div>
                   <p className="font-bold text-slate-900">#{order.id.slice(-6)}</p>
-                  <p className="text-xs text-slate-500">{order.customer?.name || "Customer"} • {order.restaurant?.name || "Restaurant"}</p>
+                  <p className="text-xs text-slate-500">{order.customer?.name || "Customer"} Ã¢â‚¬Â¢ {order.restaurant?.name || "Restaurant"}</p>
                 </div>
                 <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${getStatusColor(order.status)}`}>
                   {order.status.replaceAll("_", " ")}
@@ -221,12 +250,32 @@ const AdminOrders = () => {
               </div>
               <div className="bg-slate-50 p-3 rounded-xl">
                 <p className="font-semibold">Payment</p>
-                <p className="text-slate-600">{selectedOrder.paymentMethod} • {selectedOrder.paymentStatus}</p>
+                <p className="text-slate-600">{selectedOrder.paymentMethod} Ã¢â‚¬Â¢ {selectedOrder.paymentStatus}</p>
               </div>
               <div className="bg-slate-50 p-3 rounded-xl">
                 <p className="font-semibold">Total</p>
                 <p className="text-slate-900 font-bold">{formatCurrency(selectedOrder.totalAmount)}</p>
-              </div>
+              </div>              {Number(selectedOrder.tipAmount || 0) > 0 ? <div className="rounded-xl bg-emerald-50 p-3 text-emerald-800"><p className="font-semibold">Rider tip</p><p className="font-bold">{formatCurrency(selectedOrder.tipAmount)}</p></div> : null}
+              {selectedOrder.restaurantInstructions ? <div className="rounded-xl bg-amber-50 p-3"><p className="font-semibold text-amber-900">Restaurant instructions</p><p className="mt-1 text-amber-800">{selectedOrder.restaurantInstructions}</p></div> : null}
+              {selectedOrder.deliveryInstructions ? <div className="rounded-xl bg-blue-50 p-3"><p className="font-semibold text-blue-900">Rider instructions</p><p className="mt-1 text-blue-800">{selectedOrder.deliveryInstructions}</p></div> : null}
+              {selectedOrder.refundId || selectedOrder.refundAmount ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+                  <p className="font-semibold">Refund</p>
+                  <p>{formatCurrency(selectedOrder.refundAmount)} â€¢ {selectedOrder.refundStatus || selectedOrder.paymentStatus}</p>
+                  {selectedOrder.refundId ? <p className="mt-1 break-all text-xs">{selectedOrder.refundId}</p> : null}
+                </div>
+              ) : null}
+              {refundError ? <div className="rounded-xl bg-rose-50 p-3 text-rose-700">{refundError}</div> : null}
+              {selectedOrder.status === "CANCELLED" && selectedOrder.paymentMethod !== "COD" && selectedOrder.paymentStatus === "PAID" && !selectedOrder.refundId ? (
+                <button type="button" disabled={refundAction} onClick={() => runRefundAction("initiate")} className="w-full rounded-xl bg-rose-600 px-4 py-3 font-bold text-white disabled:opacity-50">
+                  {refundAction ? "Processing..." : "Initiate Refund"}
+                </button>
+              ) : null}
+              {selectedOrder.refundId ? (
+                <button type="button" disabled={refundAction} onClick={() => runRefundAction("reconcile")} className="w-full rounded-xl bg-indigo-600 px-4 py-3 font-bold text-white disabled:opacity-50">
+                  {refundAction ? "Checking Razorpay..." : "Reconcile with Razorpay"}
+                </button>
+              ) : null}
               <div className="p-3 rounded-xl">
                 <p className="font-semibold">Customer</p>
                 <p className="text-slate-600">{selectedOrder.customer?.name || "NA"}</p>

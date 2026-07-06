@@ -6,6 +6,7 @@ import { Plus, Pencil, Trash2, ChevronLeft, X, ImagePlus } from "lucide-react-na
 import * as ImagePicker from "expo-image-picker";
 import { colors } from "../../constants/colors";
 import { getMenuItems, createMenuItem, updateMenuItem, deleteMenuItem, getMyRestaurant, uploadImage } from "../../services/vendorService";
+import OptimizedImage from "../../components/OptimizedImage";
 
 const categories = ["All", "Main Course", "Starters", "Thali", "Beverages", "Desserts", "Biryani", "Sides"];
 
@@ -19,6 +20,8 @@ const emptyForm = {
   imageUrl: "",
   sizes: [],
   sideDishes: [],
+  trackInventory: false,
+  stockQuantity: "",
 };
 
 export default function VendorMenuScreen({ navigation }) {
@@ -70,6 +73,8 @@ export default function VendorMenuScreen({ navigation }) {
       imageUrl: item.imageUrl || "",
       sizes: item.sizes || [],
       sideDishes: item.sideDishes || [],
+      trackInventory: item.trackInventory || false,
+      stockQuantity: item.stockQuantity == null ? "" : String(item.stockQuantity),
     });
     setShowModal(true);
   };
@@ -91,6 +96,8 @@ export default function VendorMenuScreen({ navigation }) {
         imageUrl: form.imageUrl || null,
         sizes: form.sizes.length > 0 ? form.sizes : null,
         sideDishes: form.sideDishes.length > 0 ? form.sideDishes : null,
+        trackInventory: form.trackInventory,
+        stockQuantity: form.trackInventory && form.stockQuantity !== "" ? Number(form.stockQuantity) : null,
         restaurantId,
       };
       if (editingItem) {
@@ -229,7 +236,7 @@ export default function VendorMenuScreen({ navigation }) {
             <View key={item.id} className="bg-white rounded-3xl p-4 shadow-sm">
               <View className="flex-row items-start gap-3">
                 {item.imageUrl ? (
-                  <Image source={{ uri: item.imageUrl }} className="h-14 w-14 rounded-2xl" />
+                  <OptimizedImage source={{ uri: item.imageUrl }} className="h-14 w-14 rounded-2xl" />
                 ) : (
                   <View className="h-14 w-14 rounded-2xl bg-slate-100 items-center justify-center">
                     <Text className="text-xs text-slate-400">No img</Text>
@@ -353,7 +360,7 @@ export default function VendorMenuScreen({ navigation }) {
               <View>
                 <Text className="text-xs font-bold text-slate-700 mb-2">Image (optional)</Text>
                 {form.imageUrl ? (
-                  <Image source={{ uri: form.imageUrl }} className="h-24 w-full rounded-xl mb-2" />
+                  <OptimizedImage source={{ uri: form.imageUrl }} className="h-24 w-full rounded-xl mb-2" />
                 ) : null}
                   <TouchableOpacity
                     onPress={handlePickImage}
@@ -441,6 +448,10 @@ export default function VendorMenuScreen({ navigation }) {
                 ))}
               </View>
 
+              <View className="rounded-2xl bg-slate-50 p-4">
+                <View className="flex-row items-center justify-between"><Text className="text-sm font-bold text-slate-700">Track inventory</Text><Switch value={form.trackInventory} onValueChange={(v) => setForm((prev) => ({ ...prev, trackInventory: v }))} /></View>
+                {form.trackInventory ? <TextInput value={form.stockQuantity} onChangeText={(v) => setForm((prev) => ({ ...prev, stockQuantity: v.replace(/[^0-9]/g, "") }))} keyboardType="number-pad" placeholder="Available quantity" className="mt-3 rounded-xl bg-white px-4 py-3" /> : null}
+              </View>
               <TouchableOpacity onPress={handleSave} disabled={saving}
                 className="rounded-2xl bg-indigo-600 py-4 items-center mt-2">
                 <Text className="font-extrabold text-white">{saving ? "Saving..." : editingItem ? "Update Item" : "Add Item"}</Text>

@@ -45,7 +45,7 @@ const getMessageKind = ({ text, imageUrl }) => {
   return "TEXT";
 };
 
-const assertCanUseOrderChat = async (req, orderId, { forWrite = false } = {}) => {
+const assertCanUseOrderChat = async (req, orderId, { forWrite = false, roomType = null } = {}) => {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
@@ -90,6 +90,12 @@ const assertCanUseOrderChat = async (req, orderId, { forWrite = false } = {}) =>
   if (!isAdmin && !isVendorOrCustomer && !order.riderId) {
     throw new ApiError(400, "Rider chat starts after a rider is assigned");
   }
+  if (!isAdmin && roomType === "ORDER_RIDER" && isVendor) {
+    throw new ApiError(403, "Restaurant users cannot access the customer-rider chat");
+  }
+  if (!isAdmin && roomType === "ORDER_VENDOR" && isRider) {
+    throw new ApiError(403, "Riders cannot access the customer-restaurant chat");
+  }
 
   if (forWrite && !isAdmin && CLOSED_ORDER_STATUSES.includes(order.status)) {
     throw new ApiError(400, "This order chat is closed");
@@ -112,7 +118,7 @@ const assertCanAccessRoom = async (req, room, options = {}) => {
     return null;
   }
 
-  return assertCanUseOrderChat(req, room.orderId, options);
+  return assertCanUseOrderChat(req, room.orderId, { ...options, roomType: room.type });
 };
 
 const getOrCreateSupportRoom = async (req, res) => {
@@ -153,7 +159,7 @@ const getOrCreateSupportRoom = async (req, res) => {
 };
 
 const getOrCreateOrderRoom = async (req, res) => {
-  const order = await assertCanUseOrderChat(req, req.params.orderId);
+  const order = await assertCanUseOrderChat(req, req.params.orderId, { roomType: "ORDER_RIDER" });
   const isClosed = CLOSED_ORDER_STATUSES.includes(order.status);
 
   const room = await prisma.chatRoom.upsert({
@@ -182,7 +188,7 @@ const getOrCreateOrderRoom = async (req, res) => {
 };
 
 const getOrCreateVendorOrderRoom = async (req, res) => {
-  const order = await assertCanUseOrderChat(req, req.params.orderId);
+  const order = await assertCanUseOrderChat(req, req.params.orderId, { roomType: "ORDER_VENDOR" });
   const isClosed = CLOSED_ORDER_STATUSES.includes(order.status);
 
   const room = await prisma.chatRoom.upsert({
@@ -345,7 +351,7 @@ const uploadChatImage = async (req, res) => {
 
   const uploaded = await uploadImageToCloudinary({
     dataUrl,
-    folder: "dodago/chat",
+    folder: "cravzo/chat",
   });
 
   res.status(201).json(

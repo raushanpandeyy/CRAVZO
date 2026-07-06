@@ -89,8 +89,10 @@ export default function AdminOrdersScreen({ navigation }) {
                       <Text className="text-xs text-slate-500 mt-1">
                         {order.items?.map?.((i) => i.menuItem?.name).filter(Boolean).join(", ") || `${order.items?.length || 0} items`}
                       </Text>
-                      <View className="flex-row items-center justify-between mt-2 pt-2 border-t border-slate-100">
-                        <Text className="text-lg font-extrabold text-slate-900">₹{order.totalAmount || 0}</Text>
+                      {Number(order.tipAmount || 0) > 0 ? <Text className="mt-2 text-xs font-bold text-emerald-700">Rider tip: ₹{Number(order.tipAmount).toFixed(0)}</Text> : null}
+                      {order.restaurantInstructions ? <Text className="mt-1 text-xs text-amber-700">Restaurant: {order.restaurantInstructions}</Text> : null}
+                      {order.deliveryInstructions ? <Text className="mt-1 text-xs text-blue-700">Rider: {order.deliveryInstructions}</Text> : null}                      <View className="flex-row items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                        <Text className="text-lg font-extrabold text-slate-900">â‚¹{order.totalAmount || 0}</Text>
                         <View className="flex-row items-center gap-1">
                           <Clock3 size={12} color={colors.slate[400]} />
                           <Text className="text-xs text-slate-400">

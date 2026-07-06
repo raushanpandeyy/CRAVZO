@@ -7,7 +7,7 @@ import { StatusBar } from "expo-status-bar";
 
 import * as SplashScreen from "expo-splash-screen";
 
-import { Provider, useSelector } from "react-redux";
+import { Provider, useDispatch, useSelector } from "react-redux";
 
 import { PersistGate } from "redux-persist/integration/react";
 
@@ -18,6 +18,9 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import AppNavigator, { navigateFromNotification } from "./src/navigation/AppNavigator";
 
 import ErrorBoundary from "./src/components/ErrorBoundary";
+import { clearUser } from "./src/store/slices/userSlice";
+import { setUnauthorizedHandler } from "./src/services/api";
+import { assertProductionApiConfiguration } from "./src/constants/apiEndpoints";
 
 import {
   setupNotificationChannel,
@@ -35,7 +38,13 @@ function hideSplash() {
 
 function NotificationInit() {
   const { isLoggedIn } = useSelector((state) => state.user);
+  const dispatch = useDispatch();
   const channelCreated = useRef(false);
+  useEffect(() => {
+    assertProductionApiConfiguration();
+    setUnauthorizedHandler(() => dispatch(clearUser()));
+    return () => setUnauthorizedHandler(null);
+  }, [dispatch]);
 
   useEffect(() => {
     if (!channelCreated.current) {
@@ -46,7 +55,9 @@ function NotificationInit() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      registerForPushNotifications();
+      registerForPushNotifications().catch((error) => {
+        console.warn("Push notification registration failed:", error.message);
+      });
     }
   }, [isLoggedIn]);
 
@@ -76,6 +87,8 @@ function NotificationInit() {
           }, 500);
         }
       }
+    }).catch((error) => {
+      console.warn("Could not read the last notification:", error.message);
     });
   }, []);
 
@@ -97,3 +110,4 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
+

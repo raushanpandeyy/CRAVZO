@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,17 +6,65 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
-import { Star, Clock3, IndianRupee, MapPin, ChevronLeft, Plus, Minus, Heart } from "lucide-react-native";
+import OptimizedImage from "../../components/OptimizedImage";
+import {
+  Star, Clock3, IndianRupee, MapPin, ChevronLeft, Plus, Minus, Heart, ShoppingBag,
+} from "lucide-react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { colors } from "../../constants/colors";
 import { getRestaurantById, listMenuItems } from "../../services/foodService";
-import { addItem, updateQuantity } from "../../store/slices/cartSlice";
+import { getRestaurantReviews, saveReview } from "../../services/reviewService";
+import { getAppConfig } from "../../services/configService";
+import { addItem, updateQuantity, removeItem } from "../../store/slices/cartSlice";
 import { addFavorite, removeFavorite, checkIsFavorite } from "../../services/favoriteService";
 import { getShareUrl, getShareText } from "../../utils/share";
 import ShareButton from "../../components/ShareButton";
 
-const formatCurrency = (value) => `₹${Number(value || 0).toFixed(0)}`;
+const formatCurrency = (value) => `\u20B9${Number(value || 0).toFixed(0)}`;
+
+function Skeleton({ className }) {
+  return (
+    <View className={`rounded-2xl bg-slate-200 ${className || ""}`} />
+  );
+}
+
+function SkeletonRow() {
+  return (
+    <View className="flex-row gap-4">
+      <View className="min-w-0 flex-1 space-y-2">
+        <Skeleton className="h-5 w-2/3" />
+        <Skeleton className="h-4 w-1/4" />
+        <Skeleton className="h-4 w-1/3" />
+      </View>
+      <Skeleton className="h-28 w-28" />
+    </View>
+  );
+}
+
+function Stars({ rating, onSelect }) {
+  return (
+    <View className="flex-row items-center gap-1">
+      {Array.from({ length: 5 }).map((_, index) => {
+        const filled = index < rating;
+        return (
+          <TouchableOpacity
+            key={index}
+            onPress={onSelect ? () => onSelect(index + 1) : undefined}
+            disabled={!onSelect}
+          >
+            <Star
+              size={16}
+              color="#f59e0b"
+              fill={filled ? "#f59e0b" : "transparent"}
+            />
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
 
 export default function RestaurantMenuScreen({ route, navigation }) {
   const dispatch = useDispatch();
@@ -25,83 +73,163 @@ export default function RestaurantMenuScreen({ route, navigation }) {
   const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSizes, setSelectedSizes] = useState({});
+  const [selectedSideDishes, setSelectedSideDishes] = useState({});
   const cartItems = useSelector((state) => state.cart.items);
+  const currentUser = useSelector((state) => state.user.data);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
   const [isFavorited, setIsFavorited] = useState(false);
   const [favoriteId, setFavoriteId] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
+  const [savingReview, setSavingReview] = useState(false);
+  const [pricing, setPricing] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const restData = await getRestaurantById(restaurantId);
+        const [restData, items, reviewData, appConfig] = await Promise.all([
+          getRestaurantById(restaurantId),
+          listMenuItems(restaurantId),
+          getRestaurantReviews(restaurantId),
+          getAppConfig(),
+        ]);
         setRestaurant(restData);
-      } catch {
-        setMessage("Could not load restaurant details");
-      }
-      try {
-        const items = await listMenuItems(restaurantId);
         setMenuItems(items);
+        setReviews(reviewData);
+        setPricing(appConfig.pricing);
+        const myReview = reviewData.find((r) => r.user?.id === currentUser?.id);
+        if (myReview) {
+          setReviewForm({ rating: myReview.rating, comment: myReview.comment || "" });
+        }
       } catch {
-        setMessage("Could not load menu items");
+        setError("Could not load restaurant details");
       }
       setLoading(false);
     })();
-  }, [restaurantId]);
+  }, [restaurantId, currentUser?.id]);
 
   useEffect(() => {
     (async () => {
-      const data = await checkIsFavorite(restaurantId);
-      setIsFavorited(!!data.isFavorite);
-      if (data.id) setFavoriteId(data.id);
+      try {
+        const data = await checkIsFavorite(restaurantId);
+        setIsFavorited(!!data.isFavorite);
+        if (data.id) setFavoriteId(data.id);
+      } catch (err) {
+        setError(err.message || "Could not load favorite status");
+      }
     })();
   }, [restaurantId]);
 
   const toggleFavorite = async () => {
-    if (isFavorited) {
-      if (favoriteId) await removeFavorite(favoriteId);
-      setIsFavorited(false);
-      setFavoriteId(null);
-    } else {
-      const result = await addFavorite(restaurantId);
-      setIsFavorited(true);
-      if (result?.id) setFavoriteId(result.id);
+    setError("");
+    try {
+      if (isFavorited) {
+        if (favoriteId) await removeFavorite(favoriteId);
+        setIsFavorited(false);
+        setFavoriteId(null);
+      } else {
+        const result = await addFavorite(restaurantId);
+        setIsFavorited(true);
+        if (result?.id) setFavoriteId(result.id);
+      }
+    } catch (err) {
+      setError(err.message || "Could not update favorite. Please try again.");
     }
   };
 
-  const cartMap = {};
-  cartItems.forEach((item) => {
-    cartMap[item.menuItemId] = item;
-  });
+  const cartMap = useMemo(() => {
+    const map = {};
+    cartItems.forEach((item) => {
+      map[item.menuItemId] = item;
+    });
+    return map;
+  }, [cartItems]);
 
   const getCartQuantity = (itemId) => cartMap[itemId]?.quantity || 0;
 
+  const makeCartKey = (item) => {
+    const size = item.sizes?.length > 0 ? (selectedSizes[item.id] || item.sizes[0].size) : null;
+    const sides = selectedSideDishes[item.id] || [];
+    const sideDishKey = sides.map((s) => s.name).sort().join(",");
+    return `${item.id}|${restaurantId}|${size || ""}|${sideDishKey}`;
+  };
+
   const handleAdd = (item) => {
+    const size = item.sizes?.length > 0 ? (selectedSizes[item.id] || item.sizes[0].size) : null;
+    const basePrice = size
+      ? Number(item.sizes.find((s) => s.size === size)?.price || item.price)
+      : Number(item.price);
+    const sides = selectedSideDishes[item.id] || [];
+    const itemKey = makeCartKey(item);
     dispatch(addItem({
       menuItemId: item.id,
       restaurantId,
       name: item.name,
-      price: item.price,
+      price: basePrice,
       quantity: 1,
       imageUrl: item.imageUrl,
+      size,
+      selectedSideDishes: sides,
+      notes: "",
     }));
   };
 
-  const handleUpdateQty = (item, quantity) => {
-    if (quantity <= 0) {
-      dispatch(updateQuantity({ menuItemId: item.id, restaurantId, quantity: 0 }));
+  const handleUpdateQty = (item, delta) => {
+    const itemKey = makeCartKey(item);
+    const existing = cartItems.find((ci) => ci.itemKey === itemKey);
+    if (!existing && delta > 0) {
+      handleAdd(item);
+      return;
+    }
+    const newQty = (existing?.quantity || 0) + delta;
+    if (newQty <= 0) {
+      dispatch(removeItem({ itemKey: existing.itemKey }));
     } else {
-      dispatch(addItem({ menuItemId: item.id, restaurantId, quantity }));
+      dispatch(updateQuantity({ itemKey: existing.itemKey, quantity: newQty }));
     }
   };
 
   const cartItemCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
-  const cartTotal = cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const cartTotal = cartItems.reduce((sum, i) => {
+    const sideTotal = (i.selectedSideDishes || []).reduce((s, sd) => s + Number(sd.price), 0);
+    return sum + (i.price + sideTotal) * i.quantity;
+  }, 0);
+  const foodTax = cartTotal * Number(pricing?.foodGstRate || 0);
+  const packagingFeeBase = cartTotal * Number(pricing?.packagingPercent || 0);
+  const packagingTax = packagingFeeBase * Number(pricing?.foodGstRate || 0);
+  const deliveryFee = Number(pricing?.deliveryBaseFee || 0) * (1 + Number(pricing?.deliveryGstRate || 0));
+  const platformFee = Number(pricing?.platformFee || 0);
+  const taxes = foodTax + packagingTax;
+  const grandTotal = cartTotal + deliveryFee + packagingFeeBase + packagingTax + platformFee + foodTax;
   const restaurantOpen = restaurant?.isOpen !== false;
+
+  const averageRating = useMemo(() => {
+    if (!reviews.length) return null;
+    const total = reviews.reduce((sum, r) => sum + r.rating, 0);
+    return (total / reviews.length).toFixed(1);
+  }, [reviews]);
 
   if (loading) {
     return (
-      <View className="flex-1 bg-slate-50 items-center justify-center">
-        <ActivityIndicator size="large" color={colors.brand[600]} />
+      <View className="flex-1 bg-slate-50">
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <Skeleton className="h-56 w-full rounded-none" />
+          <View className="mx-4 -mt-10 rounded-3xl bg-white p-5 shadow-xl">
+            <Skeleton className="h-8 w-2/3" />
+            <View className="mt-3 flex-row gap-2">
+              <Skeleton className="h-5 w-24 rounded-full" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </View>
+            <Skeleton className="mt-4 h-4 w-1/2" />
+          </View>
+          <View className="mt-7 px-4">
+            <Skeleton className="mb-4 h-5 w-32" />
+            <View className="space-y-4">
+              {Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}
+            </View>
+          </View>
+        </ScrollView>
       </View>
     );
   }
@@ -114,11 +242,16 @@ export default function RestaurantMenuScreen({ route, navigation }) {
             <Text className="text-sm text-emerald-700">{message}</Text>
           </View>
         ) : null}
+        {error ? (
+          <View className="mx-4 mt-14 rounded-xl bg-red-50 px-4 py-3">
+            <Text className="text-sm text-red-700">{error}</Text>
+          </View>
+        ) : null}
 
         {/* Hero Image */}
         <View className="relative h-56 w-full">
           {restaurant?.imageUrl ? (
-            <Image source={{ uri: restaurant.imageUrl }} className="h-full w-full" resizeMode="cover" />
+            <OptimizedImage source={{ uri: restaurant.imageUrl }} className="h-full w-full" resizeMode="cover" />
           ) : (
             <View className="h-full w-full items-center justify-center bg-indigo-100">
               <Text className="text-6xl font-black text-indigo-600">{restaurant?.name?.[0] || "R"}</Text>
@@ -133,11 +266,11 @@ export default function RestaurantMenuScreen({ route, navigation }) {
             <View className="min-w-0 flex-1">
               <Text className="text-2xl font-black tracking-tight text-slate-950">{restaurant?.name || restaurantName}</Text>
               <View className="mt-2 flex-row flex-wrap items-center gap-2">
-                <Text className="text-sm font-bold text-slate-700">{restaurant?.cuisine || "Fresh meals"}</Text>
+                <Text className="text-sm font-bold text-slate-700">{restaurant?.cuisine || ""}</Text>
                 <View className="h-1 w-1 rounded-full bg-slate-300" />
                 <View className="flex-row items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1">
                   <Star size={14} color="#f59e0b" fill="#f59e0b" />
-                  <Text className="text-xs font-black text-amber-700">{restaurant?.rating || "4.4"}</Text>
+                  <Text className="text-xs font-black text-amber-700">{averageRating || restaurant?.rating || ""}</Text>
                 </View>
               </View>
             </View>
@@ -164,7 +297,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
           <View className="mt-3 flex-row items-start gap-2">
             <MapPin size={16} color={colors.slate[400]} style={{ marginTop: 2 }} />
             <Text className="text-sm font-medium text-slate-500 flex-1">
-              {restaurant?.location || restaurant?.city || "Near you"}
+              {restaurant?.location || restaurant?.city || ""}
             </Text>
           </View>
 
@@ -177,9 +310,14 @@ export default function RestaurantMenuScreen({ route, navigation }) {
             <View className="flex-row items-center gap-1">
               <Clock3 size={16} color={colors.brand[700]} />
               <Text className="text-xs font-extrabold text-slate-500">
-                {restaurant?.openingTime || "25"} - {restaurant?.closingTime || "35 min"}
+                {restaurant?.openingTime && restaurant?.closingTime
+                  ? `${restaurant.openingTime} - ${restaurant.closingTime}`
+                  : restaurant?.deliveryTime || ""}
               </Text>
             </View>
+            {reviews.length ? (
+              <Text className="text-xs font-bold text-slate-500">{reviews.length} reviews</Text>
+            ) : null}
           </View>
 
           {restaurant?.description ? (
@@ -194,7 +332,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
         </View>
 
         {/* Menu Items */}
-        <View className="mt-4 px-4 pb-24 space-y-4">
+        <View className="mt-4 px-4 pb-4 space-y-4">
           {menuItems.length === 0 ? (
             <View className="items-center py-16">
               <Text className="text-sm text-slate-500">No menu items available</Text>
@@ -239,13 +377,42 @@ export default function RestaurantMenuScreen({ route, navigation }) {
                       <Text className="text-xs font-bold uppercase tracking-wide text-indigo-700">{item.category || "Special"}</Text>
                     </View>
                     <Text className="mt-2 text-sm leading-6 text-slate-500" numberOfLines={2}>
-                      {item.description || "Freshly prepared and packed with care."}
+                      {item.description || ""}
                     </Text>
+
+                    {item.sideDishes && item.sideDishes.length > 0 ? (
+                      <View className="mt-2 flex-row flex-wrap gap-1.5">
+                        {item.sideDishes.map((sd) => {
+                          const isSelected = (selectedSideDishes[item.id] || []).some((s) => s.name === sd.name);
+                          return (
+                            <TouchableOpacity
+                              key={sd.name}
+                              onPress={() => {
+                                const current = selectedSideDishes[item.id] || [];
+                                const updated = isSelected
+                                  ? current.filter((s) => s.name !== sd.name)
+                                  : [...current, sd];
+                                setSelectedSideDishes((prev) => ({ ...prev, [item.id]: updated }));
+                              }}
+                              className={`rounded-full px-2 py-0.5 border ${
+                                isSelected
+                                  ? "bg-indigo-600 border-indigo-600"
+                                  : "bg-white border-amber-300"
+                              }`}
+                            >
+                              <Text className={`text-[10px] font-bold ${isSelected ? "text-white" : "text-amber-700"}`}>
+                                {sd.name} +{formatCurrency(sd.price)}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    ) : null}
                   </View>
 
                   <View className="relative h-28 w-28 shrink-0">
                     {item.imageUrl ? (
-                      <Image source={{ uri: item.imageUrl }} className="h-full w-full rounded-2xl" resizeMode="cover" />
+                      <OptimizedImage source={{ uri: item.imageUrl }} className="h-full w-full rounded-2xl" resizeMode="cover" />
                     ) : (
                       <View className="h-full w-full rounded-2xl bg-indigo-100 items-center justify-center">
                         <Text className="text-2xl font-black text-indigo-600">{item.name?.[0]}</Text>
@@ -281,6 +448,104 @@ export default function RestaurantMenuScreen({ route, navigation }) {
             })
           )}
         </View>
+
+        {/* Reviews Section */}
+        <View className="mx-4 mb-4 rounded-3xl bg-white p-5 shadow-sm">
+          <View className="flex-row items-center justify-between">
+            <View>
+              <Text className="text-2xl font-black text-slate-900">Reviews</Text>
+              <Text className="mt-1 text-sm text-slate-500">See what customers are saying and leave your own feedback.</Text>
+            </View>
+            <View className="rounded-2xl bg-amber-50 px-4 py-2">
+              <Text className="text-sm font-black text-amber-700">
+                {averageRating || "New"} {averageRating ? "/ 5" : "reviews"}
+              </Text>
+            </View>
+          </View>
+
+          <View className="mt-6 rounded-3xl bg-slate-50 p-4">
+            <Text className="font-bold text-slate-900">Your review</Text>
+            <View className="mt-3">
+              <Stars rating={reviewForm.rating} onSelect={(rating) => setReviewForm((prev) => ({ ...prev, rating }))} />
+            </View>
+            <TextInput
+              value={reviewForm.comment}
+              onChangeText={(text) => setReviewForm((prev) => ({ ...prev, comment: text }))}
+              multiline
+              numberOfLines={4}
+              className="mt-4 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm"
+              placeholder="Share your experience with this restaurant"
+              textAlignVertical="top"
+            />
+            <TouchableOpacity
+              onPress={async () => {
+                setSavingReview(true);
+                try {
+                  const saved = await saveReview({
+                    restaurantId,
+                    rating: reviewForm.rating,
+                    comment: reviewForm.comment,
+                  });
+                  setReviews((prev) => {
+                    const filtered = prev.filter((r) => r.user?.id !== "self");
+                    return [...filtered, saved].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                  });
+                  setMessage("Review saved successfully.");
+                } catch (err) {
+                  setError(err.response?.data?.message || err.message || "Failed to save review");
+                } finally {
+                  setSavingReview(false);
+                }
+              }}
+              disabled={savingReview}
+              className="mt-4 w-full rounded-2xl bg-indigo-700 py-3"
+            >
+              <Text className="text-center text-sm font-black text-white">
+                {savingReview ? "Saving..." : "Save Review"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View className="mt-6 space-y-4">
+            {reviews.length ? (
+              reviews.map((review) => (
+                <View key={review.id} className="rounded-3xl border border-slate-100 bg-white p-4">
+                  <View className="flex-row items-start justify-between">
+                    <View>
+                      <Text className="font-black text-slate-900">{review.user?.name || "Customer"}</Text>
+                      <Text className="mt-1 text-xs text-slate-500">
+                        {new Date(review.createdAt).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </Text>
+                    </View>
+                    <Stars rating={review.rating} />
+                  </View>
+                  <Text className="mt-3 text-sm leading-7 text-slate-700">
+                    {review.comment || "No written comment added."}
+                  </Text>
+                  {review.reply ? (
+                    <View className="mt-3 rounded-2xl border-l-4 border-indigo-500 bg-indigo-50 p-3">
+                      <Text className="text-xs font-black uppercase text-indigo-700">Restaurant response</Text>
+                      <Text className="mt-1 text-sm leading-6 text-slate-700">{review.reply}</Text>
+                      {review.replyDate ? (
+                        <Text className="mt-1 text-[11px] text-slate-500">
+                          {new Date(review.replyDate).toLocaleDateString("en-IN")}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
+              ))
+            ) : (
+              <View className="items-center rounded-2xl border border-dashed border-slate-300 px-6 py-10">
+                <Text className="text-sm text-slate-500">No reviews yet. Be the first to review this restaurant.</Text>
+              </View>
+            )}
+          </View>
+        </View>
       </ScrollView>
 
       {/* Cart Summary Bar */}
@@ -289,9 +554,20 @@ export default function RestaurantMenuScreen({ route, navigation }) {
           <View className="mb-3 flex-row items-center justify-between">
             <View>
               <Text className="text-xs font-bold text-slate-500">Cart total</Text>
-              <Text className="text-xl font-black text-slate-950">{formatCurrency(cartTotal)}</Text>
+              <Text className="text-xl font-black text-slate-950">{formatCurrency(grandTotal)}</Text>
             </View>
             <Text className="text-sm font-bold text-slate-500">{cartItemCount} items</Text>
+          </View>
+          <View className="mb-3 flex-row gap-2">
+            <Text className="text-[11px] font-bold text-slate-500 flex-1">
+              Items {formatCurrency(cartTotal)}
+            </Text>
+            <Text className="text-[11px] font-bold text-slate-500 flex-1">
+              Delivery {deliveryFee === 0 ? "FREE" : formatCurrency(deliveryFee)}
+            </Text>
+            <Text className="text-[11px] font-bold text-slate-500 flex-1">
+              Taxes {formatCurrency(taxes)}
+            </Text>
           </View>
           <TouchableOpacity
             onPress={() => navigation.navigate("Cart")}

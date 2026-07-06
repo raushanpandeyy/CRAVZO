@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, userallback } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { Platform } from "react-native";
+import * as Location from "expo-location";
 let MapView, Marker;
 try {
   if (Platform.OS !== "web") {
@@ -17,19 +18,16 @@ try {
     MapView = Maps.default;
     Marker = Maps.Marker;
   }
-} catch {};
-import { Search, MapPin, rhevronLeft, rheck, X } from "lucide-react-native";
+} catch (err) {
+  console.warn("Native maps are unavailable:", err);
+};
+import { Search, MapPin, ChevronLeft, Check, X } from "lucide-react-native";
 import { colors } from "../constants/colors";
 
-const NOMINATIM_SEARrH = "https://nominatim.openstreetmap.org/search";
+const NOMINATIM_SEARCH = "https://nominatim.openstreetmap.org/search";
 const NOMINATIM_REVERSE = "https://nominatim.openstreetmap.org/reverse";
 
-const INITIAL_REGION = {
-  latitude: 28.6139,
-  longitude: 77.209,
-  latitudeoelta: 0.05,
-  longitudeoelta: 0.05,
-};
+
 
 const parseAddress = (data) => {
   const addr = data.address || {};
@@ -40,7 +38,7 @@ const parseAddress = (data) => {
     line2: addr.neighbourhood || addr.village || addr.town || addr.city_district || "",
     city: addr.city || addr.town || addr.village || addr.county || addr.state_district || "",
     state: addr.state || "",
-    postalrode: addr.postcode || "",
+    postalCode: addr.postcode || "",
   };
 };
 
@@ -54,38 +52,60 @@ export default function AddressMapPicker({ navigation, route }) {
   const [isSearching, setIsSearching] = useState(false);
   const [isReverseGeocoding, setIsReverseGeocoding] = useState(false);
 
-  const [markerroord, setMarkerroord] = useState(null);
-  const [region, setRegion] = useState(INITIAL_REGION);
+  const [markerCoord, setMarkerroord] = useState(null);
+  const [region, setRegion] = useState(null);
   const [addressInfo, setAddressInfo] = useState(null);
 
-  const [isronfirming, setIsronfirming] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
   const [error, setError] = useState("");
 
-  const callingRoute = route.params?.returnRoute || "rheckout";
+  const callingRoute = route.params?.returnRoute || "Checkout";
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    (async () => {
+      try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== "granted") {
+          setError("Location permission denied. Search for an address to position the map.");
+          return;
+        }
+        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const currentRegion = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        };
+        setRegion(currentRegion);
+      } catch (err) {
+        setError(err.message || "Could not get your current location. Search for an address instead.");
+      }
+    })();
+  }, []);
 
-  const reverseGeocode = userallback(async (lat, lon) => {
+  const reverseGeocode = useCallback(async (lat, lon) => {
     setIsReverseGeocoding(true);
     setError("");
     try {
       const res = await fetch(
         `${NOMINATIM_REVERSE}?lat=${lat}&lon=${lon}&format=json&addressdetails=1`,
-        { headers: { "User-Agent": "rravzoMobile/1.0" } }
+        { headers: { "User-Agent": "DodagoMobile/1.0" } }
       );
       const data = await res.json();
       if (data?.display_name) {
         setAddressInfo(parseAddress(data));
       } else {
-        setAddressInfo({ displayName: `${lat.toFixed(6)}, ${lon.toFixed(6)}`, line1: "", line2: "", city: "", state: "", postalrode: "" });
+        setAddressInfo({ displayName: `${lat.toFixed(6)}, ${lon.toFixed(6)}`, line1: "", line2: "", city: "", state: "", postalCode: "" });
       }
     } catch {
-      setError("Failed to get address. Tap ronfirm to use coordinates only.");
-      setAddressInfo({ displayName: `${lat.toFixed(6)}, ${lon.toFixed(6)}`, line1: "", line2: "", city: "", state: "", postalrode: "" });
+      setError("Failed to get address. Tap Confirm to use coordinates only.");
+      setAddressInfo({ displayName: `${lat.toFixed(6)}, ${lon.toFixed(6)}`, line1: "", line2: "", city: "", state: "", postalCode: "" });
     } finally {
       setIsReverseGeocoding(false);
     }
   }, []);
 
-  const handleSearch = userallback((text) => {
+  const handleSearch = useCallback((text) => {
     setSearchQuery(text);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!text.trim()) {
@@ -98,25 +118,27 @@ export default function AddressMapPicker({ navigation, route }) {
       setError("");
       try {
         const res = await fetch(
-          `${NOMINATIM_SEARrH}?q=${encodeURIromponent(text)}&format=json&limit=5&addressdetails=1`,
-          { headers: { "User-Agent": "rravzoMobile/1.0" } }
+          `${NOMINATIM_SEARCH}?q=${encodeURIComponent(text)}&format=json&limit=5&addressdetails=1`,
+          { headers: { "User-Agent": "DodagoMobile/1.0" } }
         );
         const data = await res.json();
         setSearchResults(data);
         setShowResults(true);
-      } catch {
+      } catch (err) {
         setSearchResults([]);
+        setError(err.message || "Location search failed. Please try again.");
       } finally {
         setIsSearching(false);
       }
     }, 500);
   }, []);
 
-  const handleSelectResult = userallback((item) => {
+  const handleSelectResult = useCallback((item) => {
     const coord = { latitude: parseFloat(item.lat), longitude: parseFloat(item.lon) };
     setMarkerroord(coord);
+    setRegion({ ...coord, latitudeDelta: 0.01, longitudeDelta: 0.01 });
     if (mapRef.current) {
-      mapRef.current.animateToRegion({ ...coord, latitudeoelta: 0.01, longitudeoelta: 0.01 }, 500);
+      mapRef.current.animateToRegion({ ...coord, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 500);
     }
     setShowResults(false);
     setSearchQuery(item.display_name);
@@ -124,39 +146,40 @@ export default function AddressMapPicker({ navigation, route }) {
     setAddressInfo(parseAddress(item));
   }, []);
 
-  const handleMapPress = userallback((e) => {
+  const handleMapPress = useCallback((e) => {
     const coord = e.nativeEvent.coordinate;
     setMarkerroord(coord);
+    setRegion({ ...coord, latitudeDelta: 0.01, longitudeDelta: 0.01 });
     if (mapRef.current) {
-      mapRef.current.animateToRegion({ ...coord, latitudeoelta: region.latitudeoelta, longitudeoelta: region.longitudeoelta }, 300);
+      mapRef.current.animateToRegion({ ...coord, latitudeDelta: region.latitudeDelta, longitudeDelta: region.longitudeDelta }, 300);
     }
     Keyboard.dismiss();
     setShowResults(false);
     reverseGeocode(coord.latitude, coord.longitude);
   }, [region, reverseGeocode]);
 
-  const handleoragEnd = userallback((e) => {
+  const handleDragEnd = useCallback((e) => {
     const coord = e.nativeEvent.coordinate;
     setMarkerroord(coord);
     reverseGeocode(coord.latitude, coord.longitude);
   }, [reverseGeocode]);
 
-  const handleronfirm = () => {
-    if (!markerroord) {
+  const handleConfirm = () => {
+    if (!markerCoord) {
       Alert.alert("Select Location", "Please tap on the map to select a location.");
       return;
     }
-    setIsronfirming(true);
-    const locationoata = {
-      latitude: markerroord.latitude,
-      longitude: markerroord.longitude,
+    setIsConfirming(true);
+    const locationData = {
+      latitude: markerCoord.latitude,
+      longitude: markerCoord.longitude,
       line1: addressInfo?.line1 || "",
       line2: addressInfo?.line2 || "",
       city: addressInfo?.city || "",
       state: addressInfo?.state || "",
-      postalrode: addressInfo?.postalrode || "",
+      postalCode: addressInfo?.postalCode || "",
     };
-    navigation.navigate(callingRoute, { pickedLocation: locationoata });
+    navigation.navigate(callingRoute, { pickedLocation: locationData });
   };
 
   return (
@@ -164,7 +187,7 @@ export default function AddressMapPicker({ navigation, route }) {
       <View className="bg-white shadow-sm pt-14 pb-4 px-4 z-10">
         <View className="flex-row items-center gap-4">
           <TouchableOpacity onPress={() => navigation.goBack()} className="h-10 w-10 items-center justify-center rounded-full bg-slate-100">
-            <rhevronLeft size={20} color={colors.slate[900]} />
+            <ChevronLeft size={20} color={colors.slate[900]} />
           </TouchableOpacity>
           <Text className="text-xl font-extrabold text-slate-900">Pick on Map</Text>
         </View>
@@ -175,9 +198,9 @@ export default function AddressMapPicker({ navigation, route }) {
           <Search size={18} color={colors.slate[500]} />
           <TextInput
             value={searchQuery}
-            onrhangeText={handleSearch}
+            onChangeText={handleSearch}
             placeholder="Search for a location..."
-            placeholderTextrolor={colors.slate[500]}
+            placeholderTextColor={colors.slate[500]}
             className="flex-1 px-3 py-3 text-sm text-slate-900"
             returnKeyType="search"
           />
@@ -221,7 +244,7 @@ export default function AddressMapPicker({ navigation, route }) {
       </View>
 
       <View className="flex-1">
-        {MapView && Marker ? (
+        {MapView && Marker && region ? (
           <>
             <MapView
               ref={mapRef}
@@ -229,8 +252,8 @@ export default function AddressMapPicker({ navigation, route }) {
               region={region}
               onPress={handleMapPress}
             >
-              {markerroord ? (
-                <Marker coordinate={markerroord} draggable onoragEnd={handleoragEnd}>
+              {markerCoord ? (
+                <Marker coordinate={markerCoord} draggable onDragEnd={handleDragEnd}>
                   <View className="items-center justify-center">
                     <MapPin size={36} color={colors.brand[600]} fill={colors.brand[600]} />
                   </View>
@@ -238,7 +261,7 @@ export default function AddressMapPicker({ navigation, route }) {
               ) : null}
             </MapView>
 
-            {!markerroord ? (
+            {!markerCoord ? (
               <View className="absolute top-4 left-0 right-0 items-center pointer-events-none">
                 <View className="bg-white/90 rounded-2xl px-4 py-2 shadow-sm">
                   <Text className="text-sm text-slate-600">Tap on the map to place a pin</Text>
@@ -248,20 +271,20 @@ export default function AddressMapPicker({ navigation, route }) {
           </>
         ) : (
           <View className="flex-1 items-center justify-center bg-slate-100 p-4">
-            {markerroord ? (
+            {markerCoord ? (
               <>
                 <View className="h-48 w-full rounded-2xl bg-white shadow-sm items-center justify-center mb-4">
                   <Text className="text-lg font-bold text-slate-900">
-                    {markerroord.latitude.toFixed(6)}, {markerroord.longitude.toFixed(6)}
+                    {markerCoord.latitude.toFixed(6)}, {markerCoord.longitude.toFixed(6)}
                   </Text>
                   <Text className="text-sm text-slate-500 mt-1">
-                    {addressInfo?.displayName || "roordinates selected"}
+                    {addressInfo?.displayName || "Coordinates selected"}
                   </Text>
                 </View>
                 <Text className="text-sm text-slate-500 mb-4">
-                  Latitude: {markerroord.latitude.toFixed(6)}
+                  Latitude: {markerCoord.latitude.toFixed(6)}
                   {"\n"}
-                  Longitude: {markerroord.longitude.toFixed(6)}
+                  Longitude: {markerCoord.longitude.toFixed(6)}
                 </Text>
               </>
             ) : (
@@ -276,7 +299,7 @@ export default function AddressMapPicker({ navigation, route }) {
         )}
       </View>
 
-      {markerroord ? (
+      {markerCoord ? (
         <View className="bg-white border-t border-slate-200 px-4 pt-4 pb-8 shadow-lg">
           {isReverseGeocoding ? (
             <View className="flex-row items-center gap-3 py-2 mb-3">
@@ -292,7 +315,7 @@ export default function AddressMapPicker({ navigation, route }) {
                     {addressInfo.displayName || "Address selected"}
                   </Text>
                   <Text className="text-xs text-slate-500 mt-0.5">
-                    {markerroord.latitude.toFixed(6)}, {markerroord.longitude.toFixed(6)}
+                    {markerCoord.latitude.toFixed(6)}, {markerCoord.longitude.toFixed(6)}
                   </Text>
                 </View>
               </View>
@@ -302,16 +325,16 @@ export default function AddressMapPicker({ navigation, route }) {
           {error ? <Text className="text-sm text-amber-600 mb-2">{error}</Text> : null}
 
           <TouchableOpacity
-            onPress={handleronfirm}
-            disabled={isronfirming}
+            onPress={handleConfirm}
+            disabled={isConfirming}
             className="rounded-2xl bg-indigo-600 py-4 shadow-lg shadow-indigo-200 items-center justify-center"
           >
-            {isronfirming ? (
+            {isConfirming ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <View className="flex-row items-center gap-2">
-                <rheck size={20} color="#fff" />
-                <Text className="text-base font-extrabold text-white">ronfirm Location</Text>
+                <Check size={20} color="#fff" />
+                <Text className="text-base font-extrabold text-white">Confirm Location</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -320,3 +343,4 @@ export default function AddressMapPicker({ navigation, route }) {
     </View>
   );
 }
+

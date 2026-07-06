@@ -2,20 +2,28 @@ import React, { useState, useEffect } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, ActivityIndicator,
 } from "react-native";
-import { IndianRupee, TrendingUp, ChevronLeft, Bike, Star } from "lucide-react-native";
+import { IndianRupee, TrendingUp, ChevronLeft, Bike, Star, Clock } from "lucide-react-native";
 import { colors } from "../../constants/colors";
-import { getRiderOrders } from "../../services/riderService";
+import { getRiderOrders, getRiderEarnings, getRiderStats } from "../../services/riderService";
 
 export default function RiderAnalyticsScreen({ navigation }) {
   const [orders, setOrders] = useState([]);
+  const [earnings, setEarnings] = useState(null);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState("week");
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await getRiderOrders({ limit: 200 });
-        setOrders(res.orders || []);
+        const [earn, stat, orderRes] = await Promise.all([
+          getRiderEarnings(),
+          getRiderStats(),
+          getRiderOrders({ limit: 200 }),
+        ]);
+        setEarnings(earn);
+        setStats(stat);
+        setOrders(orderRes.orders || []);
       } catch (err) {
         console.error("Analytics load error:", err);
       } finally {
@@ -33,7 +41,13 @@ export default function RiderAnalyticsScreen({ navigation }) {
     return period === "week" ? diff <= 7 : diff <= 30;
   });
   const periodEarnings = periodOrders.reduce((s, o) => s + (o.deliveryFee || 0), 0);
-  const totalEarnings = delivered.reduce((s, o) => s + (o.deliveryFee || 0), 0);
+  const totalEarnings = earnings?.totalEarnings || delivered.reduce((s, o) => s + (o.deliveryFee || 0), 0);
+  const weekEarnings = earnings?.weekEarnings || 0;
+  const monthEarnings = earnings?.monthEarnings || 0;
+  const avgRating = stats?.averageRating || 0;
+  const totalRatings = stats?.totalRatings || 0;
+  const activeDeliveries = stats?.activeDeliveries || 0;
+  const totalOrders = stats?.totalOrders || 0;
 
   const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const dayBuckets = Array(7).fill(0);
@@ -110,6 +124,30 @@ export default function RiderAnalyticsScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Performance Stats */}
+        <View className="bg-white rounded-3xl p-6 shadow-sm mb-4">
+          <Text className="font-bold text-slate-900 mb-4">Performance</Text>
+          <View className="flex-row gap-3 mb-4">
+            <View className="flex-1 items-center rounded-2xl bg-slate-50 p-3">
+              <Star size={20} color="#f59e0b" />
+              <Text className="text-lg font-extrabold text-slate-900 mt-1">
+                {avgRating > 0 ? avgRating.toFixed(1) : "—"}
+              </Text>
+              <Text className="text-[10px] text-slate-500">Rating ({totalRatings})</Text>
+            </View>
+            <View className="flex-1 items-center rounded-2xl bg-slate-50 p-3">
+              <Clock size={20} color={colors.brand[600]} />
+              <Text className="text-lg font-extrabold text-slate-900 mt-1">{activeDeliveries}</Text>
+              <Text className="text-[10px] text-slate-500">Active</Text>
+            </View>
+            <View className="flex-1 items-center rounded-2xl bg-slate-50 p-3">
+              <Bike size={20} color="#059669" />
+              <Text className="text-lg font-extrabold text-slate-900 mt-1">{totalOrders}</Text>
+              <Text className="text-[10px] text-slate-500">Total</Text>
+            </View>
+          </View>
+        </View>
+
         <View className="bg-white rounded-3xl p-6 shadow-sm mb-8">
           <Text className="font-bold text-slate-900 mb-4">Summary</Text>
           <View className="space-y-3">
@@ -121,11 +159,13 @@ export default function RiderAnalyticsScreen({ navigation }) {
               <Text className="text-sm text-slate-600">Total Earnings</Text>
               <Text className="font-bold text-emerald-600">₹{totalEarnings}</Text>
             </View>
+            <View className="flex-row justify-between pb-3 border-b border-slate-100">
+              <Text className="text-sm text-slate-600">This Week</Text>
+              <Text className="font-bold text-indigo-600">₹{weekEarnings}</Text>
+            </View>
             <View className="flex-row justify-between">
-              <Text className="text-sm text-slate-600">Avg per Delivery</Text>
-              <Text className="font-bold text-slate-900">
-                ₹{delivered.length > 0 ? Math.round(totalEarnings / delivered.length) : 0}
-              </Text>
+              <Text className="text-sm text-slate-600">This Month</Text>
+              <Text className="font-bold text-slate-900">₹{monthEarnings}</Text>
             </View>
           </View>
         </View>

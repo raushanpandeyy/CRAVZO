@@ -27,7 +27,7 @@ const AUTH_COOKIE_NAME = "token";
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 
 const getUserStatusForRole = (role) => {
-  return role === ROLES.CUSTOMER || role === ROLES.VENDOR ? "ACTIVE" : "PENDING";
+  return role === ROLES.CUSTOMER ? "ACTIVE" : "PENDING";
 };
 
 const getOtpPurposeForRole = (role) => {
@@ -590,3 +590,4 @@ export const logout = async (_req, res) => {
     })
   );
 };
+

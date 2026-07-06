@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl,
+  View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Share, Alert,
 } from "react-native";
 import { IndianRupee, ShoppingBag, ChefHat, ChevronLeft, TrendingUp, Calendar } from "lucide-react-native";
 import { colors } from "../../constants/colors";
@@ -28,6 +28,11 @@ export default function EarningsScreen({ navigation }) {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const shareReport = async () => {
+    const delivered = orders.filter((o) => o.status === "DELIVERED");
+    const lines = ["DODAGO Earnings Report", `Generated: ${new Date().toLocaleString("en-IN")}`, `Delivered orders: ${delivered.length}`, `Gross revenue: ${formatCurrency(totalRevenue)}`, "", ...delivered.map((o) => `#${o.id?.slice(-6)} | ${formatDate(o.createdAt)} | ${formatCurrency(o.totalAmount || o.total)}`)];
+    await Share.share({ title: "DODAGO Earnings Report", message: lines.join("\n") });
+  };
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
@@ -103,6 +108,12 @@ export default function EarningsScreen({ navigation }) {
             </View>
           </View>
 
+          <View className="rounded-3xl bg-white p-5 shadow-sm">
+            <Text className="text-lg font-extrabold text-slate-900">Payout & settlement</Text>
+            <Text className="mt-1 text-sm text-slate-500">Estimated payable revenue from delivered orders</Text>
+            <Text className="mt-3 text-2xl font-extrabold text-emerald-600">{formatCurrency(totalRevenue)}</Text>
+            <View className="mt-4 flex-row gap-3"><TouchableOpacity onPress={shareReport} className="flex-1 rounded-2xl bg-indigo-600 py-3 items-center"><Text className="font-extrabold text-white">Share report</Text></TouchableOpacity><TouchableOpacity onPress={() => Alert.alert("Payout request", "Bank verification and automated settlement processing will be enabled by DODAGO operations.")} className="flex-1 rounded-2xl bg-emerald-600 py-3 items-center"><Text className="font-extrabold text-white">Request payout</Text></TouchableOpacity></View>
+          </View>
           <Text className="text-lg font-extrabold text-slate-900 mt-2">Recent Deliveries</Text>
           {orders.filter((o) => o.status === "DELIVERED").slice(0, 20).map((order) => (
             <View key={order.id} className="bg-white rounded-3xl p-4 shadow-sm">

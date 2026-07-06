@@ -4,6 +4,7 @@ import {
 } from "react-native";
 import { Star, Clock3, ChevronLeft } from "lucide-react-native";
 import { colors } from "../../constants/colors";
+import OptimizedImage from "../../components/OptimizedImage";
 import { listRestaurants } from "../../services/foodService";
 import { getShareUrl, getShareText } from "../../utils/share";
 import ShareButton from "../../components/ShareButton";
@@ -66,7 +67,7 @@ export default function DishScreen({ route, navigation }) {
               >
                 <View className="relative h-44 w-full bg-slate-100">
                   {r.imageUrl ? (
-                    <Image source={{ uri: r.imageUrl }} className="h-full w-full object-cover" />
+                    <OptimizedImage source={{ uri: r.imageUrl }} className="h-full w-full object-cover" />
                   ) : (
                     <View className="h-full w-full items-center justify-center bg-indigo-100">
                       <Text className="text-4xl font-black text-indigo-600">{r.name?.[0]}</Text>
@@ -78,18 +79,18 @@ export default function DishScreen({ route, navigation }) {
                   </View>
                   <View className="absolute bottom-3 left-3 flex-row items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1">
                     <Star size={14} color="#fff" fill="#fff" />
-                    <Text className="text-xs font-black text-white">{r.rating || "4.2"}</Text>
+                    <Text className="text-xs font-black text-white">{r.rating || ""}</Text>
                   </View>
                 </View>
                 <View className="p-4">
                   <Text className="text-lg font-black text-slate-950" numberOfLines={1}>{r.name}</Text>
                   <Text className="mt-1 text-sm font-semibold text-slate-500" numberOfLines={1}>
-                    {r.cuisine || "Fresh meals"} • {r.location || r.city || "Near you"}
+                    {r.cuisine || ""} • {r.location || r.city || ""}
                   </Text>
                   <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
                     <View className="flex-row items-center gap-1">
                       <Clock3 size={16} color={colors.brand[700]} />
-                      <Text className="text-xs font-extrabold text-slate-700">{r.deliveryTime || "30-40 min"}</Text>
+                      <Text className="text-xs font-extrabold text-slate-700">{r.deliveryTime || ""}</Text>
                     </View>
                   </View>
                 </View>

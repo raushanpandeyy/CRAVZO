@@ -17,6 +17,7 @@ import ReviewsScreen from "../screens/customer/ReviewsScreen";
 import DishesListingScreen from "../screens/customer/DishesListingScreen";
 import DishScreen from "../screens/customer/DishScreen";
 import CitywiseScreen from "../screens/customer/CitywiseScreen";
+import ReferralScreen from "../screens/customer/ReferralScreen";
 import PaymentMethodsScreen from "../screens/customer/PaymentMethodsScreen";
 import AboutUsScreen from "../screens/customer/AboutUsScreen";
 import ContactUsScreen from "../screens/customer/ContactUsScreen";
@@ -24,6 +25,7 @@ import PrivacyPolicyScreen from "../screens/customer/PrivacyPolicyScreen";
 import AddressFormScreen from "../screens/customer/AddressFormScreen";
 import AddressMapPicker from "../components/AddressMapPicker";
 import ChatScreen from "../components/ChatScreen";
+import OrderTrackingScreen from "../screens/customer/OrderTrackingScreen";
 import { colors } from "../constants/colors";
 
 const Tab = createBottomTabNavigator();
@@ -98,6 +100,8 @@ export default function CustomerNavigator() {
       <Stack.Screen name="AddressForm" component={AddressFormScreen} />
       <Stack.Screen name="AddressMapPicker" component={AddressMapPicker} />
       <Stack.Screen name="CustomerChat" component={ChatScreen} />
+      <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
+      <Stack.Screen name="Referral" component={ReferralScreen} />
     </Stack.Navigator>
   );
 }

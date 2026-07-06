@@ -296,7 +296,12 @@ export default function OrderPanelScreen({ navigation }) {
                       ) : null}
                     </View>
                   ))}
-                  <View className="flex-row justify-between pt-2 mt-1 border-t border-slate-100">
+                  {selectedOrder.restaurantInstructions ? (
+                    <View className="mb-3 rounded-xl bg-amber-50 p-3">
+                      <Text className="text-xs font-black uppercase text-amber-700">Customer preparation request</Text>
+                      <Text className="mt-1 text-sm text-amber-900">{selectedOrder.restaurantInstructions}</Text>
+                    </View>
+                  ) : null}                  <View className="flex-row justify-between pt-2 mt-1 border-t border-slate-100">
                     <Text className="text-sm font-extrabold text-slate-900">Total</Text>
                     <Text className="text-sm font-extrabold text-slate-900">{formatCurrency(selectedOrder.total || selectedOrder.totalAmount || 0)}</Text>
                   </View>

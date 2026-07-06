@@ -15,7 +15,6 @@ const orderAddressSchema = z.object({
 
 const sideDishSelectionSchema = z.object({
   name: z.string().trim().min(1).max(100),
-  price: z.coerce.number().positive().max(100000),
 });
 
 const orderItemSchema = z.object({
@@ -39,6 +38,10 @@ const orderPayloadSchema = z.object({
   addressId: z.string().trim().min(1).optional().nullable(),
   paymentMethod: paymentMethodSchema.default("UPI"),
   notes: z.string().trim().max(500).optional().nullable(),
+  restaurantInstructions: z.string().trim().max(500).optional().nullable(),
+  deliveryInstructions: z.string().trim().max(500).optional().nullable(),
+  tipAmount: z.coerce.number().min(0).max(5000).default(0),
+  couponCode: z.string().trim().min(1).max(50).transform((value) => value.toUpperCase()).optional().nullable(),
 });
 
 const createOrderSchema = requireDeliveryAddress(orderPayloadSchema);

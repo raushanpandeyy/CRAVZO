@@ -3,6 +3,7 @@ import { apiResponse } from "../utils/apiResponse.js";
 import { getCache, setCache, deleteCache, mgetCache } from "../utils/cache.js";
 import { resolvePromotionsBatch } from "./promotionController.js";
 import { PROMOTIONS_CACHE_TTL_SECONDS } from "../utils/publicCache.js";
+import { env } from "../config/env.js";
 
 // Fix 2: Removed duplicate `new PrismaClient()` — was creating a second connection
 // pool (+20 DB connections) on top of the singleton in config/database.js
@@ -15,6 +16,32 @@ const CACHE_KEYS = {
   PROMOTIONS: "public:dish-promotions",
 };
 
+export const getAppConfig = async (req, res) => {
+  return res.status(200).json(
+    apiResponse({
+      data: {
+        pricing: {
+          deliveryBaseFee: env.DELIVERY_BASE_FEE,
+          deliveryBaseKm: env.DELIVERY_BASE_KM,
+          deliveryPerKmRate: env.DELIVERY_PER_KM_RATE,
+          deliverySlabs: [
+            { maxKm: 1, fee: 17 },
+            { maxKm: 2, fee: 23 },
+            { maxKm: 3, fee: 30 },
+            { maxKm: 4, fee: 35 },
+          ],
+          foodGstRate: env.FOOD_GST_RATE,
+          deliveryGstRate: env.DELIVERY_GST_RATE,
+          platformFee: env.PLATFORM_FEE,
+          packagingPercent: env.PACKAGING_PERCENT,
+          razorpayPercent: env.RAZORPAY_PERCENT,
+          codCharge: env.COD_CHARGE,
+        },
+      },
+      message: "App configuration fetched successfully",
+    })
+  );
+};
 const invalidateFeaturedCache = async () => {
   await deleteCache(CACHE_KEYS.FEATURED);
 };
@@ -228,3 +255,5 @@ export const updateAdsOrder = async (req, res) => {
 
   return res.status(200).json(apiResponse({ message: "Ads order updated" }));
 };
+
+

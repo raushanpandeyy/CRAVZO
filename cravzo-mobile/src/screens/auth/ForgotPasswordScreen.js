@@ -9,7 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { cravzologo } from "../../constants/images";
+import { dodagologo } from "../../constants/images";
+import OptimizedImage from "../../components/OptimizedImage";
 
 const emptyOtp = ["", "", "", "", "", ""];
 
@@ -62,7 +63,7 @@ export default function ForgotPasswordScreen({ onBack }) {
           <View className="w-full overflow-hidden rounded-[28px] bg-white shadow-2xl shadow-indigo-950/10">
             <View className="bg-indigo-950 px-6 pb-8 pt-7">
               <View className="mb-5 flex-row items-center justify-between">
-                <Image source={{ uri: cravzologo }} className="h-12 w-12 rounded-2xl" resizeMode="cover" />
+                <OptimizedImage source={{ uri: dodagologo }} className="h-12 w-12 rounded-2xl" resizeMode="cover" />
                 <View className="rounded-full bg-white/10 px-3 py-1">
                   <Text className="text-xs font-bold uppercase tracking-wide text-white">Customer</Text>
                 </View>

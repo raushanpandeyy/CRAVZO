@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Image } from "react-native";
 import { ChevronLeft, Camera, Bike, MapPin, Check } from "lucide-react-native";
+import OptimizedImage from "../../components/OptimizedImage";
 import * as ImagePicker from "expo-image-picker";
 import { colors } from "../../constants/colors";
 import { getMyProfile } from "../../services/riderService";
@@ -131,7 +132,7 @@ export default function RiderEditProfileScreen({ navigation }) {
         <View className="items-center mb-6">
           <TouchableOpacity onPress={handlePickImage} className="relative">
             {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} className="h-24 w-24 rounded-full border-2 border-indigo-200" />
+              <OptimizedImage source={{ uri: avatarUrl }} className="h-24 w-24 rounded-full border-2 border-indigo-200" />
             ) : (
               <View className="h-24 w-24 rounded-full bg-indigo-100 items-center justify-center border-2 border-indigo-200">
                 <Bike size={36} color={colors.brand[600]} />

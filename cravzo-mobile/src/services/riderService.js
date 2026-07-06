@@ -38,3 +38,23 @@ export const getMyProfile = async () => {
   const res = await apiRequest("/api/users/profile");
   return res.data || res.user || res;
 };
+
+export const getOrderTracking = async (orderId) => {
+  const response = await apiRequest(`/api/orders/${orderId}/tracking`);
+  return response.data;
+};
+
+export const verifyDeliveryOtp = async (orderId, otp) => {
+  const response = await apiRequest(`/api/orders/${orderId}/verify-delivery-otp`, { method: "POST", data: { otp } });
+  return response.data;
+};
+
+export const getRiderEarnings = async () => {
+  const res = await apiRequest("/api/rider/earnings");
+  return res.data;
+};
+
+export const getRiderStats = async () => {
+  const res = await apiRequest("/api/rider/stats");
+  return res.data;
+};

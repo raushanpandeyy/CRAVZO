@@ -57,7 +57,11 @@ const serializeRestaurant = (restaurant) => ({
   openDays: Array.isArray(restaurant.openDays) ? restaurant.openDays : [],
   bankDetails: restaurant.bankDetails,
   latitude: restaurant.latitude,
-longitude: restaurant.longitude,
+  longitude: restaurant.longitude,
+  deliveryTime: restaurant.deliveryTime,
+  minimumOrder: restaurant.minimumOrder ? Number(restaurant.minimumOrder) : null,
+  averageRating: restaurant.averageRating ?? null,
+  reviewCount: restaurant.reviewCount ?? 0,
   createdAt: restaurant.createdAt,
   updatedAt: restaurant.updatedAt,
   menuPreview: restaurant.menuItems?.map((item) => ({
@@ -69,18 +73,54 @@ longitude: restaurant.longitude,
   })),
 });
 
+const enrichRestaurantsWithRatings = async (restaurants) => {
+  if (!restaurants.length) return restaurants;
+  const ids = restaurants.map((r) => r.id);
+  const ratings = await prisma.review.groupBy({
+    by: ["restaurantId"],
+    where: { restaurantId: { in: ids } },
+    _avg: { rating: true },
+    _count: { rating: true },
+  });
+  const ratingMap = {};
+  for (const r of ratings) {
+    ratingMap[r.restaurantId] = {
+      averageRating: Number(Number(r._avg.rating).toFixed(1)),
+      reviewCount: r._count.rating,
+    };
+  }
+  return restaurants.map((r) => ({
+    ...r,
+    averageRating: ratingMap[r.id]?.averageRating ?? null,
+    reviewCount: ratingMap[r.id]?.reviewCount ?? 0,
+  }));
+};
+
 // ================= LIST =================
 const listRestaurants = async (req, res) => {
   const { page, limit, skip } = parseRestaurantPagination(req.query);
   const search = req.query.search?.trim();
   const city = req.query.city?.trim();
   const dish = req.query.dish?.trim();
+  const cuisine = req.query.cuisine?.trim();
+  const isVeg = req.query.isVeg;
+  const minPrice = req.query.minPrice ? Number(req.query.minPrice) : undefined;
+  const maxPrice = req.query.maxPrice ? Number(req.query.maxPrice) : undefined;
+  const minRating = req.query.minRating ? Number(req.query.minRating) : undefined;
+  const sort = req.query.sort?.trim();
+
   const cacheKey = buildCacheKey("restaurants:list", {
     city,
+    cuisine,
     dish,
+    isVeg,
     limit,
+    maxPrice,
+    minPrice,
+    minRating,
     page,
     search,
+    sort,
   });
   const cachedResponse = await getCache(cacheKey);
 
@@ -98,29 +138,84 @@ const listRestaurants = async (req, res) => {
       }
     : null;
 
-  const where = {
-    status: "ACTIVE",
-    ...(city ? { city: { contains: city, mode: "insensitive" } } : {}),
-    ...(search || dish
-      ? {
-          OR: [
-            ...(search
-              ? [
-                  { name: { contains: search, mode: "insensitive" } },
-                  { cuisine: { contains: search, mode: "insensitive" } },
-                  { city: { contains: search, mode: "insensitive" } },
-                ]
-              : []),
-            ...(dish
-              ? [
-                  { cuisine: { contains: dish, mode: "insensitive" } },
-                  { menuItems: { some: { status: "ACTIVE", ...menuItemMatch } } },
-                ]
-              : []),
-          ],
-        }
-      : {}),
-  };
+  const andConditions = [{ status: "ACTIVE" }];
+
+  if (city) {
+    andConditions.push({ city: { contains: city, mode: "insensitive" } });
+  }
+
+  if (search || dish) {
+    const orConditions = [];
+    if (search) {
+      orConditions.push(
+        { name: { contains: search, mode: "insensitive" } },
+        { cuisine: { contains: search, mode: "insensitive" } },
+        { city: { contains: search, mode: "insensitive" } },
+      );
+    }
+    if (dish) {
+      orConditions.push(
+        { cuisine: { contains: dish, mode: "insensitive" } },
+        { menuItems: { some: { status: "ACTIVE", ...menuItemMatch } } },
+      );
+    }
+    andConditions.push({ OR: orConditions });
+  }
+
+  if (cuisine) {
+    const cuisineList = cuisine.split(",").map((c) => c.trim());
+    andConditions.push({ cuisine: { in: cuisineList } });
+  }
+
+  if (isVeg === "true") {
+    andConditions.push({
+      AND: [
+        { menuItems: { some: { isVeg: true, status: "ACTIVE" } } },
+        { menuItems: { none: { isVeg: false, status: "ACTIVE" } } },
+      ],
+    });
+  }
+
+  if (minPrice !== undefined || maxPrice !== undefined) {
+    const priceFilter = { status: "ACTIVE" };
+    if (minPrice !== undefined) priceFilter.price = { gte: minPrice };
+    if (maxPrice !== undefined) priceFilter.price = { ...priceFilter.price, lte: maxPrice };
+    andConditions.push({ menuItems: { some: priceFilter } });
+  }
+
+  let qualifyingIds = null;
+  if (minRating) {
+    const rows = await prisma.$queryRaw`
+      SELECT "restaurantId", AVG(rating)::float AS avg_rating
+      FROM "Review"
+      GROUP BY "restaurantId"
+      HAVING AVG(rating) >= ${minRating}
+    `;
+    qualifyingIds = rows.map((r) => r.restaurantId);
+    andConditions.push({ id: { in: qualifyingIds } });
+  }
+
+  let ratingSortedIds = null;
+  if (sort === "rating") {
+    const rows = await prisma.$queryRaw`
+      SELECT "restaurantId", AVG(rating)::float AS avg_rating
+      FROM "Review"
+      GROUP BY "restaurantId"
+      ORDER BY avg_rating DESC
+    `;
+    ratingSortedIds = rows.map((r) => r.restaurantId);
+  }
+
+  const where = { AND: andConditions };
+
+  const orderBy =
+    sort === "deliveryTime"
+      ? { deliveryTime: { sort: "asc", nulls: "last" } }
+      : sort === "minOrder"
+        ? { minimumOrder: { sort: "asc", nulls: "last" } }
+        : sort === "rating"
+          ? undefined
+          : { createdAt: "desc" };
 
   const [restaurants, total] = await Promise.all([
     prisma.restaurant.findMany({
@@ -146,6 +241,8 @@ const listRestaurants = async (req, res) => {
         openDays: true,
         latitude: true,
         longitude: true,
+        deliveryTime: true,
+        minimumOrder: true,
         createdAt: true,
         updatedAt: true,
         menuItems: {
@@ -163,16 +260,25 @@ const listRestaurants = async (req, res) => {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: orderBy ?? undefined,
       skip,
       take: limit,
     }),
     prisma.restaurant.count({ where }),
   ]);
 
+  if (sort === "rating" && ratingSortedIds) {
+    const idOrder = new Map(ratingSortedIds.map((id, i) => [id, i]));
+    restaurants.sort(
+      (a, b) => (idOrder.get(a.id) ?? Infinity) - (idOrder.get(b.id) ?? Infinity),
+    );
+  }
+
+  const enriched = await enrichRestaurantsWithRatings(restaurants);
+
   const response = apiResponse({
     message: "Restaurants fetched successfully",
-    data: restaurants.map(serializeRestaurant),
+    data: enriched.map(serializeRestaurant),
     meta: {
       page,
       limit,
@@ -221,6 +327,8 @@ const getRestaurantById = async (req, res) => {
       openDays: true,
       latitude: true,
       longitude: true,
+      deliveryTime: true,
+      minimumOrder: true,
       createdAt: true,
       updatedAt: true,
       menuItems: {
@@ -250,11 +358,13 @@ const getRestaurantById = async (req, res) => {
     throw new ApiError(404, "Restaurant not found");
   }
 
+  const enriched = (await enrichRestaurantsWithRatings([restaurant]))[0];
+
   const response = apiResponse({
     message: "Restaurant fetched successfully",
     data: {
-      ...serializeRestaurant(restaurant),
-      menuItems: restaurant.menuItems.map((item) => ({
+      ...serializeRestaurant(enriched),
+      menuItems: enriched.menuItems.map((item) => ({
         id: item.id,
         restaurantId: item.restaurantId,
         name: item.name,
@@ -276,7 +386,7 @@ const getRestaurantById = async (req, res) => {
 
 // ================= MY RESTAURANT =================
 const getMyRestaurant = async (req, res) => {
-  const restaurant = await prisma.restaurant.findFirst({
+  const restaurants = await prisma.restaurant.findMany({
     where: {
       vendorId: req.user.sub,
     },
@@ -290,26 +400,26 @@ const getMyRestaurant = async (req, res) => {
     },
   });
 
+  const enriched = await enrichRestaurantsWithRatings(restaurants);
+
   res.status(200).json(
     apiResponse({
-      message: "Vendor restaurant fetched successfully",
-      data: restaurant
-        ? {
-            ...serializeRestaurant(restaurant),
-            menuItems: restaurant.menuItems.map((item) => ({
-              id: item.id,
-              restaurantId: item.restaurantId,
-              name: item.name,
-              description: item.description,
-              category: item.category,
-              imageUrl: item.imageUrl,
-              price: Number(item.price),
-              sizes: item.sizes,
-              isVeg: item.isVeg,
-              status: item.status,
-            })),
-          }
-        : null,
+      message: "Vendor restaurants fetched successfully",
+      data: enriched.map((r) => ({
+        ...serializeRestaurant(r),
+        menuItems: r.menuItems.map((item) => ({
+          id: item.id,
+          restaurantId: item.restaurantId,
+          name: item.name,
+          description: item.description,
+          category: item.category,
+          imageUrl: item.imageUrl,
+          price: Number(item.price),
+          sizes: item.sizes,
+          isVeg: item.isVeg,
+          status: item.status,
+        })),
+      })),
     })
   );
 };
@@ -395,6 +505,8 @@ const getNearbyRestaurants = async (req, res) => {
       openDays: true,
       latitude: true,
       longitude: true,
+      deliveryTime: true,
+      minimumOrder: true,
       createdAt: true,
       updatedAt: true,
       menuItems: {
@@ -405,7 +517,9 @@ const getNearbyRestaurants = async (req, res) => {
     },
   });
 
-  const nearby = restaurants.reduce((acc, r) => {
+  const enriched = await enrichRestaurantsWithRatings(restaurants);
+
+  const nearby = enriched.reduce((acc, r) => {
     const item = { ...serializeRestaurant(r), distance: distanceMap[r.id] };
     const insertAt = acc.findIndex((e) => e.distance > item.distance);
     if (insertAt === -1) acc.push(item);
@@ -532,15 +646,7 @@ const searchRestaurantsAndDishes = async (req, res) => {
 const createRestaurant = async (req, res) => {
   const payload = createRestaurantSchema.parse(req.body);
 
-  if (req.user.role === "VENDOR") {
-    const existingRestaurant = await prisma.restaurant.findFirst({
-      where: { vendorId: req.user.sub },
-    });
-
-    if (existingRestaurant) {
-      throw new ApiError(409, "You already have a restaurant profile. Update it instead.");
-    }
-  }
+  // Multi-outlet support: vendors can have multiple restaurants
 
   const { addressLine1, addressLine2, city, state, postalCode } = payload;
 
@@ -662,8 +768,36 @@ const updateRestaurant = async (req, res) => {
   );
 };
 
+const deleteRestaurant = async (req, res) => {
+  const existingRestaurant = await prisma.restaurant.findUnique({
+    where: { id: req.params.restaurantId },
+  });
+
+  if (!existingRestaurant) {
+    throw new ApiError(404, "Restaurant not found");
+  }
+
+  if (req.user.role === "VENDOR" && existingRestaurant.vendorId !== req.user.sub) {
+    throw new ApiError(403, "You do not have permission to delete this restaurant");
+  }
+
+  await prisma.restaurant.update({
+    where: { id: req.params.restaurantId },
+    data: { status: "INACTIVE" },
+  });
+  await invalidatePublicRestaurantCache(existingRestaurant.id);
+
+  res.status(200).json(
+    apiResponse({
+      message: "Restaurant deactivated successfully",
+      data: { restaurantId: req.params.restaurantId },
+    })
+  );
+};
+
 export {
   createRestaurant,
+  deleteRestaurant,
   updateRestaurant,
   getRestaurantById,
   getMyRestaurant,

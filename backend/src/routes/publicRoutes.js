@@ -4,6 +4,7 @@ import {
   getFeaturedRestaurants,
   getAds,
   getHomeData,
+  getAppConfig,
   addFeaturedRestaurant,
   removeFeaturedRestaurant,
   updateFeaturedRestaurantsOrder,
@@ -18,6 +19,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 const publicRouter = Router();
 
 publicRouter.use(publicLimiter);
+publicRouter.get("/config", asyncHandler(getAppConfig));
 publicRouter.get("/home", asyncHandler(getHomeData));
 publicRouter.get("/featured-restaurants", asyncHandler(getFeaturedRestaurants));
 publicRouter.get("/ads", asyncHandler(getAds));
@@ -31,3 +33,4 @@ publicRouter.delete("/ads/:id", asyncHandler(removeAd));
 publicRouter.put("/ads/order", asyncHandler(updateAdsOrder));
 
 export { publicRouter };
+

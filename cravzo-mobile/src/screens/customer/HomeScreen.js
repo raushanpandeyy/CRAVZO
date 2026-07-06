@@ -11,8 +11,9 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useSelector } from "react-redux";
-import { Star, Clock3, Search, MapPin, ShoppingCart, User, MessageCircle, Utensils, X } from "lucide-react-native";
+import { Star, Clock3, Search, MapPin, ShoppingCart, User, MessageCircle, Utensils, X, Leaf } from "lucide-react-native";
 import DishPromoCarousel from "../../components/DishPromoCarousel";
+import OptimizedImage from "../../components/OptimizedImage";
 import { colors } from "../../constants/colors";
 import { listRestaurants, searchRestaurantsAndDishes } from "../../services/foodService";
 import { selectCartItemCount } from "../../store/slices/cartSlice";
@@ -33,7 +34,7 @@ import {
   southindian,
   salad,
   northindian,
-  cravzologo,
+  dodagologo,
 } from "../../constants/images";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -60,7 +61,7 @@ const MobileNearbyMiniCard = ({ restaurant, index, navigation }) => {
   const dish = restaurant.dish || restaurant.menuPreview?.[0];
   const [imgFailed, setImgFailed] = useState(false);
   const dishImage = !imgFailed && (dish?.imageUrl || restaurant.imageUrl);
-  const deliveryTime = restaurant.deliveryTime || `${20 + (index % 4) * 5}-${30 + (index % 4) * 5} min`;
+  const deliveryTime = restaurant.deliveryTime || "";
   const dishName = dish?.name || restaurant.name;
 
   const labels = [dishName, deliveryTime].filter(Boolean);
@@ -78,7 +79,7 @@ const MobileNearbyMiniCard = ({ restaurant, index, navigation }) => {
     >
       <View style={{ width: 76, height: 76 }} className="overflow-hidden rounded-2xl bg-indigo-100 shadow-sm">
         {dishImage ? (
-          <Image source={{ uri: dishImage }} style={{ width: 76, height: 76 }} resizeMode="cover" onError={() => setImgFailed(true)} />
+          <OptimizedImage source={{ uri: dishImage }} style={{ width: 76, height: 76 }} resizeMode="cover" onError={() => setImgFailed(true)} />
         ) : (
           <View style={{ width: 76, height: 76 }} className="items-center justify-center">
             <Text className="text-lg font-black text-indigo-400">{dishName?.[0]}</Text>
@@ -151,13 +152,18 @@ export default function HomeScreen({ navigation }) {
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [stickyQuery, setStickyQuery] = useState("");
 
-  const loadRestaurants = useCallback(async () => {
+  const loadRestaurants = useCallback(async (extraParams = {}) => {
     try {
-      const data = await listRestaurants({ limit: 10 });
+      const params = { limit: 10, ...extraParams };
+      const data = await listRestaurants(params);
       setRestaurants(data);
-    } catch {} finally {
+      setLoadError("");
+    } catch {
+      setLoadError("Could not load restaurants. Check your connection.");
+    } finally {
       setLoading(false);
     }
   }, []);
@@ -165,12 +171,17 @@ export default function HomeScreen({ navigation }) {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const data = await listRestaurants({ limit: 10 });
+      const params = { limit: 10 };
+      if (vegOnly) params.vegOnly = "true";
+      if (dietaryFilter) params.dietary = dietaryFilter;
+      const data = await listRestaurants(params);
       setRestaurants(data);
-    } catch {} finally {
+    } catch {
+      // silent on refresh
+    } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [vegOnly, dietaryFilter]);
   const [showSticky, setShowSticky] = useState(false);
   const cartCount = useSelector(selectCartItemCount);
   const { data: user } = useSelector((state) => state.user);
@@ -178,6 +189,8 @@ export default function HomeScreen({ navigation }) {
   const [searchResults, setSearchResults] = useState({ restaurants: [], dishes: [] });
   const [searchLoading, setSearchLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [vegOnly, setVegOnly] = useState(false);
+  const [dietaryFilter, setDietaryFilter] = useState(null);
   const debouncedQuery = useDebounce(query, 400);
   const dropdownRef = useRef(null);
 
@@ -283,7 +296,7 @@ export default function HomeScreen({ navigation }) {
                       >
                         <View className="h-12 w-14 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
                           {dish.imageUrl ? (
-                            <Image source={{ uri: dish.imageUrl }} className="h-full w-full" resizeMode="cover" />
+                            <OptimizedImage source={{ uri: dish.imageUrl }} className="h-full w-full" resizeMode="cover" />
                           ) : (
                             <Utensils size={16} color={colors.slate[500]} />
                           )}
@@ -312,7 +325,7 @@ export default function HomeScreen({ navigation }) {
                       >
                         <View className="h-12 w-14 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
                           {r.imageUrl ? (
-                            <Image source={{ uri: r.imageUrl }} className="h-full w-full" resizeMode="cover" />
+                    <OptimizedImage source={{ uri: r.imageUrl }} className="h-full w-full" resizeMode="cover" />
                           ) : (
                             <MapPin size={16} color={colors.slate[500]} />
                           )}
@@ -354,7 +367,7 @@ export default function HomeScreen({ navigation }) {
               onPress={() => navigation.navigate("DishScreen", { dishName: cat.name })}
               className="items-center min-w-[65px]">
               <View className="h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-indigo-50 shadow-md">
-                <Image
+                <OptimizedImage
                   source={{ uri: cat.image }}
                   className="h-full w-full"
                   resizeMode="cover"
@@ -370,6 +383,42 @@ export default function HomeScreen({ navigation }) {
 
       {restaurants.length > 0 && <PopularDishesSection restaurants={restaurants} navigation={navigation} />}
 
+      {/* Dietary Filters */}
+      <View className="flex-row items-center gap-2 px-4 py-3 border-b border-indigo-100">
+        <TouchableOpacity
+          onPress={() => {
+            setVegOnly(!vegOnly);
+            loadRestaurants({ limit: 10, vegOnly: !vegOnly ? "true" : undefined, dietary: !vegOnly ? dietaryFilter : undefined });
+          }}
+          className={`flex-row items-center gap-1.5 rounded-full px-3 py-1.5 border-2 ${
+            vegOnly ? "border-emerald-600 bg-emerald-50" : "border-slate-200 bg-white"
+          }`}
+        >
+          {vegOnly ? <Leaf size={14} color="#059669" /> : <Leaf size={14} color={colors.slate[400]} />}
+          <Text className={`text-xs font-bold ${vegOnly ? "text-emerald-700" : "text-slate-500"}`}>
+            Veg Only
+          </Text>
+        </TouchableOpacity>
+
+        {["Vegetarian", "Vegan", "Gluten-Free"].map((d) => (
+          <TouchableOpacity
+            key={d}
+            onPress={() => {
+              const next = dietaryFilter === d ? null : d;
+              setDietaryFilter(next);
+              loadRestaurants({ limit: 10, vegOnly: vegOnly ? "true" : undefined, dietary: next || undefined });
+            }}
+            className={`rounded-full px-3 py-1.5 border-2 ${
+              dietaryFilter === d ? "border-indigo-600 bg-indigo-50" : "border-slate-200 bg-white"
+            }`}
+          >
+            <Text className={`text-xs font-bold ${dietaryFilter === d ? "text-indigo-700" : "text-slate-500"}`}>
+              {d}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       <View className="py-4">
         <View className="px-4 mb-3">
           <Text className="text-base font-bold text-indigo-700">
@@ -380,6 +429,11 @@ export default function HomeScreen({ navigation }) {
           </Text>
         </View>
         <View className="space-y-3 px-4">
+          {loadError ? (
+            <View className="mx-4 mb-3 bg-rose-50 rounded-2xl px-4 py-3 border-l-4 border-rose-400">
+              <Text className="text-sm text-rose-700">{loadError}</Text>
+            </View>
+          ) : null}
           {loading ? (
             <View className="space-y-3">
               <RestaurantSkeleton />
@@ -402,7 +456,7 @@ export default function HomeScreen({ navigation }) {
               >
                 <View className="relative h-44 w-full bg-slate-100">
                   {r.imageUrl ? (
-                    <Image source={{ uri: r.imageUrl }} className="h-full w-full" resizeMode="cover" />
+                            <OptimizedImage source={{ uri: r.imageUrl }} className="h-full w-full" resizeMode="cover" />
                   ) : (
                     <View className="h-full w-full items-center justify-center bg-indigo-100">
                       <Text className="text-4xl font-black text-indigo-600">{r.name?.[0]}</Text>
@@ -414,18 +468,18 @@ export default function HomeScreen({ navigation }) {
                   </View>
                   <View className="absolute bottom-3 left-3 flex-row items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1">
                     <Star size={14} color="#fff" fill="#fff" />
-                    <Text className="text-xs font-black text-white">{r.rating || "4.2"}</Text>
+                    <Text className="text-xs font-black text-white">{r.rating || ""}</Text>
                   </View>
                 </View>
                 <View className="p-4">
                   <Text className="text-lg font-black text-slate-950" numberOfLines={1}>{r.name}</Text>
                   <Text className="mt-1 text-sm font-semibold text-slate-500" numberOfLines={1}>
-                    {r.cuisine || "Fresh meals"} • {r.location || r.city || "Near you"}
+                    {r.cuisine || ""} • {r.location || r.city || ""}
                   </Text>
                   <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
                     <View className="flex-row items-center gap-1">
                       <Clock3 size={16} color={colors.brand[700]} />
-                      <Text className="text-xs font-extrabold text-slate-700">{r.deliveryTime || "30-40 min"}</Text>
+                      <Text className="text-xs font-extrabold text-slate-700">{r.deliveryTime || ""}</Text>
                     </View>
                     {r.distance ? (
                       <Text className="text-xs font-extrabold text-slate-500">{r.distance}</Text>
@@ -444,7 +498,7 @@ export default function HomeScreen({ navigation }) {
       <View className="absolute top-0 left-0 right-0 flex-row items-center justify-between px-4 pt-6 pb-1">
         <View className="flex-row items-center gap-2 shrink">
         <TouchableOpacity onPress={() => navigation.navigate("Profile")} className="shrink-0">
-          <Image source={{ uri: cravzologo }} className="h-8 w-8 rounded-xl" resizeMode="cover" />
+              <OptimizedImage source={{ uri: dodagologo }} className="h-8 w-8 rounded-xl" resizeMode="cover" />
         </TouchableOpacity>
 
         <TouchableOpacity className="flex-1 flex-row items-center gap-2 rounded-2xl bg-white/90 px-3 py-1.5">
@@ -482,7 +536,7 @@ export default function HomeScreen({ navigation }) {
       ) : (
       <View className="absolute top-0 left-0 right-0 flex-row items-center gap-2 px-4 pt-6 pb-1 bg-white border-b border-slate-200">
         <TouchableOpacity onPress={() => navigation.navigate("Profile")} className="shrink-0">
-          <Image source={{ uri: cravzologo }} className="h-8 w-8 rounded-xl" resizeMode="cover" />
+          <OptimizedImage source={{ uri: dodagologo }} className="h-8 w-8 rounded-xl" resizeMode="cover" />
         </TouchableOpacity>
         <View className="flex-1 flex-row items-center bg-white rounded-xl border-2 border-[#ff6b5f] px-3 h-10">
           <Search size={16} color="#ff6b5f" />
@@ -509,3 +563,4 @@ export default function HomeScreen({ navigation }) {
     </View>
   );
 }
+

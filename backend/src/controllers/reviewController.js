@@ -6,7 +6,7 @@ import { upsertReviewSchema } from "../validators/reviewValidators.js";
 
 // Fix #8: Cache restaurant reviews.
 // listRestaurantReviews is called on every restaurant page load with no cache.
-// Reviews don't change often — 2-minute TTL is a good tradeoff.
+// Reviews don't change often â€” 2-minute TTL is a good tradeoff.
 import { REVIEWS_CACHE_TTL_SECONDS } from "../utils/publicCache.js";
 
 const REVIEW_CACHE_TTL = REVIEWS_CACHE_TTL_SECONDS;
@@ -16,6 +16,8 @@ const serializeReview = (review) => ({
   id: review.id,
   rating: review.rating,
   comment: review.comment,
+  reply: review.reply,
+  replyDate: review.replyDate,
   createdAt: review.createdAt,
   restaurant: review.restaurant
     ? {
@@ -109,6 +111,17 @@ const upsertReview = async (req, res) => {
   if (!restaurant) {
     throw new ApiError(404, "Restaurant not found");
   }
+  const deliveredOrder = await prisma.order.findFirst({
+    where: {
+      customerId: req.user.sub,
+      restaurantId,
+      status: "DELIVERED",
+    },
+    select: { id: true },
+  });
+  if (!deliveredOrder) {
+    throw new ApiError(403, "You can review this restaurant after a delivered order");
+  }
 
   const existingReview = await prisma.review.findFirst({
     where: { userId: req.user.sub, restaurantId },
@@ -173,4 +186,47 @@ const deleteReview = async (req, res) => {
   );
 };
 
-export { deleteReview, listMyReviews, listRestaurantReviews, upsertReview };
+const replyToReview = async (req, res) => {
+  const { reviewId } = req.params;
+  const { reply } = req.body;
+
+  if (!reply || !reply.trim()) {
+    throw new ApiError(400, "Reply text is required");
+  }
+
+  const review = await prisma.review.findUnique({
+    where: { id: reviewId },
+    include: { restaurant: { select: { vendorId: true } } },
+  });
+
+  if (!review) {
+    throw new ApiError(404, "Review not found");
+  }
+
+  if (req.user.role === "VENDOR" && review.restaurant.vendorId !== req.user.sub) {
+    throw new ApiError(403, "You do not have permission to reply to this review");
+  }
+
+  const updated = await prisma.review.update({
+    where: { id: reviewId },
+    data: {
+      reply: reply.trim(),
+      replyDate: new Date(),
+    },
+    include: {
+      user: { select: { id: true, name: true, avatarUrl: true } },
+      restaurant: { select: { id: true, name: true, imageUrl: true } },
+    },
+  });
+
+  await deleteCache(reviewCacheKey(review.restaurantId));
+
+  res.status(200).json(
+    apiResponse({
+      message: "Reply submitted successfully",
+      data: serializeReview(updated),
+    }),
+  );
+};
+
+export { deleteReview, listMyReviews, listRestaurantReviews, replyToReview, upsertReview };

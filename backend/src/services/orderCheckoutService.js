@@ -89,6 +89,9 @@ const serializeOrder = (order) => ({
   totalAmount: Number(order.totalAmount),
   deliveryDistance: order.deliveryDistance ? Number(order.deliveryDistance) : null,
   notes: order.notes,
+  restaurantInstructions: order.restaurantInstructions,
+  deliveryInstructions: order.deliveryInstructions,
+  tipAmount: Number(order.tipAmount || 0),
   rejectedRiderIds: order.rejectedRiderIds || [],
   createdAt: order.createdAt,
   updatedAt: order.updatedAt,
@@ -143,7 +146,11 @@ const prepareOrderDraft = async ({
   addressId = null,
   paymentMethod = "UPI",
   notes = null,
-  pricing = null,
+  restaurantInstructions = null,
+  deliveryInstructions = null,
+  tipAmount = 0,
+  couponCode = null,
+  persistAddress = true,
 },
 // Fix #1: Accept an optional Prisma transaction client.
 // When called inside $transaction, all queries here become part of
@@ -176,25 +183,40 @@ db = prisma,
   }
 
   const getItemPrice = (menuItem, selectedSize) => {
-    if (selectedSize && menuItem.sizes) {
-      const sizes = Array.isArray(menuItem.sizes) ? menuItem.sizes : [];
-      const sizeEntry = sizes.find((s) => s.size === selectedSize);
-      if (sizeEntry) return Number(sizeEntry.price);
+    const sizes = Array.isArray(menuItem.sizes) ? menuItem.sizes : [];
+    if (selectedSize) {
+      const sizeEntry = sizes.find((size) => size.size === selectedSize);
+      if (!sizeEntry) throw new ApiError(400, `${selectedSize} is not available for ${menuItem.name}`);
+      return Number(sizeEntry.price);
     }
+    if (sizes.length > 0) throw new ApiError(400, `Select a size for ${menuItem.name}`);
     return Number(menuItem.price);
   };
 
-  const getSideDishTotal = (sideDishes) => {
-    if (!sideDishes || !Array.isArray(sideDishes) || sideDishes.length === 0) return 0;
-    return sideDishes.reduce((sum, sd) => sum + Number(sd.price), 0);
+  const resolveSideDishes = (menuItem, selections) => {
+    if (!selections || !Array.isArray(selections) || selections.length === 0) return [];
+    const available = Array.isArray(menuItem.sideDishes) ? menuItem.sideDishes : [];
+    return selections.map((selection) => {
+      const match = available.find((sideDish) => sideDish.name === selection.name);
+      if (!match) {
+        throw new ApiError(400, `${selection.name} is not available with ${menuItem.name}`);
+      }
+      return { name: match.name, price: Number(match.price) };
+    });
   };
 
-  const subtotal = items.reduce((sum, item) => {
+  const resolvedItems = items.map((item) => {
     const menuItem = menuItems.find((entry) => entry.id === item.menuItemId);
-    const unitPrice = getItemPrice(menuItem, item.size);
-    const sideDishTotal = getSideDishTotal(item.selectedSideDishes);
-    return sum + (unitPrice + sideDishTotal) * item.quantity;
-  }, 0);
+    const sideDishes = resolveSideDishes(menuItem, item.selectedSideDishes);
+    const basePrice = getItemPrice(menuItem, item.size);
+    const sideDishTotal = sideDishes.reduce((sum, sideDish) => sum + sideDish.price, 0);
+    return { item, menuItem, sideDishes, basePrice, sideDishTotal };
+  });
+
+  const subtotal = resolvedItems.reduce(
+    (sum, entry) => sum + (entry.basePrice + entry.sideDishTotal) * entry.item.quantity,
+    0,
+  );
 
   let resolvedAddressId = null;
   let deliveryDistance = null;
@@ -231,7 +253,7 @@ db = prisma,
       );
       deliveryBreakdown = calculateDeliveryWithBreakdown(deliveryDistance);
     } else if (existingAddress.latitude === null || existingAddress.longitude === null) {
-      // Geocode OUTSIDE the transaction — external HTTP calls must not hold
+      // Geocode OUTSIDE the transaction Ã¢â‚¬â€ external HTTP calls must not hold
       // a DB transaction open. We update coordinates using the outer prisma
       // client (not tx) so the transaction timeout is not affected.
       const coords = await geocodeDeliveryAddress(existingAddress);
@@ -253,7 +275,7 @@ db = prisma,
     }
   } else if (address && address.fullName && address.phone && address.line1 && address.city && address.state && address.postalCode) {
     // Fix #3: If the controller pre-geocoded the address (preGeocodedLat/Lng present),
-    // use those coords directly — no external HTTP call needed here.
+    // use those coords directly Ã¢â‚¬â€ no external HTTP call needed here.
     // If not present (e.g. prepareOrderDraft called standalone for a quote),
     // fall back to geocoding. This keeps the transaction fast and side-effect-free.
     let coords;
@@ -271,24 +293,25 @@ db = prisma,
       coords = await geocodeDeliveryAddress(address);
     }
 
-    const createdAddress = await db.address.create({
-      data: {
-        userId: customerId,
-        label: address.label || "Delivery Address",
-        fullName: address.fullName,
-        phone: address.phone,
-        line1: address.line1,
-        line2: address.line2 || null,
-        city: address.city,
-        state: address.state,
-        postalCode: address.postalCode,
-        latitude: coords.lat,
-        longitude: coords.lng,
-        isDefault: false,
-      },
-    });
-
-    resolvedAddressId = createdAddress.id;
+    if (persistAddress) {
+      const createdAddress = await db.address.create({
+        data: {
+          userId: customerId,
+          label: address.label || "Delivery Address",
+          fullName: address.fullName,
+          phone: address.phone,
+          line1: address.line1,
+          line2: address.line2 || null,
+          city: address.city,
+          state: address.state,
+          postalCode: address.postalCode,
+          latitude: coords.lat,
+          longitude: coords.lng,
+          isDefault: false,
+        },
+      });
+      resolvedAddressId = createdAddress.id;
+    }
 
     if (coords.lat !== null && coords.lng !== null && restaurant.latitude !== null && restaurant.longitude !== null) {
       deliveryDistance = Number(
@@ -310,10 +333,23 @@ db = prisma,
   const platformTax = PLATFORM_FEE - platformFeeBase;
 
   let discount = 0;
-  let couponCode = null;
-  if (pricing?.couponDiscount && pricing.couponDiscount > 0) {
-    discount = pricing.couponDiscount;
-    couponCode = pricing.couponCode || null;
+  let appliedCouponCode = null;
+  if (couponCode) {
+    const coupon = await db.coupon.findUnique({ where: { code: couponCode.trim().toUpperCase() } });
+    const now = new Date();
+    const invalid = !coupon || !coupon.isActive ||
+      (coupon.expiresAt && coupon.expiresAt < now) ||
+      (coupon.maxUses !== null && coupon.currentUses >= coupon.maxUses) ||
+      (coupon.restaurantId && coupon.restaurantId !== restaurantId) ||
+      (coupon.minOrderValue !== null && subtotal < Number(coupon.minOrderValue));
+    if (invalid) throw new ApiError(400, "Coupon is no longer valid for this order");
+
+    discount = coupon.discountType === "PERCENTAGE"
+      ? subtotal * (Number(coupon.discountValue) / 100)
+      : Number(coupon.discountValue);
+    if (coupon.maxDiscount !== null) discount = Math.min(discount, Number(coupon.maxDiscount));
+    discount = Math.min(Number(discount.toFixed(2)), subtotal);
+    appliedCouponCode = coupon.code;
   }
 
   const subtotalBeforeExtra = subtotal + deliveryBreakdown.total + PLATFORM_FEE + packagingFeeBase + packagingTax + foodGst;
@@ -328,12 +364,15 @@ db = prisma,
 
   const totalTax = foodGst + packagingTax + deliveryBreakdown.tax + platformTax;
 
-  const totalAmount = subtotal + foodGst + packagingFeeBase + packagingTax + deliveryBreakdown.total + PLATFORM_FEE + gatewayFee + codCharge - discount;
+  const totalAmount = subtotal + foodGst + packagingFeeBase + packagingTax + deliveryBreakdown.total + PLATFORM_FEE + gatewayFee + codCharge + Number(tipAmount) - discount;
 
   return {
     restaurantId,
     paymentMethod,
     notes,
+    restaurantInstructions,
+    deliveryInstructions,
+    tipAmount: Number(tipAmount),
     subtotal,
     deliveryFee: deliveryBreakdown.total,
     deliveryFeeBase: deliveryBreakdown.base,
@@ -347,15 +386,12 @@ db = prisma,
     gatewayFee,
     codCharge,
     discount,
-    couponCode,
+    couponCode: appliedCouponCode,
     totalTax: Number(totalTax.toFixed(2)),
     totalAmount: Number(totalAmount.toFixed(2)),
     deliveryDistance,
     resolvedAddressId,
-    itemRows: items.map((item) => {
-      const menuItem = menuItems.find((entry) => entry.id === item.menuItemId);
-      const basePrice = getItemPrice(menuItem, item.size);
-      const sideDishTotal = getSideDishTotal(item.selectedSideDishes);
+    itemRows: resolvedItems.map(({ item, sideDishes, basePrice, sideDishTotal }) => {
       const unitPrice = basePrice + sideDishTotal;
       return {
         menuItemId: item.menuItemId,
@@ -364,7 +400,7 @@ db = prisma,
         totalPrice: unitPrice * item.quantity,
         size: item.size || null,
         notes: item.notes || null,
-        selectedSideDishes: item.selectedSideDishes || undefined,
+        selectedSideDishes: sideDishes.length ? sideDishes : undefined,
       };
     }),
   };
@@ -379,17 +415,20 @@ const createPersistedOrder = async ({
   paymentMethod,
   paymentStatus,
   notes,
+  restaurantInstructions = null,
+  deliveryInstructions = null,
+  tipAmount = 0,
   gatewayProvider = null,
   gatewayOrderId = null,
   gatewayPaymentId = null,
   gatewaySignature = null,
-  pricing = null,
+  couponCode = null,
 }) => {
   // Fix #1: Wrap the entire order creation in a serializable transaction.
   //
   // Without this, 100 concurrent orders against the same restaurant can
   // race: two requests both read isOpen=true, then the restaurant closes
-  // between the read and the write — both orders get created against a
+  // between the read and the write Ã¢â‚¬â€ both orders get created against a
   // closed restaurant. The transaction + SELECT FOR UPDATE (via findFirst
   // inside the tx) prevents that. It also ensures that if the order.create
   // fails, the address that was just created is rolled back too.
@@ -407,12 +446,30 @@ const createPersistedOrder = async ({
           addressId,
           paymentMethod,
           notes,
-          pricing,
+          restaurantInstructions,
+          deliveryInstructions,
+          tipAmount,
+          couponCode,
         },
         tx, // pass the transaction client so all queries inside use it
       );
 
-      return tx.order.create({
+      for (const item of draft.itemRows) {
+        const inventory = await tx.menuItem.findUnique({
+          where: { id: item.menuItemId },
+          select: { trackInventory: true },
+        });
+        if (inventory?.trackInventory) {
+          const reserved = await tx.menuItem.updateMany({
+            where: { id: item.menuItemId, stockQuantity: { gte: item.quantity } },
+            data: { stockQuantity: { decrement: item.quantity } },
+          });
+          if (reserved.count === 0) {
+            throw new ApiError(409, "An item just went out of stock. Refresh your cart and try again");
+          }
+        }
+      }
+      const createdOrder = await tx.order.create({
         data: {
           customerId,
           restaurantId: draft.restaurantId,
@@ -437,6 +494,9 @@ const createPersistedOrder = async ({
           totalAmount: draft.totalAmount,
           deliveryDistance: draft.deliveryDistance,
           notes,
+          restaurantInstructions: draft.restaurantInstructions,
+          deliveryInstructions: draft.deliveryInstructions,
+          tipAmount: draft.tipAmount,
           gatewayProvider,
           gatewayOrderId,
           gatewayPaymentId,
@@ -462,13 +522,20 @@ const createPersistedOrder = async ({
           },
         },
       });
+      if (draft.couponCode) {
+        await tx.coupon.update({
+          where: { code: draft.couponCode },
+          data: { currentUses: { increment: 1 } },
+        });
+      }
+      return createdOrder;
     },
     {
       // ReadCommitted is sufficient: we re-read restaurant/menu inside the tx,
       // so we catch any changes. Serializable would be safer but adds
       // contention; ReadCommitted is the right tradeoff for order creation.
       isolationLevel: "ReadCommitted",
-      // 10s max — geocoding is done BEFORE the transaction opens (see prepareOrderDraft)
+      // 10s max Ã¢â‚¬â€ geocoding is done BEFORE the transaction opens (see prepareOrderDraft)
       timeout: 10000,
     },
   );

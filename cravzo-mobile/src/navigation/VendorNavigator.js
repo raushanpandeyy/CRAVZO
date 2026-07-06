@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, ImageBackground } from "react-native";
+import { View, Text, TouchableOpacity, Alert } from "react-native";
+import { OptimizedBackground } from "../components/OptimizedImage";
 import { BlurView } from "expo-blur";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -11,6 +12,10 @@ import VendorProfileScreen from "../screens/vendor/VendorProfileScreen";
 import OrderPanelScreen from "../screens/vendor/OrderPanelScreen";
 import SubscriptionScreen from "../screens/vendor/SubscriptionScreen";
 import EarningsScreen from "../screens/vendor/EarningsScreen";
+import SalesAnalyticsScreen from "../screens/vendor/SalesAnalyticsScreen";
+import CouponManagementScreen from "../screens/vendor/CouponManagementScreen";
+import ReviewManagementScreen from "../screens/vendor/ReviewManagementScreen";
+import BulkImportScreen from "../screens/vendor/BulkImportScreen";
 import DeliveryAreaScreen from "../screens/vendor/DeliveryAreaScreen";
 import ChatScreen from "../components/ChatScreen";
 import { getMyRestaurant } from "../services/vendorService";
@@ -70,26 +75,33 @@ export default function VendorNavigator() {
   useEffect(() => {
     getMyRestaurant().then((data) => {
       if (data?.imageUrl) setRestaurantBg(data.imageUrl);
-    }).catch(() => {});
+    }).catch((err) => {
+      Alert.alert("Restaurant unavailable", err.message || "Could not load restaurant details.");
+    });
   }, []);
 
   return (
     <View className="flex-1">
-      <ImageBackground
+      <OptimizedBackground
         source={restaurantBg ? { uri: restaurantBg } : undefined}
         className="absolute inset-0"
         resizeMode="cover"
       >
         <BlurView intensity={60} tint="dark" className="absolute inset-0" />
         <View className="absolute inset-0 bg-indigo-950/40" />
-      </ImageBackground>
+      </OptimizedBackground>
       <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "transparent" }, cardStyle: { backgroundColor: "transparent" } }}>
         <Stack.Screen name="VendorTabs" component={VendorTabs} />
         <Stack.Screen name="Subscription" component={SubscriptionScreen} />
         <Stack.Screen name="VendorChat" component={ChatScreen} />
         <Stack.Screen name="Earnings" component={EarningsScreen} />
+        <Stack.Screen name="SalesAnalytics" component={SalesAnalyticsScreen} />
+        <Stack.Screen name="CouponManagement" component={CouponManagementScreen} />
+        <Stack.Screen name="ReviewManagement" component={ReviewManagementScreen} />
+        <Stack.Screen name="BulkImport" component={BulkImportScreen} />
         <Stack.Screen name="DeliveryArea" component={DeliveryAreaScreen} />
       </Stack.Navigator>
     </View>
   );
 }
+

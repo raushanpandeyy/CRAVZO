@@ -1,100 +1,94 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
-import { ChevronLeft, Star, Bike, IndianRupee } from "lucide-react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from "react-native";
+import { ChevronLeft, Star } from "lucide-react-native";
+import { useSelector } from "react-redux";
 import { colors } from "../../constants/colors";
-import { getRiderOrders } from "../../services/riderService";
+import { getRiderRatings } from "../../services/riderRatingService";
+
+const Stars = ({ rating }) => (
+  <View className="flex-row gap-1">
+    {Array.from({ length: 5 }).map((_, index) => (
+      <Star key={index} size={15} color="#f59e0b" fill={index < rating ? "#f59e0b" : "transparent"} />
+    ))}
+  </View>
+);
 
 export default function RiderMyReviewsScreen({ navigation }) {
-  const [orders, setOrders] = useState([]);
+  const user = useSelector((state) => state.user.data);
+  const [data, setData] = useState({ averageRating: null, totalRatings: 0, ratings: [] });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await getRiderOrders();
-        setOrders(res.orders || []);
-      } catch (err) {
-        console.error("Reviews load error:", err);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  const loadRatings = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      setData(await getRiderRatings(user.id));
+      setError("");
+    } catch (err) {
+      setError(err.message || "Could not load your ratings");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user?.id]);
 
-  const deliveredOrders = orders.filter((o) => o.status === "DELIVERED");
-
-  const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-  };
-
-  if (loading) {
-    return (
-      <View className="flex-1 bg-[#F5F5F5] items-center justify-center">
-        <ActivityIndicator size="large" color={colors.brand[600]} />
-      </View>
-    );
-  }
+  useEffect(() => { loadRatings(); }, [loadRatings]);
 
   return (
     <View className="flex-1 bg-[#F5F5F5]">
-      <View className="bg-white shadow-sm pt-14 pb-4 px-4">
+      <View className="bg-white px-4 pb-4 pt-14 shadow-sm">
         <View className="flex-row items-center gap-4">
-          <TouchableOpacity onPress={() => navigation.goBack()}
-            className="h-10 w-10 items-center justify-center rounded-full bg-slate-100">
+          <TouchableOpacity onPress={() => navigation.goBack()} className="h-10 w-10 items-center justify-center rounded-full bg-slate-100">
             <ChevronLeft size={20} color={colors.slate[900]} />
           </TouchableOpacity>
-          <Text className="text-xl font-extrabold text-slate-900">My Reviews</Text>
+          <View>
+            <Text className="text-xl font-extrabold text-slate-900">Customer Reviews</Text>
+            <Text className="text-xs text-slate-500">Ratings received after completed deliveries</Text>
+          </View>
         </View>
       </View>
-      <ScrollView className="flex-1 px-4 pt-6">
-        {deliveredOrders.length === 0 ? (
-          <View className="items-center pt-16">
-            <Star size={48} color={colors.slate[300]} />
-            <Text className="text-lg font-bold text-slate-400 mt-4">No reviews yet</Text>
-            <Text className="text-sm text-slate-400 mt-1 text-center">
-              Complete deliveries to leave reviews
-            </Text>
-          </View>
-        ) : (
-          deliveredOrders.map((order) => (
-            <TouchableOpacity
-              key={order.id}
-              onPress={() => navigation.navigate("RiderReview", { orderId: order.id })}
-              className="bg-white rounded-3xl p-4 shadow-sm mb-3"
-            >
-              <View className="flex-row items-center justify-between mb-2">
-                <View className="flex-row items-center gap-2">
-                  <View className="h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
-                    <Star size={16} color="#f59e0b" />
-                  </View>
-                  <Text className="font-bold text-slate-900">
-                    #{order.orderNumber || order.id.slice(0, 8)}
-                  </Text>
+
+      {loading ? (
+        <View className="flex-1 items-center justify-center"><ActivityIndicator size="large" color={colors.brand[600]} /></View>
+      ) : (
+        <FlatList
+          data={data.ratings || []}
+          keyExtractor={(item) => item.id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadRatings(); }} />}
+          contentContainerStyle={{ padding: 16, gap: 12, flexGrow: 1 }}
+          ListHeaderComponent={(
+            <View className="mb-2 rounded-3xl bg-indigo-950 p-5">
+              <Text className="text-xs font-bold uppercase text-indigo-200">Overall rating</Text>
+              <View className="mt-2 flex-row items-end gap-2">
+                <Text className="text-4xl font-black text-white">{data.averageRating ?? "New"}</Text>
+                {data.averageRating ? <Text className="pb-1 text-sm text-indigo-200">/ 5</Text> : null}
+              </View>
+              <Text className="mt-1 text-sm text-indigo-200">{data.totalRatings || 0} verified delivery ratings</Text>
+            </View>
+          )}
+          ListEmptyComponent={(
+            <View className="flex-1 items-center justify-center py-16">
+              <Star size={48} color={colors.slate[300]} />
+              <Text className="mt-4 text-lg font-bold text-slate-500">No customer ratings yet</Text>
+              {error ? <Text className="mt-2 text-center text-sm text-rose-600">{error}</Text> : <Text className="mt-1 text-sm text-slate-400">Ratings appear after delivered orders.</Text>}
+            </View>
+          )}
+          renderItem={({ item }) => (
+            <View className="rounded-3xl bg-white p-4 shadow-sm">
+              <View className="flex-row items-start justify-between gap-3">
+                <View className="flex-1">
+                  <Text className="font-black text-slate-900">{item.user?.name || "Customer"}</Text>
+                  <Text className="mt-1 text-xs text-slate-400">Order #{item.orderId?.slice(-6)}</Text>
                 </View>
-                <Text className="text-xs text-slate-400">{formatDate(order.updatedAt)}</Text>
+                <Stars rating={item.rating} />
               </View>
-              <View className="border-t border-slate-100 pt-2">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center gap-1">
-                    <Bike size={14} color={colors.slate[400]} />
-                    <Text className="text-sm text-slate-500">
-                      {order.restaurant?.name || "Delivery"}
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center gap-1">
-                    <IndianRupee size={14} color={colors.slate[400]} />
-                    <Text className="text-sm font-bold text-slate-700">{order.deliveryFee || 0}</Text>
-                  </View>
-                </View>
-              </View>
-              <View className="mt-2">
-                <Text className="text-xs font-bold text-indigo-600">Tap to leave a review →</Text>
-              </View>
-            </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
+              {item.comment ? <Text className="mt-3 text-sm leading-6 text-slate-700">{item.comment}</Text> : null}
+              <Text className="mt-3 text-xs text-slate-400">{new Date(item.createdAt).toLocaleDateString("en-IN")}</Text>
+            </View>
+          )}
+        />
+      )}
     </View>
   );
 }

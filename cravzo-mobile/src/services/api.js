@@ -2,6 +2,8 @@ import axios from "axios";
 import { API_BASE_URL } from "../constants/apiEndpoints";
 import { storage } from "./storage";
 
+let unauthorizedHandler = null;
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 15000,
@@ -22,6 +24,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       storage.delete("authToken");
       storage.delete("user");
+      unauthorizedHandler?.();
     }
     return Promise.reject(error);
   }
@@ -42,3 +45,9 @@ export const apiRequest = async (path, options = {}) => {
 export const invalidateCache = (pathPrefix) => {};
 
 export const getStoredToken = () => storage.getString("authToken") || null;
+
+export const setUnauthorizedHandler = (handler) => {
+  unauthorizedHandler = handler;
+};
+
+

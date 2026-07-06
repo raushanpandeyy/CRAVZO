@@ -8,25 +8,40 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
+  TextInput,
+  Alert,
 } from "react-native";
+import OptimizedImage from "../../components/OptimizedImage";
 import {
   Clock3,
   IndianRupee,
   ChevronRight,
   X,
   MessageCircle,
+  RotateCcw,
+  Ban,
+  Star,
+  Bike,
+  UtensilsCrossed,
+  CheckCircle2,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
-import { getMyOrders } from "../../services/orderService";
+import { useDispatch } from "react-redux";
+import { getMyOrders, cancelOrder } from "../../services/orderService";
+import { addItem } from "../../store/slices/cartSlice";
+import { saveReview } from "../../services/reviewService";
+import { saveRiderRating } from "../../services/riderRatingService";
 import OrderProgressBar from "../../components/OrderProgressBar";
 
 const statusColors = {
   DELIVERED: "text-emerald-600 bg-emerald-50",
   CANCELLED: "text-rose-600 bg-rose-50",
   PREPARING: "text-amber-600 bg-amber-50",
-  ON_THE_WAY: "text-blue-600 bg-blue-50",
+  OUT_FOR_DELIVERY: "text-blue-600 bg-blue-50",
   PENDING: "text-slate-600 bg-slate-50",
   ACCEPTED: "text-indigo-600 bg-indigo-50",
+  REJECTED: "text-rose-600 bg-rose-50",
+  READY_FOR_PICKUP: "text-teal-600 bg-teal-50",
 };
 
 const formatStatus = (status) =>
@@ -35,6 +50,32 @@ const formatStatus = (status) =>
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
 const closedStatuses = ["DELIVERED", "CANCELLED", "REJECTED"];
+const cancellableStatuses = ["PENDING", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP"];
+
+const calcCancelFee = (order) => {
+  if (["PENDING", "ACCEPTED"].includes(order.status)) return 0;
+  if (order.status === "PREPARING" && order.preparingAt) {
+    const mins = (Date.now() - new Date(order.preparingAt).getTime()) / 60000;
+    if (mins < 2) return 0;
+    if (mins >= 10) return 20;
+    return 15;
+  }
+  return 20;
+};
+
+const StarPicker = ({ value, onChange }) => (
+  <View className="flex-row items-center gap-1">
+    {Array.from({ length: 5 }).map((_, i) => (
+      <TouchableOpacity key={i} onPress={() => onChange(i + 1)}>
+        <Star
+          size={28}
+          color={i < value ? "#f59e0b" : "#e2e8f0"}
+          fill={i < value ? "#f59e0b" : "transparent"}
+        />
+      </TouchableOpacity>
+    ))}
+  </View>
+);
 
 const SkeletonOrder = () => (
   <View className="bg-white rounded-3xl p-4 shadow-sm mb-3">
@@ -50,17 +91,31 @@ const SkeletonOrder = () => (
 );
 
 export default function OrdersScreen({ navigation }) {
+  const dispatch = useDispatch();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [failedImages, setFailedImages] = useState({});
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [cancelConfirmOrder, setCancelConfirmOrder] = useState(null);
+  const [feedbackOrder, setFeedbackOrder] = useState(null);
+  const [deliveryRating, setDeliveryRating] = useState(5);
+  const [restaurantRating, setRestaurantRating] = useState(5);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [savingFeedback, setSavingFeedback] = useState(false);
+  const [feedbackDone, setFeedbackDone] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
+  const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
 
   const loadOrders = useCallback(async () => {
     try {
       const { orders: data } = await getMyOrders();
-      setOrders(data);
-    } catch {} finally {
+      setOrders(data || []);
+      setError("");
+    } catch {
+      setError("Failed to load orders. Pull down to retry.");
+    } finally {
       setLoading(false);
     }
   }, []);
@@ -69,8 +124,11 @@ export default function OrdersScreen({ navigation }) {
     setRefreshing(true);
     try {
       const { orders: data } = await getMyOrders();
-      setOrders(data);
-    } catch {} finally {
+      setOrders(data || []);
+      setError("");
+    } catch {
+      setError("Failed to load orders. Pull down to retry.");
+    } finally {
       setRefreshing(false);
     }
   }, []);
@@ -99,6 +157,89 @@ export default function OrdersScreen({ navigation }) {
     }
   };
 
+  const handleReorder = (order) => {
+    if (!order.items?.length) return;
+    order.items.forEach((item) => {
+      dispatch(addItem({
+        menuItemId: item.menuItemId || item.id,
+        restaurantId: order.restaurantId || order.restaurant?.id,
+        restaurantName: order.restaurantName || order.restaurant?.name,
+        name: item.name || item.menuItem?.name,
+        price: Number(item.unitPrice || item.price || 0) - ((item.selectedSideDishes || []).reduce((s, sd) => s + Number(sd.price), 0)),
+        quantity: item.quantity || 1,
+        imageUrl: item.imageUrl || item.menuItem?.imageUrl,
+        size: item.size || null,
+        selectedSideDishes: item.selectedSideDishes || [],
+        notes: item.notes || "",
+      }));
+    });
+    setSelectedOrder(null);
+    navigation.navigate("Cart");
+  };
+
+  const handleCancelRequest = (order) => {
+    setCancelConfirmOrder(order);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!cancelConfirmOrder) return;
+    setError("");
+    setMsg("");
+    try {
+      const data = await cancelOrder(cancelConfirmOrder.id);
+      const fee = data?.cancelFee;
+      if (fee && fee > 0) {
+        setMsg(`Order cancelled. ${data.cancelFeePercent}% fee deducted: ₹${fee}. Refund: ₹${data.refundAmount}`);
+      } else {
+        setMsg("Order cancelled successfully.");
+      }
+      setOrders((prev) =>
+        prev.map((o) => (o.id === cancelConfirmOrder.id ? { ...o, status: "CANCELLED" } : o)),
+      );
+      setCancelConfirmOrder(null);
+    } catch (err) {
+      setError(err.message || "Failed to cancel order");
+      setCancelConfirmOrder(null);
+    }
+  };
+
+  const handleFeedbackSubmit = async () => {
+    if (!restaurantRating || !feedbackOrder) return;
+    setSavingFeedback(true);
+    setFeedbackError("");
+    try {
+      await Promise.all([
+        saveReview({
+          restaurantId: feedbackOrder.restaurantId || feedbackOrder.restaurant?.id,
+          rating: restaurantRating,
+          comment: feedbackComment.trim() || null,
+        }),
+        ...(feedbackOrder.rider?.id
+          ? [
+              saveRiderRating({
+                orderId: feedbackOrder.id,
+                riderId: feedbackOrder.rider.id,
+                rating: deliveryRating,
+                comment: feedbackComment.trim() || null,
+              }),
+            ]
+          : []),
+      ]);
+      setFeedbackDone(true);
+      setTimeout(() => {
+        setFeedbackOrder(null);
+        setFeedbackDone(false);
+        setDeliveryRating(5);
+        setRestaurantRating(5);
+        setFeedbackComment("");
+      }, 2000);
+    } catch (err) {
+      setFeedbackError(err.message || "Failed to submit feedback");
+    } finally {
+      setSavingFeedback(false);
+    }
+  };
+
   return (
     <View className="flex-1 bg-[#F5F5F5]">
       <ScrollView
@@ -110,6 +251,18 @@ export default function OrdersScreen({ navigation }) {
         <Text className="text-xl font-extrabold text-slate-900 mb-4">
           Your Orders
         </Text>
+
+        {msg ? (
+          <View className="mb-3 rounded-2xl bg-emerald-50 px-4 py-3">
+            <Text className="text-sm font-medium text-emerald-700">{msg}</Text>
+          </View>
+        ) : null}
+        {error ? (
+          <View className="mb-3 rounded-2xl bg-rose-50 px-4 py-3">
+            <Text className="text-sm font-medium text-rose-700">{error}</Text>
+          </View>
+        ) : null}
+
         {loading ? (
           <View className="space-y-3">
             <SkeletonOrder />
@@ -119,12 +272,8 @@ export default function OrdersScreen({ navigation }) {
         ) : orders.length === 0 ? (
           <View className="items-center justify-center py-20">
             <Text className="text-5xl mb-4">📋</Text>
-            <Text className="text-lg font-bold text-slate-900">
-              No orders yet
-            </Text>
-            <Text className="text-sm text-slate-500 mt-1">
-              Your orders will appear here
-            </Text>
+            <Text className="text-lg font-bold text-slate-900">No orders yet</Text>
+            <Text className="text-sm text-slate-500 mt-1">Your orders will appear here</Text>
           </View>
         ) : (
           <View className="space-y-4">
@@ -142,57 +291,35 @@ export default function OrdersScreen({ navigation }) {
                       </Text>
                     </View>
                   ) : (
-                    <Image
+                    <OptimizedImage
                       source={{ uri: order.restaurantImage }}
                       className="h-14 w-14 rounded-2xl"
                       onError={() =>
-                        setFailedImages((prev) => ({
-                          ...prev,
-                          [order.id]: true,
-                        }))
+                        setFailedImages((prev) => ({ ...prev, [order.id]: true }))
                       }
                     />
                   )}
                   <View className="flex-1">
                     <View className="flex-row items-center justify-between">
-                      <Text
-                        className="font-bold text-slate-900"
-                        numberOfLines={1}
-                      >
+                      <Text className="font-bold text-slate-900" numberOfLines={1}>
                         {order.restaurantName || "Restaurant"}
                       </Text>
-                      <View
-                        className={`rounded-full px-2.5 py-0.5 ${
-                          statusColors[order.status] || "bg-slate-100"
-                        }`}
-                      >
-                        <Text className="text-[10px] font-extrabold">
-                          {formatStatus(order.status)}
-                        </Text>
+                      <View className={`rounded-full px-2.5 py-0.5 ${statusColors[order.status] || "bg-slate-100"}`}>
+                        <Text className="text-[10px] font-extrabold">{formatStatus(order.status)}</Text>
                       </View>
                     </View>
-                    <Text
-                      className="text-xs text-slate-500 mt-0.5"
-                      numberOfLines={1}
-                    >
-                      {order.items
-                        ?.map?.((i) => i.name)
-                        .join(", ") ||
-                        `${order.itemCount || 0} items`}
+                    <Text className="text-xs text-slate-500 mt-0.5" numberOfLines={1}>
+                      {order.items?.map?.((i) => i.name).join(", ") || `${order.itemCount || 0} items`}
                     </Text>
                     <View className="flex-row items-center gap-3 mt-2">
                       <View className="flex-row items-center gap-1">
                         <IndianRupee size={12} color={colors.slate[500]} />
-                        <Text className="text-xs font-bold text-slate-700">
-                          {order.total}
-                        </Text>
+                        <Text className="text-xs font-bold text-slate-700">{order.totalAmount || order.total}</Text>
                       </View>
                       <View className="flex-row items-center gap-1">
                         <Clock3 size={12} color={colors.slate[500]} />
                         <Text className="text-xs text-slate-500">
-                          {order.createdAt
-                            ? new Date(order.createdAt).toLocaleDateString()
-                            : ""}
+                          {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ""}
                         </Text>
                       </View>
                     </View>
@@ -205,18 +332,10 @@ export default function OrdersScreen({ navigation }) {
         )}
       </ScrollView>
 
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={!!selectedOrder}
-        onRequestClose={() => setSelectedOrder(null)}
-      >
+      {/* Order Detail Modal */}
+      <Modal animationType="slide" transparent={true} visible={!!selectedOrder} onRequestClose={() => setSelectedOrder(null)}>
         <View className="flex-1 bg-black/50">
-          <TouchableOpacity
-            className="flex-1"
-            activeOpacity={1}
-            onPress={() => setSelectedOrder(null)}
-          />
+          <TouchableOpacity className="flex-1" activeOpacity={1} onPress={() => setSelectedOrder(null)} />
           <View className="bg-white rounded-t-3xl max-h-[85%]">
             <View className="items-center pt-2 pb-1">
               <View className="h-1 w-10 rounded-full bg-slate-300" />
@@ -230,93 +349,262 @@ export default function OrdersScreen({ navigation }) {
                   <Text className="text-xs font-bold text-indigo-700 mt-0.5">
                     Order #{selectedOrder?.id?.slice?.(-6) || ""}
                   </Text>
-                  <Text className="text-xs text-slate-500 mt-0.5">
-                    {formatDate(selectedOrder?.createdAt)}
-                  </Text>
+                  <Text className="text-xs text-slate-500 mt-0.5">{formatDate(selectedOrder?.createdAt)}</Text>
                 </View>
-                <TouchableOpacity
-                  onPress={() => setSelectedOrder(null)}
-                  className="h-9 w-9 items-center justify-center rounded-full bg-slate-100"
-                >
+                <TouchableOpacity onPress={() => setSelectedOrder(null)} className="h-9 w-9 items-center justify-center rounded-full bg-slate-100">
                   <X size={18} color={colors.slate[700]} />
                 </TouchableOpacity>
               </View>
 
               {selectedOrder && (
                 <View className="mb-4">
-                  <View
-                    className={`self-start rounded-full px-3 py-1 ${
-                      statusColors[selectedOrder.status] || "bg-slate-100"
-                    }`}
-                  >
-                    <Text className="text-xs font-extrabold">
-                      {formatStatus(selectedOrder.status)}
-                    </Text>
+                  <View className={`self-start rounded-full px-3 py-1 ${statusColors[selectedOrder.status] || "bg-slate-100"}`}>
+                    <Text className="text-xs font-extrabold">{formatStatus(selectedOrder.status)}</Text>
                   </View>
                 </View>
               )}
 
-              {selectedOrder && (
-                <OrderProgressBar status={selectedOrder.status} />
-              )}
+              {selectedOrder && <OrderProgressBar status={selectedOrder.status} />}
 
               {selectedOrder?.items?.length > 0 && (
                 <View className="mt-4">
-                  <Text className="text-xs font-black uppercase tracking-[0.15em] text-slate-500 mb-2">
-                    Items
-                  </Text>
+                  <Text className="text-xs font-black uppercase tracking-[0.15em] text-slate-500 mb-2">Items</Text>
                   {selectedOrder.items.map((item, i) => (
-                    <View
-                      key={item.id || i}
-                      className="flex-row items-center justify-between py-2 border-b border-slate-100"
-                    >
+                    <View key={item.id || i} className="flex-row items-center justify-between py-2 border-b border-slate-100">
                       <View className="flex-row items-center gap-2 flex-1">
-                        <Text className="text-xs font-extrabold text-slate-300 w-5">
-                          {item.quantity || 1}x
-                        </Text>
-                        <Text
-                          className="text-sm font-semibold text-slate-900 flex-1"
-                          numberOfLines={1}
-                        >
-                          {item.name}
-                        </Text>
+                        <Text className="text-xs font-extrabold text-slate-300 w-5">{item.quantity || 1}x</Text>
+                        <View className="flex-1">
+                          <Text className="text-sm font-semibold text-slate-900" numberOfLines={1}>{item.name || item.menuItem?.name}</Text>
+                          {item.selectedSideDishes?.length > 0 && (
+                            <Text className="text-[10px] text-amber-700 mt-0.5">
+                              + {item.selectedSideDishes.map((s) => s.name).join(", ")}
+                            </Text>
+                          )}
+                          {item.notes ? (
+                            <Text className="text-[10px] text-slate-400 italic mt-0.5">Note: {item.notes}</Text>
+                          ) : null}
+                        </View>
                       </View>
-                      {item.price != null && (
-                        <Text className="text-sm font-bold text-slate-700">
-                          ₹{item.price}
-                        </Text>
-                      )}
+                      <Text className="text-sm font-bold text-slate-700">₹{item.totalPrice || item.price}</Text>
                     </View>
                   ))}
                 </View>
               )}
 
-              {selectedOrder?.total != null && (
+              {selectedOrder?.totalAmount != null && (
                 <View className="flex-row items-center justify-between mt-3 pt-2">
-                  <Text className="text-sm font-black text-slate-900">
-                    Total
-                  </Text>
-                  <View className="flex-row items-center gap-1">
-                    <IndianRupee size={14} color={colors.slate[900]} />
-                    <Text className="text-sm font-black text-slate-900">
-                      {selectedOrder.total}
-                    </Text>
-                  </View>
+                  <Text className="text-sm font-black text-slate-900">Total</Text>
+                  <Text className="text-sm font-black text-slate-900">₹{selectedOrder.totalAmount}</Text>
                 </View>
               )}
 
-              {selectedOrder &&
-                !closedStatuses.includes(selectedOrder.status) && (
+              {selectedOrder?.paymentStatus ? (
+                <View className={`mt-4 rounded-2xl p-4 ${selectedOrder.paymentStatus === "REFUNDED" ? "bg-emerald-50" : "bg-slate-50"}`}>
+                  <Text className="text-xs font-black uppercase text-slate-500">Payment / refund</Text>
+                  <Text className="mt-1 font-extrabold text-slate-900">{formatStatus(selectedOrder.paymentStatus)}</Text>
+                  <Text className="text-xs text-slate-500">{selectedOrder.paymentMethod}</Text>
+                </View>
+              ) : null}
+
+              {/* Action Buttons */}
+              <View className="mt-6 space-y-3">
+                {cancellableStatuses.includes(selectedOrder?.status) && (
                   <TouchableOpacity
-                    onPress={handleChat}
-                    className="flex-row items-center justify-center gap-2 mt-6 rounded-2xl bg-indigo-600 py-3.5"
+                    onPress={() => handleCancelRequest(selectedOrder)}
+                    className="flex-row items-center justify-center gap-2 rounded-2xl bg-rose-50 border border-rose-200 py-3.5"
                   >
-                    <MessageCircle size={18} color="#fff" />
-                    <Text className="text-sm font-extrabold text-white">
-                      Chat with Rider
-                    </Text>
+                    <Ban size={16} color={colors.red[600]} />
+                    <Text className="text-sm font-extrabold text-rose-600">Cancel Order</Text>
                   </TouchableOpacity>
                 )}
+
+                {selectedOrder?.status === "DELIVERED" && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      const o = selectedOrder;
+                      setSelectedOrder(null);
+                      setFeedbackOrder(o);
+                    }}
+                    className="flex-row items-center justify-center gap-2 rounded-2xl bg-amber-50 border border-amber-200 py-3.5"
+                  >
+                    <Star size={16} color="#d97706" />
+                    <Text className="text-sm font-extrabold text-amber-700">Rate your experience</Text>
+                  </TouchableOpacity>
+                )}
+
+                {selectedOrder && !closedStatuses.includes(selectedOrder.status) && (
+                  <TouchableOpacity onPress={() => { const id = selectedOrder.id; setSelectedOrder(null); navigation.navigate("OrderTracking", { orderId: id }); }} className="flex-row items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3.5">
+                    <Bike size={18} color="#fff" />
+                    <Text className="text-sm font-extrabold text-white">Live tracking & delivery OTP</Text>
+                  </TouchableOpacity>
+                )}
+                {selectedOrder && !closedStatuses.includes(selectedOrder.status) && (
+                  <TouchableOpacity
+                    onPress={handleChat}
+                    className="flex-row items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3.5"
+                  >
+                    <MessageCircle size={18} color="#fff" />
+                    <Text className="text-sm font-extrabold text-white">Chat with Rider</Text>
+                  </TouchableOpacity>
+                )}
+
+                {selectedOrder && (
+                  <TouchableOpacity
+                    onPress={() => handleReorder(selectedOrder)}
+                    className="flex-row items-center justify-center gap-2 rounded-2xl bg-slate-900 py-3.5"
+                  >
+                    <RotateCcw size={16} color="#fff" />
+                    <Text className="text-sm font-extrabold text-white">Reorder All</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cancel Confirmation Modal */}
+      <Modal animationType="fade" transparent={true} visible={!!cancelConfirmOrder} onRequestClose={() => setCancelConfirmOrder(null)}>
+        <View className="flex-1 bg-black/55 items-center justify-center px-4">
+          <View className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+            <Text className="text-xl font-black text-slate-900">Cancel Order?</Text>
+            <Text className="mt-2 text-sm text-slate-500">
+              Order #{cancelConfirmOrder?.id?.slice?.(-6)} &middot; {cancelConfirmOrder ? formatStatus(cancelConfirmOrder.status) : ""}
+            </Text>
+            {cancelConfirmOrder && (() => {
+              const pct = calcCancelFee(cancelConfirmOrder);
+              const amt = Number(cancelConfirmOrder.totalAmount);
+              const fee = Math.round(amt * pct / 100);
+              const refund = amt - fee;
+              return pct > 0 ? (
+                <View className="mt-4 space-y-2 rounded-2xl bg-rose-50 p-4">
+                  <View className="flex-row justify-between">
+                    <Text className="text-sm text-rose-700">Cancellation fee ({pct}%)</Text>
+                    <Text className="text-sm font-bold text-rose-600">-₹{fee}</Text>
+                  </View>
+                  <View className="flex-row justify-between border-t border-rose-200 pt-2">
+                    <Text className="text-sm font-bold text-rose-700">Amount to refund</Text>
+                    <Text className="text-sm font-bold text-rose-700">₹{refund}</Text>
+                  </View>
+                </View>
+              ) : (
+                <View className="mt-4 rounded-2xl bg-emerald-50 p-4">
+                  <Text className="text-sm text-emerald-700">No cancellation fee for this order.</Text>
+                </View>
+              );
+            })()}
+            <View className="flex-row gap-3 mt-5">
+              <TouchableOpacity
+                onPress={() => setCancelConfirmOrder(null)}
+                className="flex-1 rounded-xl bg-slate-100 py-3 items-center"
+              >
+                <Text className="text-sm font-bold text-slate-700">Go Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleCancelConfirm}
+                className="flex-1 rounded-xl bg-rose-600 py-3 items-center"
+              >
+                <Text className="text-sm font-bold text-white">Yes, Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Feedback Modal */}
+      <Modal animationType="slide" transparent={true} visible={!!feedbackOrder} onRequestClose={() => setFeedbackOrder(null)}>
+        <View className="flex-1 bg-black/50">
+          <TouchableOpacity className="flex-1" activeOpacity={1} onPress={() => setFeedbackOrder(null)} />
+          <View className="bg-white rounded-t-3xl max-h-[85%]">
+            <View className="items-center pt-2 pb-1">
+              <View className="h-1 w-10 rounded-full bg-slate-300" />
+            </View>
+            <ScrollView className="px-5 pb-8">
+              {feedbackDone ? (
+                <View className="items-center py-10">
+                  <View className="h-16 w-16 items-center justify-center rounded-full bg-emerald-100 mb-4">
+                    <CheckCircle2 size={32} color="#059669" />
+                  </View>
+                  <Text className="text-xl font-black text-slate-900">Thanks for the feedback!</Text>
+                  <Text className="text-sm text-slate-500 mt-1">Your review helps others discover great food.</Text>
+                </View>
+              ) : (
+                <>
+                  <View className="flex-row items-start justify-between mt-2 mb-4">
+                    <View>
+                      <Text className="text-xs font-black uppercase tracking-[0.15em] text-indigo-600">Rate your experience</Text>
+                      <Text className="text-xl font-black text-slate-900 mt-1">
+                        {feedbackOrder?.restaurantName || "Restaurant"}
+                      </Text>
+                      <Text className="text-sm text-slate-500 mt-0.5">
+                        Order delivered on {formatDate(feedbackOrder?.updatedAt || feedbackOrder?.createdAt)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setFeedbackOrder(null)} className="h-9 w-9 items-center justify-center rounded-full bg-slate-100">
+                      <X size={18} color={colors.slate[700]} />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Delivery Rating */}
+                  <View className="rounded-2xl bg-slate-50 p-4 mb-4">
+                    <View className="flex-row items-center gap-2 mb-3">
+                      <View className="h-8 w-8 items-center justify-center rounded-full bg-indigo-100">
+                        <Bike size={16} color={colors.brand[600]} />
+                      </View>
+                      <Text className="text-sm font-black text-slate-900">
+                        Delivery Experience {feedbackOrder?.rider?.name ? `(${feedbackOrder.rider.name})` : ""}
+                      </Text>
+                    </View>
+                    <StarPicker value={deliveryRating} onChange={setDeliveryRating} />
+                  </View>
+
+                  {/* Restaurant Rating */}
+                  <View className="rounded-2xl bg-slate-50 p-4 mb-4">
+                    <View className="flex-row items-center gap-2 mb-3">
+                      <View className="h-8 w-8 items-center justify-center rounded-full bg-indigo-100">
+                        <UtensilsCrossed size={16} color={colors.brand[600]} />
+                      </View>
+                      <Text className="text-sm font-black text-slate-900">Food & Restaurant</Text>
+                    </View>
+                    <StarPicker value={restaurantRating} onChange={setRestaurantRating} />
+                  </View>
+
+                  <TextInput
+                    value={feedbackComment}
+                    onChangeText={setFeedbackComment}
+                    multiline
+                    numberOfLines={3}
+                    maxLength={300}
+                    placeholder="How was the food? How was the delivery? Tell others..."
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
+                    textAlignVertical="top"
+                  />
+                  <Text className="text-right text-xs text-slate-400 mt-1">{feedbackComment.length}/300</Text>
+
+                  {feedbackError ? (
+                    <View className="rounded-2xl bg-rose-50 px-4 py-3 mt-3">
+                      <Text className="text-sm text-rose-700">{feedbackError}</Text>
+                    </View>
+                  ) : null}
+
+                  <TouchableOpacity
+                    onPress={handleFeedbackSubmit}
+                    disabled={savingFeedback || !restaurantRating}
+                    className="w-full rounded-2xl bg-indigo-600 py-3.5 items-center mt-4 disabled:opacity-60"
+                  >
+                    <Text className="text-sm font-black text-white">
+                      {savingFeedback ? "Submitting..." : "Submit Feedback"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => setFeedbackOrder(null)}
+                    className="w-full items-center mt-3"
+                  >
+                    <Text className="text-xs text-slate-400">Skip for now — remind me later</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </ScrollView>
           </View>
         </View>

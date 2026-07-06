@@ -2,16 +2,16 @@ import React, { useState, useEffect } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert,
 } from "react-native";
+import OptimizedImage from "../../components/OptimizedImage";
 import {
   Bike, Star, IndianRupee, MessageCircle,
-  ChevronRight, LogOut,
+  ChevronRight, LogOut, User,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { getMyProfile } from "../../services/riderService";
 import { getRiderOrders } from "../../services/riderService";
 import { useDispatch } from "react-redux";
-import { clearUser } from "../../store/slices/userSlice";
-import { clearSession } from "../../services/authService";
+import { logoutUser } from "../../store/slices/userSlice";
 
 const menuItems = [
   { icon: Star, label: "Reviews", color: "#f59e0b", screen: "RiderMyReviews" },
@@ -49,8 +49,7 @@ export default function RiderProfileScreen({ navigation }) {
     Alert.alert("Logout", "Are you sure?", [
       { text: "Cancel", style: "cancel" },
       { text: "Logout", style: "destructive", onPress: () => {
-        clearSession();
-        dispatch(clearUser());
+        dispatch(logoutUser());
       }},
     ]);
   };
@@ -73,8 +72,12 @@ export default function RiderProfileScreen({ navigation }) {
     <ScrollView className="flex-1 bg-[#F5F5F5]">
       <View className="bg-indigo-950 pt-16 pb-8 px-4 rounded-b-[28px]">
         <View className="items-center">
-          <View className="h-20 w-20 rounded-full bg-amber-500 items-center justify-center mb-3 border-2 border-amber-300">
-            <Bike size={36} color="#fff" />
+          <View className="h-20 w-20 rounded-full bg-amber-500 items-center justify-center mb-3 border-2 border-amber-300 overflow-hidden">
+            {p.avatarUrl ? (
+              <OptimizedImage source={{ uri: p.avatarUrl }} className="h-full w-full" resizeMode="cover" />
+            ) : (
+              <User size={32} color="#fff" />
+            )}
           </View>
           <Text className="text-xl font-extrabold text-white">{p.name || "Rider"}</Text>
           <Text className="text-sm text-indigo-200 mt-1">{p.email || ""}</Text>

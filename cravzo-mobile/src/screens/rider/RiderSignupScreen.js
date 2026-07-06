@@ -9,6 +9,8 @@ import { storage } from "../../services/storage";
 
 const STEPS = ["Personal Info", "Vehicle Details", "Verification"];
 
+const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+
 export default function RiderSignupScreen({ navigation }) {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -20,6 +22,18 @@ export default function RiderSignupScreen({ navigation }) {
   const update = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
   const handleSignup = async () => {
+    if (!form.name.trim() || !form.email.trim() || !form.phone.trim()) {
+      Alert.alert("Missing details", "Complete all personal information before continuing.");
+      return;
+    }
+    if (!PASSWORD_PATTERN.test(form.password)) {
+      Alert.alert("Weak password", "Use 8+ characters with uppercase, lowercase, number and symbol.");
+      return;
+    }
+    if (!form.vehicleType || !form.vehicleNumber.trim()) {
+      Alert.alert("Vehicle details required", "Select a vehicle and enter its registration number.");
+      return;
+    }
     setSubmitting(true);
     try {
       await signup({
@@ -48,7 +62,7 @@ export default function RiderSignupScreen({ navigation }) {
               { key: "name", label: "Full Name", icon: User, placeholder: "Your name" },
               { key: "email", label: "Email", icon: Mail, placeholder: "email@example.com", keyboard: "email-address" },
               { key: "phone", label: "Phone", icon: Phone, placeholder: "+91 9876543210", keyboard: "phone-pad" },
-              { key: "password", label: "Password", icon: ShieldCheck, placeholder: "Min 6 characters", secure: true },
+              { key: "password", label: "Password", icon: ShieldCheck, placeholder: "8+ chars, upper/lower/number/symbol", secure: true },
             ].map(({ key, label, icon: Icon, placeholder, keyboard, secure }) => (
               <View key={key}>
                 <Text className="text-xs font-bold text-slate-700 mb-1">{label}</Text>
@@ -142,3 +156,6 @@ export default function RiderSignupScreen({ navigation }) {
     </KeyboardAvoidingView>
   );
 }
+
+
+

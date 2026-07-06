@@ -20,6 +20,13 @@ import {
   ChevronUp,
   ChevronLeft,
   Wallet,
+  Smartphone,
+  CreditCard,
+  Clock,
+  Tag,
+  MessageSquare,
+  Bike,
+  Gift,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import CouponInput from "../../components/CouponInput";
@@ -27,19 +34,15 @@ import { clearCart, selectCartItemCount } from "../../store/slices/cartSlice";
 import { getAddresses, addAddress } from "../../services/addressService";
 import { getProfile } from "../../services/userService";
 import { getRestaurantById } from "../../services/foodService";
-import { createCODOrder } from "../../services/paymentService";
-
-const FOOD_GST_RATE = 0.05;
-const DELIVERY_GST_RATE = 0.18;
-const PLATFORM_FEE = 0;
-const PACKAGING_PERCENT = 0.01;
-const COD_CHARGE = 5;
-const DELIVERY_SLABS = [
-  { maxKm: 1, fee: 17 },
-  { maxKm: 2, fee: 23 },
-  { maxKm: 3, fee: 30 },
-  { maxKm: 4, fee: 35 },
-];
+import {
+  createCODOrder,
+  createRazorpayCheckoutOrder,
+  verifyRazorpayPaymentAndCreateOrder,
+  loadRazorpayCheckout,
+  getRazorpayConfig,
+  validateCoupon,
+} from "../../services/paymentService";
+import { getAppConfig } from "../../services/configService";
 
 const emptyAddress = {
   fullName: "",
@@ -53,22 +56,30 @@ const emptyAddress = {
   longitude: null,
 };
 
-const formatCurrency = (amount) => `₹${Math.floor(amount)}`;
+const DELIVERY_INSTRUCTION_OPTIONS = [
+  "Do not ring the bell",
+  "Call on arrival",
+  "Leave at the gate",
+  "Dog at the gate",
+];
+const TIP_OPTIONS = [0, 20, 30, 50, 100];
+const formatCurrency = (amount) => `ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹${Math.floor(amount)}`;
 
 const getPrice = (price) => {
   if (typeof price === "number") return price;
   return parseInt(price.toString().replace(/[^0-9]/g, ""), 10) || 0;
 };
 
-const calculateDeliveryBase = (distanceKm) => {
+const calculateDeliveryBase = (distanceKm, pricing) => {
   const distance = distanceKm || 1;
-  for (const slab of DELIVERY_SLABS) {
+  const slabs = pricing?.deliverySlabs || [];
+  for (const slab of slabs) {
     if (distance <= slab.maxKm) return slab.fee;
   }
-  const lastSlab = DELIVERY_SLABS[DELIVERY_SLABS.length - 1];
-  return lastSlab.fee + Math.ceil(distance - lastSlab.maxKm) * 10;
+  const lastSlab = slabs[slabs.length - 1];
+  if (lastSlab) return lastSlab.fee + Math.ceil(distance - lastSlab.maxKm) * Number(pricing.deliveryPerKmRate || 0);
+  return Number(pricing?.deliveryBaseFee || 0);
 };
-
 const haversineKm = (lat1, lng1, lat2, lng2) => {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -123,6 +134,7 @@ const PricingSummary = ({
   deliveryAndTax,
   codCharge,
   discount,
+  tipAmount,
   finalTotal,
   distanceKm,
   deliveryBase,
@@ -201,6 +213,12 @@ const PricingSummary = ({
         </View>
       ) : null}
 
+      {tipAmount > 0 ? (
+        <View className="flex-row justify-between">
+          <Text className="text-sm text-indigo-600">Tip for rider</Text>
+          <Text className="text-sm font-medium text-indigo-600">{formatCurrency(tipAmount)}</Text>
+        </View>
+      ) : null}
       {discount > 0 ? (
         <View className="flex-row justify-between">
           <Text className="text-sm text-emerald-600">Coupon Discount</Text>
@@ -232,14 +250,32 @@ export default function CheckoutScreen({ navigation, route }) {
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(true);
   const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponCode, setCouponCode] = useState("");
   const [distanceKm, setDistanceKm] = useState(3);
+  const [pricingConfig, setPricingConfig] = useState(null);
+  const paymentMethods = [
+    { id: "COD", label: "Cash on Delivery", icon: Wallet, desc: "Pay when your order arrives" },
+    { id: "UPI", label: "UPI", icon: Smartphone, desc: "Google Pay, PhonePe, Paytm" },
+    { id: "CARD", label: "Card", icon: CreditCard, desc: "Credit / Debit Card" },
+  ];
+  const [selectedPayment, setSelectedPayment] = useState("COD");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [profile, setProfile] = useState(null);
+  const [restaurantInstructions, setRestaurantInstructions] = useState("");
+  const [deliveryOptions, setDeliveryOptions] = useState([]);
+  const [customDeliveryInstruction, setCustomDeliveryInstruction] = useState("");
+  const [tipAmount, setTipAmount] = useState(0);
 
   useEffect(() => {
     const init = async () => {
+      try {
+        const config = await getAppConfig();
+        setPricingConfig(config.pricing);
+      } catch (err) {
+        setError(err.message || "Could not load current fees and taxes.");
+      }
       let restCoords = null;
       const restaurantId = cartItems[0]?.restaurantId;
       if (restaurantId) {
@@ -248,7 +284,9 @@ export default function CheckoutScreen({ navigation, route }) {
           if (restaurant?.latitude && restaurant?.longitude) {
             restCoords = { lat: restaurant.latitude, lng: restaurant.longitude };
           }
-        } catch {}
+        } catch (err) {
+          setError(err.message || "Could not load restaurant location.");
+        }
       }
 
       try {
@@ -276,8 +314,9 @@ export default function CheckoutScreen({ navigation, route }) {
             );
           }
         }
-      } catch {
+      } catch (err) {
         setSavedAddresses([]);
+        setError(err.message || "Could not load saved addresses.");
       } finally {
         setIsLoadingAddresses(false);
       }
@@ -330,18 +369,26 @@ export default function CheckoutScreen({ navigation, route }) {
   }, []);
 
   const handleApplyCoupon = async (code) => {
-    const validCoupons = { DODAGO10: 10, SAVE20: 20, FIRST50: 50 };
-    if (validCoupons[code]) {
-      setCouponDiscount(validCoupons[code]);
+    try {
+      const coupon = await validateCoupon(code, restaurantId, itemTotal);
+      let discount = coupon.discountType === "PERCENTAGE"
+        ? itemTotal * (Number(coupon.discountValue) / 100)
+        : Number(coupon.discountValue);
+      if (coupon.maxDiscount) discount = Math.min(discount, Number(coupon.maxDiscount));
+      discount = Math.min(Number(discount.toFixed(2)), itemTotal);
+      setCouponCode(coupon.code);
+      setCouponDiscount(discount);
       setMessage("Coupon applied!");
       setTimeout(() => setMessage(""), 3000);
-    } else {
-      throw new Error("Invalid coupon code");
+    } catch (err) {
+      throw new Error(err.response?.data?.message || err.message || "Invalid coupon code");
     }
   };
 
-  const handleRemoveCoupon = () => setCouponDiscount(0);
-
+  const handleRemoveCoupon = () => {
+    setCouponCode("");
+    setCouponDiscount(0);
+  };
   const itemTotal = useMemo(
     () =>
       cartItems.reduce((acc, item) => {
@@ -368,15 +415,15 @@ export default function CheckoutScreen({ navigation, route }) {
     cgst,
     sgst,
   } = useMemo(() => {
-    const dBase = calculateDeliveryBase(distanceKm);
-    const dGst = dBase * DELIVERY_GST_RATE;
+    const dBase = calculateDeliveryBase(distanceKm, pricingConfig);
+    const dGst = dBase * Number(pricingConfig?.deliveryGstRate || 0);
     const dTotal = dBase + dGst;
-    const pkgBase = Math.floor(itemTotal * PACKAGING_PERCENT);
-    const fGst = itemTotal * FOOD_GST_RATE;
-    const pkgTax = pkgBase * FOOD_GST_RATE;
-    const pf = PLATFORM_FEE;
-    const pfBase = PLATFORM_FEE / (1 + DELIVERY_GST_RATE);
-    const pfTax = PLATFORM_FEE - pfBase;
+    const pkgBase = Math.floor(itemTotal * Number(pricingConfig?.packagingPercent || 0));
+    const fGst = itemTotal * Number(pricingConfig?.foodGstRate || 0);
+    const pkgTax = pkgBase * Number(pricingConfig?.foodGstRate || 0);
+    const pf = Number(pricingConfig?.platformFee || 0);
+    const pfBase = Number(pricingConfig?.platformFee || 0) / (1 + Number(pricingConfig?.deliveryGstRate || 0));
+    const pfTax = Number(pricingConfig?.platformFee || 0) - pfBase;
     const dAndT = dTotal + fGst + pkgTax + pf;
     const tTax = fGst + pkgTax + dGst + pfTax;
     const gTotal = itemTotal + pkgBase + dAndT;
@@ -395,11 +442,11 @@ export default function CheckoutScreen({ navigation, route }) {
       cgst: tTax / 2,
       sgst: tTax / 2,
     };
-  }, [itemTotal, distanceKm]);
+  }, [itemTotal, distanceKm, pricingConfig]);
 
   const finalTotal = useMemo(
-    () => Math.floor(grandTotal - couponDiscount + COD_CHARGE),
-    [grandTotal, couponDiscount]
+    () => Math.floor(grandTotal - couponDiscount + tipAmount + (selectedPayment === "COD" ? Number(pricingConfig?.codCharge || 0) : 0)),
+    [grandTotal, couponDiscount, tipAmount, pricingConfig, selectedPayment]
   );
 
   const ensureAddressSavedIfNeeded = async () => {
@@ -421,6 +468,46 @@ export default function CheckoutScreen({ navigation, route }) {
     return saved.id;
   };
 
+  const handleRazorpayPayment = async (orderPayload, addressId) => {
+    const RazorpayCheckout = await loadRazorpayCheckout();
+    const [razorpayConfig, checkoutData] = await Promise.all([
+      getRazorpayConfig(),
+      createRazorpayCheckoutOrder(orderPayload),
+    ]);
+
+    const options = {
+      key: razorpayConfig.keyId,
+      amount: checkoutData.razorpayOrder.amount,
+      currency: checkoutData.razorpayOrder.currency,
+      name: "Cravzo",
+      description: `Order from ${cartItems[0]?.restaurantName || "Restaurant"}`,
+      order_id: checkoutData.razorpayOrder.id,
+      prefill: {
+        name: address.fullName || profile?.name || "",
+        contact: address.phone || profile?.phone || "",
+        email: profile?.email || "",
+      },
+      theme: { color: "#5b21b6" },
+    };
+
+    let response;
+    try {
+      response = await RazorpayCheckout.open(options);
+    } catch (err) {
+      if (err?.code === 2) throw new Error("Payment cancelled");
+      throw new Error(err?.description || err?.message || "Payment failed");
+    }
+
+    await verifyRazorpayPaymentAndCreateOrder({
+      ...orderPayload,
+      addressId,
+      razorpayOrderId: response.razorpay_order_id,
+      razorpayPaymentId: response.razorpay_payment_id,
+      razorpaySignature: response.razorpay_signature,
+    });
+    dispatch(clearCart());
+    navigation.navigate("Orders");
+  };
   const handlePlaceOrder = async () => {
     if (!selectedAddressId && !address.line1) {
       Alert.alert("Address Required", "Please select or enter a delivery address.");
@@ -448,23 +535,39 @@ export default function CheckoutScreen({ navigation, route }) {
         })),
         addressId: resolvedAddressId,
         address,
-        paymentMethod: "COD",
+        paymentMethod: selectedPayment,
+        couponCode: couponCode || null,
+        restaurantInstructions: restaurantInstructions.trim() || null,
+        deliveryInstructions: [...deliveryOptions, customDeliveryInstruction.trim()].filter(Boolean).join("; ") || null,
+        tipAmount,
         pricing: {
           itemTotal,
           deliveryFee: deliveryTotal,
-          platformFee: PLATFORM_FEE,
+          platformFee: Number(pricingConfig?.platformFee || 0),
           packagingFee: packagingFeeBase,
-          codCharge: COD_CHARGE,
+          codCharge: selectedPayment === "COD" ? Number(pricingConfig?.codCharge || 0) : 0,
           couponDiscount,
           finalTotal,
         },
       };
 
-      await createCODOrder(orderPayload);
-      dispatch(clearCart());
-      navigation.navigate("Orders");
+      if (selectedPayment === "COD") {
+        await createCODOrder(orderPayload);
+        dispatch(clearCart());
+        navigation.navigate("Orders");
+      } else {
+        await handleRazorpayPayment(orderPayload, resolvedAddressId);
+      }
     } catch (err) {
-      setError(err.response?.data?.message || err.message || "Failed to place order");
+      const errData = err.response?.data;
+      let msg = errData?.message || err.message || "Failed to place order";
+      if (errData?.errors?.fieldErrors) {
+        const fields = Object.entries(errData.errors.fieldErrors)
+          .map(([k, v]) => `${k}: ${v.join(", ")}`)
+          .join("; ");
+        if (fields) msg += ` (${fields})`;
+      }
+      setError(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -473,7 +576,7 @@ export default function CheckoutScreen({ navigation, route }) {
   if (cartItems.length === 0) {
     return (
       <View className="flex-1 bg-slate-50 items-center justify-center px-4">
-        <Text className="text-5xl mb-6">🍽️</Text>
+        <Text className="text-5xl mb-6">ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â½ÃƒÂ¯Ã‚Â¸Ã‚Â</Text>
         <Text className="text-2xl font-bold text-slate-900">Your cart is empty</Text>
         <Text className="mt-2 text-slate-500">Add some delicious items to get started!</Text>
         <TouchableOpacity
@@ -659,20 +762,87 @@ export default function CheckoutScreen({ navigation, route }) {
         </View>
 
         <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+          <View className="flex-row items-center gap-3">
+            <View className="h-8 w-8 items-center justify-center rounded-xl bg-indigo-100">
+              <Clock size={16} color={colors.brand[600]} />
+            </View>
+            <View>
+              <Text className="text-lg font-bold text-slate-900">Delivery Time</Text>
+              <Text className="text-sm text-slate-500">ASAP (Now)</Text>
+            </View>
+          </View>
+        </View>
+        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+          <View className="mb-4 flex-row items-center gap-3">
+            <View className="h-8 w-8 items-center justify-center rounded-xl bg-amber-100"><MessageSquare size={16} color="#b45309" /></View>
+            <View className="flex-1"><Text className="text-lg font-bold text-slate-900">Instructions for restaurant</Text><Text className="text-xs text-slate-500">Preparation, allergy or packing requests</Text></View>
+          </View>
+          <TextInput value={restaurantInstructions} onChangeText={setRestaurantInstructions} maxLength={500} multiline placeholder="Example: Less spicy, no onion, pack sauce separately" placeholderTextColor={colors.slate[400]} className="min-h-24 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900" textAlignVertical="top" />
+        </View>
+
+        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+          <View className="mb-4 flex-row items-center gap-3">
+            <View className="h-8 w-8 items-center justify-center rounded-xl bg-emerald-100"><Bike size={16} color="#059669" /></View>
+            <View className="flex-1"><Text className="text-lg font-bold text-slate-900">Delivery instructions</Text><Text className="text-xs text-slate-500">Shown only to the assigned rider</Text></View>
+          </View>
+          <View className="flex-row flex-wrap gap-2">
+            {DELIVERY_INSTRUCTION_OPTIONS.map((option) => {
+              const selected = deliveryOptions.includes(option);
+              return <TouchableOpacity key={option} onPress={() => setDeliveryOptions((current) => selected ? current.filter((item) => item !== option) : [...current, option])} className={`rounded-full border px-3 py-2 ${selected ? "border-indigo-600 bg-indigo-50" : "border-slate-200 bg-white"}`}><Text className={`text-xs font-bold ${selected ? "text-indigo-700" : "text-slate-600"}`}>{option}</Text></TouchableOpacity>;
+            })}
+          </View>
+          <TextInput value={customDeliveryInstruction} onChangeText={setCustomDeliveryInstruction} maxLength={500} multiline placeholder="Other delivery instruction or landmark" placeholderTextColor={colors.slate[400]} className="mt-3 min-h-20 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900" textAlignVertical="top" />
+        </View>
+
+        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+          <View className="mb-4 flex-row items-center gap-3">
+            <View className="h-8 w-8 items-center justify-center rounded-xl bg-indigo-100"><Gift size={16} color={colors.brand[600]} /></View>
+            <View className="flex-1"><Text className="text-lg font-bold text-slate-900">Tip your rider</Text><Text className="text-xs text-slate-500">Recorded separately for rider payout</Text></View>
+          </View>
+          <View className="flex-row flex-wrap gap-2">
+            {TIP_OPTIONS.map((amount) => <TouchableOpacity key={amount} onPress={() => setTipAmount(amount)} className={`min-w-14 rounded-xl border px-4 py-3 ${tipAmount === amount ? "border-indigo-600 bg-indigo-600" : "border-slate-200 bg-white"}`}><Text className={`text-center text-sm font-black ${tipAmount === amount ? "text-white" : "text-slate-700"}`}>{amount === 0 ? "No tip" : formatCurrency(amount)}</Text></TouchableOpacity>)}
+          </View>
+        </View>
+        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
           <View className="flex-row items-center gap-3 mb-4">
             <View className="h-8 w-8 items-center justify-center rounded-xl bg-indigo-100">
               <Wallet size={16} color={colors.brand[600]} />
             </View>
             <Text className="text-lg font-bold text-slate-900">Payment Method</Text>
           </View>
-          <View className="flex-row items-center gap-3 rounded-2xl border-2 border-slate-200 bg-slate-50 p-4">
-            <View className="h-12 w-12 items-center justify-center rounded-xl bg-emerald-100">
-              <Wallet size={24} color="#059669" />
-            </View>
-            <View className="flex-1">
-              <Text className="font-bold text-slate-900">Cash on Delivery</Text>
-              <Text className="text-sm text-slate-500">Pay when your order arrives</Text>
-            </View>
+          <View className="space-y-3">
+            {paymentMethods.map((pm) => {
+              const Icon = pm.icon;
+              const isSelected = selectedPayment === pm.id;
+              return (
+                <TouchableOpacity
+                  key={pm.id}
+                  onPress={() => setSelectedPayment(pm.id)}
+                  className={`flex-row items-center gap-3 rounded-2xl border-2 p-4 ${
+                    isSelected
+                      ? "border-indigo-600 bg-indigo-50"
+                      : "border-slate-200 bg-slate-50"
+                  }`}
+                >
+                  <View className={`h-12 w-12 items-center justify-center rounded-xl ${
+                    isSelected ? "bg-indigo-600" : "bg-emerald-100"
+                  }`}>
+                    <Icon size={22} color={isSelected ? "#fff" : "#059669"} />
+                  </View>
+                  <View className="flex-1">
+                    <Text className={`font-bold ${isSelected ? "text-indigo-700" : "text-slate-900"}`}>
+                      {pm.label}
+                    </Text>
+                    <Text className="text-sm text-slate-500">{pm.desc}</Text>
+                  </View>
+                  {isSelected ? (
+                    <View className="h-6 w-6 items-center justify-center rounded-full bg-indigo-600">
+                      <Check size={14} color="#fff" />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -701,15 +871,16 @@ export default function CheckoutScreen({ navigation, route }) {
             itemTotal={itemTotal}
             packagingFeeBase={packagingFeeBase}
             deliveryAndTax={deliveryAndTax}
-            codCharge={COD_CHARGE}
+            codCharge={Number(pricingConfig?.codCharge || 0)}
             discount={couponDiscount}
+            tipAmount={tipAmount}
             finalTotal={finalTotal}
             distanceKm={distanceKm}
             deliveryBase={deliveryBase}
             deliveryGst={deliveryGst}
             foodGst={foodGst}
             packagingTax={packagingTax}
-            platformFee={PLATFORM_FEE}
+            platformFee={Number(pricingConfig?.platformFee || 0)}
             cgst={cgst}
             sgst={sgst}
           />
@@ -718,7 +889,7 @@ export default function CheckoutScreen({ navigation, route }) {
 
       <View className="border-t border-slate-200 bg-white px-4 pt-4 pb-8 shadow-lg">
         <TouchableOpacity
-          disabled={isSubmitting || (!selectedAddressId && !address.line1)}
+          disabled={isSubmitting || !pricingConfig || (!selectedAddressId && !address.line1)}
           onPress={handlePlaceOrder}
           className="rounded-2xl bg-indigo-600 py-4 shadow-lg shadow-indigo-200 items-center justify-center disabled:bg-slate-300 disabled:shadow-none"
         >
@@ -729,7 +900,7 @@ export default function CheckoutScreen({ navigation, route }) {
             </View>
           ) : (
             <Text className="text-base font-extrabold text-white">
-              Place Order — {formatCurrency(finalTotal)}
+              Place Order ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â {formatCurrency(finalTotal)}
             </Text>
           )}
         </TouchableOpacity>

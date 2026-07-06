@@ -77,3 +77,86 @@ export const updateRiderLocation = async (req, res) => {
     }),
   );
 };
+
+export const getRiderEarnings = async (req, res) => {
+  const riderId = req.user.sub;
+
+  const orders = await prisma.order.findMany({
+    where: { riderId, status: "DELIVERED" },
+    select: {
+      id: true,
+      deliveryFee: true,
+      tipAmount: true,
+      createdAt: true,
+      deliveredAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const weekStart = new Date(today);
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  const orderEarning = (order) => Number(order.deliveryFee || 0) + Number(order.tipAmount || 0);
+  const totalTips = orders.reduce((sum, order) => sum + Number(order.tipAmount || 0), 0);
+  const totalEarnings = orders.reduce((sum, order) => sum + orderEarning(order), 0);
+  const todayEarnings = orders
+    .filter((o) => new Date(o.createdAt) >= today)
+    .reduce((sum, order) => sum + orderEarning(order), 0);
+  const weekEarnings = orders
+    .filter((o) => new Date(o.createdAt) >= weekStart)
+    .reduce((sum, order) => sum + orderEarning(order), 0);
+  const monthEarnings = orders
+    .filter((o) => new Date(o.createdAt) >= monthStart)
+    .reduce((sum, order) => sum + orderEarning(order), 0);
+
+  const totalDeliveries = orders.length;
+  const todayDeliveries = orders.filter((o) => new Date(o.createdAt) >= today).length;
+
+  res.status(200).json(
+    apiResponse({
+      data: {
+        totalEarnings,
+        totalTips,
+        todayEarnings,
+        weekEarnings,
+        monthEarnings,
+        totalDeliveries,
+        todayDeliveries,
+        recentOrders: orders.slice(0, 20),
+      },
+    }),
+  );
+};
+
+export const getRiderStats = async (req, res) => {
+  const riderId = req.user.sub;
+
+  const [totalOrders, activeDeliveries, ratings] = await Promise.all([
+    prisma.order.count({ where: { riderId } }),
+    prisma.order.count({
+      where: {
+        riderId,
+        status: { in: ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"] },
+      },
+    }),
+    prisma.riderRating.aggregate({
+      where: { riderId },
+      _avg: { rating: true },
+      _count: true,
+    }),
+  ]);
+
+  res.status(200).json(
+    apiResponse({
+      data: {
+        totalOrders,
+        activeDeliveries,
+        averageRating: ratings._avg.rating || 0,
+        totalRatings: ratings._count || 0,
+      },
+    }),
+  );
+};

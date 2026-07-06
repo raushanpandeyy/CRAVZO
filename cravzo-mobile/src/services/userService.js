@@ -21,3 +21,11 @@ export const uploadImage = async (formData) => {
     headers: { "Content-Type": "multipart/form-data" },
   });
 };
+
+export const deleteAccount = async () => {
+  return apiRequest(API_ENDPOINTS.user.account, {
+    method: "DELETE",
+    data: { confirmation: "DELETE" },
+  });
+};
+
