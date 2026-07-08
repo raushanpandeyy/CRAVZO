@@ -85,8 +85,12 @@ export const API_ENDPOINTS = {
     featuredRestaurants: `${BASE}/public/featured-restaurants`,
     ads: `${BASE}/public/ads`,
   },
-  coupons: {
+coupons: {
     validate: `${BASE}/coupons/validate`,
+  },
+  referrals: {
+    me: `${BASE}/referrals/me`,
+    apply: `${BASE}/referrals/apply`,
   },
 };
 

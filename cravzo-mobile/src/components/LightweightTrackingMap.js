@@ -16,7 +16,7 @@ if (Platform.OS !== "web") {
   }
 }
 
-const MAP_STYLE = process.env.EXPO_PUBLIC_MAPLIBRE_STYLE_URL || "https://demotiles.maplibre.org/style.json";
+const MAP_STYLE = process.env.EXPO_PUBLIC_MAPLIBRE_STYLE_URL || "https://tiles.openfreemap.org/styles/liberty";
 const toLngLat = (point) => [Number(point.longitude), Number(point.latitude)];
 
 export default function LightweightTrackingMap({ rider, restaurant, destination }) {

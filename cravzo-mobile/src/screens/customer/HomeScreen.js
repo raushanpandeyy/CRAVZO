@@ -346,6 +346,20 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
+<TouchableOpacity
+        onPress={() => navigation.navigate("Citywise")}
+        activeOpacity={0.9}
+        className="mx-4 mt-3 flex-row items-center justify-between rounded-2xl bg-indigo-600 px-4 py-3 shadow-lg shadow-indigo-200">
+        <View className="flex-row items-center gap-2">
+          <MapPin size={18} color="#fff" />
+          <View>
+            <Text className="text-sm font-extrabold text-white">We Deliver Here</Text>
+            <Text className="text-[10px] font-semibold text-indigo-100">Tap to browse by city</Text>
+          </View>
+        </View>
+        <Text className="text-xs font-bold text-white">View Cities →</Text>
+      </TouchableOpacity>
+
       <View className="py-3 border-b border-indigo-100">
         <View className="px-4 mb-2">
           <Text className="text-base font-bold text-indigo-700">
@@ -355,7 +369,7 @@ export default function HomeScreen({ navigation }) {
             Categories
           </Text>
         </View>
-        <ScrollView
+<ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           className="px-4"
@@ -378,6 +392,14 @@ export default function HomeScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            onPress={() => navigation.navigate("DishesListing")}
+            className="items-center min-w-[65px]">
+            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-indigo-200 shadow-md">
+              <Text className="text-[10px] font-black text-indigo-900 text-center">See All</Text>
+            </View>
+            <Text className="mt-1 text-[9px] font-bold text-indigo-700">All Dishes</Text>
+          </TouchableOpacity>
         </ScrollView>
       </View>
 

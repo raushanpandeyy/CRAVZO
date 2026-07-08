@@ -142,6 +142,7 @@ const PricingSummary = ({
   foodGst,
   packagingTax,
   platformFee,
+  gatewayFee,
   cgst,
   sgst,
 }) => {
@@ -213,6 +214,13 @@ const PricingSummary = ({
         </View>
       ) : null}
 
+      {gatewayFee > 0 ? (
+        <View className="flex-row justify-between">
+          <Text className="text-sm text-slate-600">Gateway Fee</Text>
+          <Text className="text-sm font-medium">{formatCurrency(gatewayFee)}</Text>
+        </View>
+      ) : null}
+
       {tipAmount > 0 ? (
         <View className="flex-row justify-between">
           <Text className="text-sm text-indigo-600">Tip for rider</Text>
@@ -268,6 +276,8 @@ export default function CheckoutScreen({ navigation, route }) {
   const [customDeliveryInstruction, setCustomDeliveryInstruction] = useState("");
   const [tipAmount, setTipAmount] = useState(0);
 
+  const restaurantId = cartItems[0]?.restaurantId;
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -277,7 +287,6 @@ export default function CheckoutScreen({ navigation, route }) {
         setError(err.message || "Could not load current fees and taxes.");
       }
       let restCoords = null;
-      const restaurantId = cartItems[0]?.restaurantId;
       if (restaurantId) {
         try {
           const restaurant = await getRestaurantById(restaurantId);
@@ -322,7 +331,7 @@ export default function CheckoutScreen({ navigation, route }) {
       }
     };
     init();
-  }, []);
+  }, [restaurantId]);
 
   useEffect(() => {
     if (route.params?.pickedLocation) {
@@ -400,7 +409,7 @@ export default function CheckoutScreen({ navigation, route }) {
     [cartItems]
   );
 
-  const {
+const {
     deliveryBase,
     deliveryGst,
     deliveryTotal,
@@ -412,6 +421,7 @@ export default function CheckoutScreen({ navigation, route }) {
     deliveryAndTax,
     totalTax,
     grandTotal,
+    gatewayFee,
     cgst,
     sgst,
   } = useMemo(() => {
@@ -439,14 +449,21 @@ export default function CheckoutScreen({ navigation, route }) {
       deliveryAndTax: Math.floor(dAndT),
       totalTax: tTax,
       grandTotal: Math.floor(gTotal),
+      gatewayFee: 0,
       cgst: tTax / 2,
       sgst: tTax / 2,
     };
   }, [itemTotal, distanceKm, pricingConfig]);
 
+  const computedGatewayFee = useMemo(() => {
+    if (selectedPayment !== "UPI" && selectedPayment !== "CARD") return 0;
+    const subtotalBeforeExtra = itemTotal + deliveryTotal + Number(pricingConfig?.platformFee || 0) + packagingFeeBase + packagingTax + foodGst;
+    return Number((subtotalBeforeExtra * Number(pricingConfig?.razorpayPercent || 0)).toFixed(2));
+  }, [itemTotal, deliveryTotal, pricingConfig, packagingFeeBase, packagingTax, foodGst, selectedPayment]);
+
   const finalTotal = useMemo(
-    () => Math.floor(grandTotal - couponDiscount + tipAmount + (selectedPayment === "COD" ? Number(pricingConfig?.codCharge || 0) : 0)),
-    [grandTotal, couponDiscount, tipAmount, pricingConfig, selectedPayment]
+    () => Math.floor(grandTotal - couponDiscount + tipAmount + computedGatewayFee + (selectedPayment === "COD" ? Number(pricingConfig?.codCharge || 0) : 0)),
+    [grandTotal, couponDiscount, tipAmount, computedGatewayFee, pricingConfig, selectedPayment]
   );
 
   const ensureAddressSavedIfNeeded = async () => {
@@ -479,7 +496,7 @@ export default function CheckoutScreen({ navigation, route }) {
       key: razorpayConfig.keyId,
       amount: checkoutData.razorpayOrder.amount,
       currency: checkoutData.razorpayOrder.currency,
-      name: "Cravzo",
+      name: "DODAGO",
       description: `Order from ${cartItems[0]?.restaurantName || "Restaurant"}`,
       order_id: checkoutData.razorpayOrder.id,
       prefill: {
@@ -881,6 +898,7 @@ export default function CheckoutScreen({ navigation, route }) {
             foodGst={foodGst}
             packagingTax={packagingTax}
             platformFee={Number(pricingConfig?.platformFee || 0)}
+            gatewayFee={computedGatewayFee}
             cgst={cgst}
             sgst={sgst}
           />

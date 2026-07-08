@@ -14,6 +14,8 @@ const sanitizeUser = (user) => ({
   bankDetails: user.bankDetails,
   vehicleDetails: user.vehicleDetails,
   paymentMethods: user.paymentMethods,
+  referralCode: user.referralCode,
+  walletBalance: user.walletBalance,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });

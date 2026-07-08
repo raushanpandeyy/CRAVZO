@@ -29,6 +29,8 @@ import {
   LogOut,
   Trash2,
   Calendar,
+  Gift,
+  CreditCard,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { deleteAccount, getProfile, updateProfile, uploadImage } from "../../services/userService";
@@ -46,6 +48,8 @@ const menuItems = [
   { icon: Heart, label: "Favourites", color: "#f43f5e", screen: "Favorites" },
   { icon: Star, label: "Reviews", color: "#f59e0b", screen: "Reviews" },
   { icon: MessageCircle, label: "Support Chat", color: "#8b5cf6", screen: "CustomerChat" },
+  { icon: CreditCard, label: "Payment Methods", color: "#0ea5e9", screen: "PaymentMethods" },
+  { icon: Gift, label: "Refer & Earn", color: "#16a34a", screen: "Referral" },
 ];
 
 const infoItems = [

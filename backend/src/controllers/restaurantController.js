@@ -453,16 +453,16 @@ const getNearbyRestaurants = async (req, res) => {
       )
     ) AS distance
     FROM "Restaurant"
-    WHERE status = 'ACTIVE'
-      AND is_open = true
-      AND latitude IS NOT NULL
-      AND longitude IS NOT NULL
+    WHERE "status" = 'ACTIVE'::"RestaurantStatus"
+      AND "isOpen" = true
+      AND "latitude" IS NOT NULL
+      AND "longitude" IS NOT NULL
       AND (
         6371 * acos(
           LEAST(1, GREATEST(-1,
-            cos(radians(${userLat})) * cos(radians(latitude)) *
-            cos(radians(longitude) - radians(${userLng})) +
-            sin(radians(${userLat})) * sin(radians(latitude))
+            cos(radians(${userLat})) * cos(radians("latitude")) *
+            cos(radians("longitude") - radians(${userLng})) +
+            sin(radians(${userLat})) * sin(radians("latitude"))
           ))
         )
       ) <= ${radiusKm}
@@ -573,22 +573,22 @@ const searchRestaurantsAndDishes = async (req, res) => {
   const hasCoords = typeof lat === "number" && typeof lng === "number";
   const distanceExpr = hasCoords
     ? prisma.$queryRaw`(6371 * 2 * asin(sqrt(
-        power(sin(radians(${lat} - latitude) / 2), 2) +
-        cos(radians(${lat})) * cos(radians(latitude)) *
-        power(sin(radians(${lng} - longitude) / 2), 2)
+        power(sin(radians(${lat} - "latitude") / 2), 2) +
+        cos(radians(${lat})) * cos(radians("latitude")) *
+        power(sin(radians(${lng} - "longitude") / 2), 2)
       )))`
     : prisma.$queryRaw`NULL`;
 
   const [restaurants, dishes] = await Promise.all([
     prisma.$queryRaw`
-      SELECT id, name, cuisine, city, image_url AS "imageUrl",
-             address_line1 AS "addressLine1", latitude, longitude,
+      SELECT id, name, cuisine, city, "imageUrl",
+             "addressLine1", "latitude", "longitude",
              ${distanceExpr} AS distance
       FROM "Restaurant"
-      WHERE status = 'ACTIVE' AND is_open = true
+      WHERE "status" = 'ACTIVE'::"RestaurantStatus" AND "isOpen" = true
         AND to_tsvector('english', coalesce(name, '') || ' ' || coalesce(cuisine, '') || ' ' || coalesce(city, ''))
             @@ plainto_tsquery('english', ${tsQuery})
-        ${hasCoords ? prisma.$queryRaw`AND (${distanceExpr}) <= ${radiusKm}` : prisma.$queryRaw``}
+        ${hasCoords ? prisma.$queryRaw`AND (6371 * 2 * asin(sqrt(power(sin(radians(${lat} - "latitude") / 2), 2) + cos(radians(${lat})) * cos(radians("latitude")) * power(sin(radians(${lng} - "longitude") / 2), 2)))) <= ${radiusKm}` : prisma.$queryRaw``}
       ORDER BY ${hasCoords ? prisma.$queryRaw`distance ASC,` : prisma.$queryRaw``}
         ts_rank(
           to_tsvector('english', coalesce(name, '') || ' ' || coalesce(cuisine, '') || ' ' || coalesce(city, '')),
@@ -598,13 +598,13 @@ const searchRestaurantsAndDishes = async (req, res) => {
     `,
     prisma.$queryRaw`
       SELECT mi.id, mi.name, mi.category, mi.price::float8 AS price,
-             mi.image_url AS "imageUrl",
+             mi."imageUrl",
              r.id AS "restaurantId", r.name AS "restaurantName",
-             r.city, r.latitude, r.longitude,
+             r.city, r."latitude", r."longitude",
              ${distanceExpr} AS distance
       FROM "MenuItem" mi
-      JOIN "Restaurant" r ON r.id = mi.restaurant_id
-      WHERE mi.status = 'ACTIVE' AND r.status = 'ACTIVE' AND r.is_open = true
+      JOIN "Restaurant" r ON r.id = mi."restaurantId"
+      WHERE mi."status" = 'ACTIVE'::"MenuItemStatus" AND r."status" = 'ACTIVE'::"RestaurantStatus" AND r."isOpen" = true
         AND to_tsvector('english', coalesce(mi.name, '') || ' ' || coalesce(mi.category, ''))
             @@ plainto_tsquery('english', ${tsQuery})
         ${hasCoords ? prisma.$queryRaw`AND (${distanceExpr}) <= ${radiusKm}` : prisma.$queryRaw``}

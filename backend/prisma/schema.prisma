@@ -26,6 +26,8 @@ model User {
   bankDetails           Json?
   vehicleDetails        Json?
   paymentMethods        Json?
+  referralCode          String?        @unique
+  walletBalance         Float          @default(0)
   onboardingSubmittedAt DateTime?
   addresses             Address[]
   favorites             Favorite[]
@@ -39,11 +41,28 @@ model User {
   chatMessages          ChatMessage[]
   fcmTokens             FcmToken[]
   vendorPayouts         VendorPayout[]
+  referralsMade         Referral[]     @relation("ReferralsMade")
+  referralReceived      Referral?      @relation("ReferralReceived")
 
   @@index([status])
   @@index([role, status, createdAt])
   @@index([role, status, isOnline])
   @@index([role, status, createdAt, id])
+}
+
+model Referral {
+  id          String         @id @default(cuid())
+  referrerId  String
+  referredId  String         @unique
+  status      ReferralStatus @default(COMPLETED)
+  bonusAmount Float          @default(100)
+  createdAt   DateTime       @default(now())
+  completedAt DateTime?
+
+  referrer User @relation("ReferralsMade", fields: [referrerId], references: [id])
+  referred User @relation("ReferralReceived", fields: [referredId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId, createdAt])
 }
 
 model Address {
@@ -354,6 +373,12 @@ enum UserStatus {
   ACTIVE
   PENDING
   BLOCKED
+}
+
+enum ReferralStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
 }
 
 enum RestaurantStatus {

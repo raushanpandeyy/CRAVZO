@@ -46,7 +46,8 @@
           "color": "#4f46e5"
         }
       ],
-      "@maplibre/maplibre-react-native"
+      "@maplibre/maplibre-react-native",
+      "./plugins/withGoogleMapsKey"
     ],
     "extra": {
       "eas": {

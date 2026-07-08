@@ -17,6 +17,7 @@ import { restaurantRouter } from "./restaurantRoutes.js";
 import { riderRatingRouter } from "./riderRatingRoutes.js";
 import { userRouter } from "./userRoutes.js";
 import riderRouter  from "./riderRoutes.js";
+import { referralRouter } from "./referralRoutes.js";
 import { v1Router } from "./v1/index.js";
 
 const apiRouter = Router();
@@ -38,6 +39,7 @@ apiRouter.use("/reviews", reviewRouter);
 apiRouter.use("/rider", riderRouter);
 apiRouter.use("/coupons", couponRouter);
 apiRouter.use("/rider-ratings", riderRatingRouter);
+apiRouter.use("/referrals", referralRouter);
 
 apiRouter.use("/v1", v1Router);
 
