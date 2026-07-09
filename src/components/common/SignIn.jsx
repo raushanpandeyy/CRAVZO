@@ -71,6 +71,7 @@ const LoginPage = () => {
     if (incomingRef) {
       sessionStorage.setItem("cravzoReferralCode", incomingRef.toUpperCase());
       setReferralCode(incomingRef.toUpperCase());
+      setIsSignup(true);
     } else {
       setReferralCode(sessionStorage.getItem("cravzoReferralCode") || "");
     }
