@@ -548,11 +548,34 @@ const slugify = (value) =>
 // Uses PostgreSQL to_tsvector / plainto_tsquery with GIN indexes.
 // Previously used ILIKE '%query%' which did sequential scans even with
 // pg_trgm indexes. tsvector provides stemming, ranking, and index-only scans.
+const getDistanceKm = (lat1, lng1, lat2, lng2) => {
+  if ([lat1, lng1, lat2, lng2].some((value) => value === null || value === undefined || Number.isNaN(Number(value)))) {
+    return null;
+  }
+
+  const toRad = (value) => (Number(value) * Math.PI) / 180;
+  const radiusKm = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+
+  return Number((radiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(2));
+};
+
+const sortByDistanceThenName = (items) => items.sort((a, b) => {
+  const aDistance = a.distance ?? Number.POSITIVE_INFINITY;
+  const bDistance = b.distance ?? Number.POSITIVE_INFINITY;
+  if (aDistance !== bDistance) return aDistance - bDistance;
+  return String(a.name || "").localeCompare(String(b.name || ""));
+});
+
 const searchRestaurantsAndDishes = async (req, res) => {
   const query = req.query.q?.trim();
-  const lat = parseFloat(req.query.lat) || null;
-  const lng = parseFloat(req.query.lng) || null;
-  const radiusKm = Math.min(parseFloat(req.query.radius) || 3, 10);
+  const lat = Number.parseFloat(req.query.lat);
+  const lng = Number.parseFloat(req.query.lng);
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
 
   if (!query || query.length < 2) {
     return res.status(200).json(
@@ -560,85 +583,146 @@ const searchRestaurantsAndDishes = async (req, res) => {
     );
   }
 
+  const normalizedQuery = query.toLowerCase();
   const shouldCache = query.length >= 3;
-  const cacheKey = buildCacheKey("search", { q: query.toLowerCase(), lat, lng, radius: radiusKm });
+  const cacheKey = buildCacheKey("search", {
+    q: normalizedQuery,
+    lat: hasCoords ? lat : null,
+    lng: hasCoords ? lng : null,
+  });
 
   if (shouldCache) {
     const cached = await getCache(cacheKey);
     if (cached) return res.status(200).json(cached);
   }
 
-  const tsQuery = query.replace(/[^\w\s]/g, "").trim();
+  const restaurantWhere = {
+    status: "ACTIVE",
+    isOpen: true,
+    OR: [
+      { name: { contains: query, mode: "insensitive" } },
+      { cuisine: { contains: query, mode: "insensitive" } },
+      { city: { contains: query, mode: "insensitive" } },
+      { addressLine1: { contains: query, mode: "insensitive" } },
+    ],
+  };
 
-  const hasCoords = typeof lat === "number" && typeof lng === "number";
-  const distanceExpr = hasCoords
-    ? prisma.$queryRaw`(6371 * 2 * asin(sqrt(
-        power(sin(radians(${lat} - "latitude") / 2), 2) +
-        cos(radians(${lat})) * cos(radians("latitude")) *
-        power(sin(radians(${lng} - "longitude") / 2), 2)
-      )))`
-    : prisma.$queryRaw`NULL`;
+  const dishWhere = {
+    status: "ACTIVE",
+    restaurant: { status: "ACTIVE", isOpen: true },
+    OR: [
+      { name: { contains: query, mode: "insensitive" } },
+      { category: { contains: query, mode: "insensitive" } },
+      { description: { contains: query, mode: "insensitive" } },
+    ],
+  };
 
   const [restaurants, dishes] = await Promise.all([
-    prisma.$queryRaw`
-      SELECT id, name, cuisine, city, "imageUrl",
-             "addressLine1", "latitude", "longitude",
-             ${distanceExpr} AS distance
-      FROM "Restaurant"
-      WHERE "status" = 'ACTIVE'::"RestaurantStatus" AND "isOpen" = true
-        AND to_tsvector('english', coalesce(name, '') || ' ' || coalesce(cuisine, '') || ' ' || coalesce(city, ''))
-            @@ plainto_tsquery('english', ${tsQuery})
-        ${hasCoords ? prisma.$queryRaw`AND (6371 * 2 * asin(sqrt(power(sin(radians(${lat} - "latitude") / 2), 2) + cos(radians(${lat})) * cos(radians("latitude")) * power(sin(radians(${lng} - "longitude") / 2), 2)))) <= ${radiusKm}` : prisma.$queryRaw``}
-      ORDER BY ${hasCoords ? prisma.$queryRaw`distance ASC,` : prisma.$queryRaw``}
-        ts_rank(
-          to_tsvector('english', coalesce(name, '') || ' ' || coalesce(cuisine, '') || ' ' || coalesce(city, '')),
-          plainto_tsquery('english', ${tsQuery})
-        ) DESC
-      LIMIT 8
-    `,
-    prisma.$queryRaw`
-      SELECT mi.id, mi.name, mi.category, mi.price::float8 AS price,
-             mi."imageUrl",
-             r.id AS "restaurantId", r.name AS "restaurantName",
-             r.city, r."latitude", r."longitude",
-             ${distanceExpr} AS distance
-      FROM "MenuItem" mi
-      JOIN "Restaurant" r ON r.id = mi."restaurantId"
-      WHERE mi."status" = 'ACTIVE'::"MenuItemStatus" AND r."status" = 'ACTIVE'::"RestaurantStatus" AND r."isOpen" = true
-        AND to_tsvector('english', coalesce(mi.name, '') || ' ' || coalesce(mi.category, ''))
-            @@ plainto_tsquery('english', ${tsQuery})
-        ${hasCoords ? prisma.$queryRaw`AND (${distanceExpr}) <= ${radiusKm}` : prisma.$queryRaw``}
-      ORDER BY ${hasCoords ? prisma.$queryRaw`distance ASC,` : prisma.$queryRaw``}
-        ts_rank(
-          to_tsvector('english', coalesce(mi.name, '') || ' ' || coalesce(mi.category, '')),
-          plainto_tsquery('english', ${tsQuery})
-        ) DESC
-      LIMIT 8
-    `,
+    prisma.restaurant.findMany({
+      where: restaurantWhere,
+      take: 25,
+      select: {
+        id: true,
+        name: true,
+        cuisine: true,
+        city: true,
+        addressLine1: true,
+        imageUrl: true,
+        latitude: true,
+        longitude: true,
+      },
+    }),
+    prisma.menuItem.findMany({
+      where: dishWhere,
+      take: 25,
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        price: true,
+        imageUrl: true,
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            cuisine: true,
+            city: true,
+            addressLine1: true,
+            imageUrl: true,
+            latitude: true,
+            longitude: true,
+          },
+        },
+      },
+    }),
   ]);
 
-  const restaurantsOut = (restaurants || []).map((r) => ({
-    id: r.id, name: r.name, cuisine: r.cuisine, city: r.city,
-    imageUrl: r.imageUrl, location: [r.addressLine1, r.city].filter(Boolean).join(", "),
-    distance: r.distance ? Number(Number(r.distance).toFixed(2)) : null, matchingDishes: [],
-  }));
+  const restaurantMap = new Map();
 
-  const dishesOut = (dishes || []).map((d) => ({
-    id: d.id, name: d.name, category: d.category,
-    price: Number(d.price), imageUrl: d.imageUrl,
-    restaurantId: d.restaurantId, restaurantName: d.restaurantName,
-    distance: d.distance ? Number(Number(d.distance).toFixed(2)) : null,
-  }));
+  const addRestaurant = (restaurant, matchingDish = null) => {
+    if (!restaurant?.id) return;
+    const distance = hasCoords
+      ? getDistanceKm(lat, lng, restaurant.latitude, restaurant.longitude)
+      : null;
+    const existing = restaurantMap.get(restaurant.id);
+    const matchingDishes = existing?.matchingDishes || [];
+
+    if (matchingDish && !matchingDishes.some((dish) => dish.id === matchingDish.id)) {
+      matchingDishes.push(matchingDish);
+    }
+
+    restaurantMap.set(restaurant.id, {
+      id: restaurant.id,
+      name: restaurant.name,
+      cuisine: restaurant.cuisine,
+      city: restaurant.city,
+      imageUrl: restaurant.imageUrl,
+      location: [restaurant.addressLine1, restaurant.city].filter(Boolean).join(", "),
+      distance,
+      matchingDishes,
+    });
+  };
+
+  restaurants.forEach((restaurant) => addRestaurant(restaurant));
+
+  const dishesOut = dishes.map((dish) => {
+    const distance = hasCoords
+      ? getDistanceKm(lat, lng, dish.restaurant?.latitude, dish.restaurant?.longitude)
+      : null;
+    const dishOut = {
+      id: dish.id,
+      name: dish.name,
+      category: dish.category,
+      price: Number(dish.price),
+      imageUrl: dish.imageUrl,
+      restaurantId: dish.restaurant?.id,
+      restaurantName: dish.restaurant?.name,
+      distance,
+    };
+
+    addRestaurant(dish.restaurant, {
+      id: dish.id,
+      name: dish.name,
+      category: dish.category,
+      price: Number(dish.price),
+      imageUrl: dish.imageUrl,
+    });
+
+    return dishOut;
+  });
 
   const response = apiResponse({
     message: "Search results",
-    data: { restaurants: restaurantsOut, dishes: dishesOut },
+    data: {
+      restaurants: sortByDistanceThenName(Array.from(restaurantMap.values())).slice(0, 8),
+      dishes: sortByDistanceThenName(dishesOut).slice(0, 8),
+    },
   });
 
-  const searchTtl = query.length >= 3 ? SEARCH_CACHE_TTL_SECONDS : 15;
   if (shouldCache) {
-    await setCache(cacheKey, response, searchTtl);
+    await setCache(cacheKey, response, SEARCH_CACHE_TTL_SECONDS);
   }
+
   return res.status(200).json(response);
 };
 
