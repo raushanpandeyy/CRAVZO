@@ -4,6 +4,7 @@ import { getFirebaseMessaging, getFirebasePublicConfig, hasFirebaseConfig } from
 const FCM_TOKEN_STORAGE_KEY = "dodagoFcmToken";
 const FCM_PROMPT_STORAGE_KEY = "dodagoFcmPermissionPrompted";
 const FCM_DEVICE_STORAGE_KEY = "dodagoFcmDeviceId";
+const FCM_DISABLED_STORAGE_KEY = "dodagoFcmDisabled";
 
 const getOrCreateDeviceId = () => {
   const existingDeviceId = localStorage.getItem(FCM_DEVICE_STORAGE_KEY);
@@ -107,6 +108,10 @@ const ensureFcmToken = async ({ forcePrompt = false } = {}) => {
     return null;
   }
 
+  if (localStorage.getItem(FCM_DISABLED_STORAGE_KEY) === "true" && !forcePrompt) {
+    return null;
+  }
+
   if (Notification.permission === "default") {
     const alreadyPrompted = localStorage.getItem(FCM_PROMPT_STORAGE_KEY) === "true";
     if (alreadyPrompted && !forcePrompt) return null;
@@ -126,10 +131,22 @@ const ensureFcmToken = async ({ forcePrompt = false } = {}) => {
 
   const serviceWorkerRegistration = await registerMessagingServiceWorker();
   const { getToken } = await import("firebase/messaging");
-  const token = await getToken(messaging, {
-    vapidKey,
-    serviceWorkerRegistration,
-  });
+  let token = null;
+  try {
+    token = await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration,
+    });
+  } catch (error) {
+    const message = error?.message || "";
+    const code = error?.code || "";
+    if (code.includes("installations") || message.includes("PERMISSION_DENIED") || message.includes("403")) {
+      localStorage.setItem(FCM_DISABLED_STORAGE_KEY, "true");
+      console.warn("FCM disabled: Firebase web push is not allowed by the current Firebase project/API key configuration.");
+      return null;
+    }
+    throw error;
+  }
 
   if (!token) return null;
 
@@ -156,6 +173,7 @@ const unregisterFcmToken = async () => {
   }
 
   localStorage.removeItem(FCM_TOKEN_STORAGE_KEY);
+  localStorage.removeItem(FCM_DISABLED_STORAGE_KEY);
 };
 
 export { ensureFcmToken, setupForegroundNotifications, unregisterFcmToken };

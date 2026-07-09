@@ -2,6 +2,7 @@ import React, { useEffect, useState, lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import {
   Clock3,
+  Gift,
   IndianRupee,
   Star,
   Smartphone,
@@ -373,6 +374,16 @@ const Home = () => {
             placeholder="Search"
             className="border-2 border-[#ff6b5f] rounded-xl"
           />
+        </div>
+
+        <div className="px-4 pb-2 pt-1">
+          <Link
+            to="/refer"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-950 text-sm font-black text-white shadow-md shadow-indigo-950/15 transition-all active:scale-[0.98]"
+          >
+            <Gift className="h-4 w-4" />
+            Dodago Refer & Earn
+          </Link>
         </div>
 
         {/* Categories - Eat what you love */}
