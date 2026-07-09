@@ -17,6 +17,7 @@ import { getNearbyRestaurants, listRestaurants } from "../../services/foodServic
 import { apiRequest } from "../../services/api.js";
 import { useUserLocation } from "../../hooks/useUserLocation.js";
 import { getCloudinaryUrl } from "../../utils/cloudinary.js";
+import { getSafeImageUrl } from "../../utils/imageUrl.js";
 
 const HeroSection = lazy(() => import("./HeroSection.jsx"));
 const Citywise = lazy(() => import("./Citywise.jsx"));
@@ -26,9 +27,10 @@ import DishPromoCarousel from "../../components/DishPromoCarousel.jsx";
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
 const getOptimizedImage = (url, width = 400) => {
-  if (!url) return FALLBACK_IMG;
-  if (url.includes("cloudinary.com")) return getCloudinaryUrl(url, { width });
-  return url;
+  const safeUrl = getSafeImageUrl(url, FALLBACK_IMG);
+  if (safeUrl === FALLBACK_IMG) return FALLBACK_IMG;
+  if (safeUrl.includes("cloudinary.com")) return getCloudinaryUrl(safeUrl, { width });
+  return safeUrl;
 };
 
 // Alias — same transform, kept for call-site clarity
@@ -83,7 +85,7 @@ const getDishFallbackImage = (dish, restaurant) => {
   if (text.includes("cake") || text.includes("dessert") || text.includes("sweet")) return cake;
   if (text.includes("north")) return northindian;
 
-  return restaurant?.imageUrl || FALLBACK_IMG;
+  return getSafeImageUrl(restaurant?.imageUrl, FALLBACK_IMG);
 };
 
 const MobileSectionHeader = ({ title, subtitle }) => (
@@ -212,7 +214,7 @@ const PopularDishesSection = ({ restaurants }) => {
 
 const MobileNearbyMiniCard = ({ restaurant, index }) => {
   const dish = restaurant.dish || restaurant.menuPreview?.[0];
-  const dishImage = dish?.imageUrl || getDishFallbackImage(dish, restaurant);
+  const dishImage = getSafeImageUrl(dish?.imageUrl, getDishFallbackImage(dish, restaurant));
   const deliveryTime = restaurant.deliveryTime || `${20 + (index % 4) * 5}-${30 + (index % 4) * 5} min`;
   const price = dish?.price ? `₹${Math.floor(Number(dish.price))}` : null;
   const dishName = dish?.name || restaurant.name;

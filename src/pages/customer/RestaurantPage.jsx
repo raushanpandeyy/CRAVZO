@@ -10,6 +10,7 @@ import ShareButton from "../../components/ShareButton.jsx";
 import { getShareUrl, getShareText } from "../../utils/share.js";
 import { Skeleton, SkeletonRow } from "../../components/Skeleton.jsx";
 import { getCloudinaryUrl } from "../../utils/cloudinary.js";
+import { getSafeImageUrl } from "../../utils/imageUrl.js";
 
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
@@ -21,9 +22,10 @@ const getOptimizedImage = (
   width = 600,
   height = 400
 ) => {
-  if (!url) return FALLBACK_IMG;
-  if (url.includes("cloudinary.com")) return getCloudinaryUrl(url, { width, height });
-  return url;
+  const safeUrl = getSafeImageUrl(url, FALLBACK_IMG);
+  if (safeUrl === FALLBACK_IMG) return FALLBACK_IMG;
+  if (safeUrl.includes("cloudinary.com")) return getCloudinaryUrl(safeUrl, { width, height });
+  return safeUrl;
 };
 
 const formatCurrency = (value) => `Rs ${Number(value || 0).toFixed(0)}`;
@@ -100,23 +102,22 @@ const RestaurantPage = () => {
       }
 
       try {
-        const [restaurantData, reviewData, isFav] = await Promise.all([
-          getRestaurantById(id),
+        const restaurantData = await getRestaurantById(id);
+        setRestaurant(restaurantData);
+
+        const [reviewsResult, favoriteResult] = await Promise.allSettled([
           getRestaurantReviews(id),
-          user?.isLoggedIn ? checkIsFavorite(id).catch(() => false) : Promise.resolve(false),
+          user?.isLoggedIn ? checkIsFavorite(id) : Promise.resolve(false),
         ]);
 
-        _restaurantCache.set(id, { restaurant: restaurantData, reviews: reviewData, isFavorite: isFav });
+        const reviewData = reviewsResult.status === "fulfilled" && Array.isArray(reviewsResult.value)
+          ? reviewsResult.value
+          : [];
+        const isFav = favoriteResult.status === "fulfilled" ? favoriteResult.value : false;
 
-        if (!cached) {
-          setRestaurant(restaurantData);
-          setReviews(reviewData);
-          setIsFavorite(isFav);
-        } else {
-          setRestaurant(restaurantData);
-          setReviews(reviewData);
-          setIsFavorite(isFav);
-        }
+        setReviews(reviewData);
+        setIsFavorite(isFav);
+        _restaurantCache.set(id, { restaurant: restaurantData, reviews: reviewData, isFavorite: isFav });
 
         const myReview = reviewData.find((review) => review.user?.id === user?.id);
         if (myReview) {
@@ -129,7 +130,7 @@ const RestaurantPage = () => {
           setError(requestError.message || "Failed to load restaurant");
         }
       } finally {
-        if (!cached) setLoading(false);
+        setLoading(false);
       }
     };
 

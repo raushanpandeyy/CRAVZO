@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { getSafeImageUrl } from "../../utils/imageUrl.js";
 import { Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import ShareButton from "../../components/ShareButton.jsx";
@@ -22,7 +23,7 @@ const DishCard = ({ dish }) => {
   }
 
   const destination = dish.restaurantId ? `/restaurant/${dish.restaurantId}` : `/dish/${encodeURIComponent(dish.name)}`;
-  const imgSrc = imgError ? FALLBACK_IMG : (dish.imageUrl || dish.image || FALLBACK_IMG);
+  const imgSrc = imgError ? FALLBACK_IMG : getSafeImageUrl(dish.imageUrl || dish.image, FALLBACK_IMG);
 
   return (
     <Link

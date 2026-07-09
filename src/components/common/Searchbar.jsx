@@ -21,17 +21,19 @@ import { Loader2, MapPin, Search, Utensils, X } from "lucide-react";
 import { searchRestaurantsAndDishes } from "../../services/foodService.js";
 import { useUserLocation } from "../../hooks/useUserLocation.js";
 import useDebounce from "../../hooks/useDebounce.js";
+import { getSafeImageUrl } from "../../utils/imageUrl.js";
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Crect fill='%23f1f5f9' width='120' height='120'/%3E%3C/svg%3E";
 
 const getThumb = (url) => {
-  if (!url) return FALLBACK_IMG;
-  if (url.includes("cloudinary.com")) {
-    const parts = url.split("/upload/");
+  const safeUrl = getSafeImageUrl(url, FALLBACK_IMG);
+  if (safeUrl === FALLBACK_IMG) return FALLBACK_IMG;
+  if (safeUrl.includes("cloudinary.com")) {
+    const parts = safeUrl.split("/upload/");
     if (parts.length === 2)
       return `${parts[0]}/upload/c_fill,w_80,h_80,q_auto,f_auto/${parts[1]}`;
   }
-  return url;
+  return safeUrl;
 };
 
 const SearchBar = ({

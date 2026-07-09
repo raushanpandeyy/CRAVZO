@@ -65,7 +65,7 @@ export default function Favorites() {
               <div key={favorite.id} className="overflow-hidden rounded-[28px] bg-white shadow-sm transition-all duration-200 hover:shadow-md sm:rounded-3xl">
                 <div className="relative">
                   <img
-                    src={favorite.restaurant.imageUrl}
+                    src={getSafeImageUrl(favorite.restaurant.imageUrl)}
                     alt={favorite.restaurant.name}
                     className="h-36 w-full object-cover sm:h-52"
                   />

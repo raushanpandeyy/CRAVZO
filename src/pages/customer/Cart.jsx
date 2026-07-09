@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Minus, Plus, Trash2, Receipt, ChevronLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { getRestaurantById } from "../../services/foodService.js";
+import { getSafeImageUrl } from "../../utils/imageUrl.js";
 import { Skeleton, SkeletonRow } from "../../components/Skeleton.jsx";
 
 const FOOD_GST_RATE = 0.05;
@@ -265,7 +266,7 @@ const Cart = () => {
             <div key={item.id} className="rounded-3xl bg-white p-5 shadow-sm transition-all">
               <div className="flex items-start gap-3">
                 {item.imageUrl && (
-                  <img src={item.imageUrl} alt={item.name} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
+                  <img src={getSafeImageUrl(item.imageUrl)} alt={item.name} className="h-16 w-16 shrink-0 rounded-2xl object-cover" />
                 )}
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-slate-900 truncate">{item.name} {item.size ? <span className="text-indigo-600">({item.size})</span> : null}</p>

@@ -16,13 +16,15 @@ import { searchRestaurantsAndDishes, listRestaurants, getNearbyRestaurants } fro
 import { useUserLocation } from "../../hooks/useUserLocation.js";
 import useDebounce from "../../hooks/useDebounce.js";
 import { getCloudinaryUrl } from "../../utils/cloudinary.js";
+import { getSafeImageUrl } from "../../utils/imageUrl.js";
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
 const getThumb = (url, w = 400, h = 200) => {
-  if (!url) return FALLBACK_IMG;
-  if (url.includes("cloudinary.com")) return getCloudinaryUrl(url, { width: w, height: h });
-  return url;
+  const safeUrl = getSafeImageUrl(url, FALLBACK_IMG);
+  if (safeUrl === FALLBACK_IMG) return FALLBACK_IMG;
+  if (safeUrl.includes("cloudinary.com")) return getCloudinaryUrl(safeUrl, { width: w, height: h });
+  return safeUrl;
 };
 
 const SUGGESTIONS = ["Biryani", "Burger", "Dosa", "Pizza", "Momos", "Chaat", "Thali", "Rolls"];
