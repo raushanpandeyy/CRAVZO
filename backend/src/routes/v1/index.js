@@ -10,6 +10,7 @@ import { paymentRouter } from "../paymentRoutes.js";
 import { promotionRouter } from "../promotionRoutes.js";
 import { publicRouter } from "../publicRoutes.js";
 import { reviewRouter } from "../reviewRoutes.js";
+import { referralRouter } from "../referralRoutes.js";
 import { restaurantRouter } from "../restaurantRoutes.js";
 import { userRouter } from "../userRoutes.js";
 import riderRouter from "../riderRoutes.js";
@@ -29,6 +30,7 @@ v1Router.use("/public", publicRouter);
 v1Router.use("/admin", adminRouter);
 v1Router.use("/favorites", favoriteRouter);
 v1Router.use("/reviews", reviewRouter);
+v1Router.use("/referrals", referralRouter);
 v1Router.use("/rider", riderRouter);
 
 export { v1Router };

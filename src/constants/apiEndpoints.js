@@ -36,9 +36,15 @@ export const API_ENDPOINTS = {
 
   user: {
     profile: `${BASE}/users/profile`,
+    deleteAccount: `${BASE}/users/account`,
     uploadImage: `${BASE}/users/uploads/image`,
     addresses: `${BASE}/users/addresses`,
     addressById: (id) => `${BASE}/users/addresses/${id}`,
+  },
+
+  referrals: {
+    me: `${BASE}/referrals/me`,
+    apply: `${BASE}/referrals/apply`,
   },
 
   payments: {

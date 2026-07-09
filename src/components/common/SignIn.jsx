@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, lazy, Suspense } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Lock, Mail, Phone, ShieldCheck, User } from "lucide-react";
 
 
@@ -14,6 +14,7 @@ const OtpInput = lazy(() =>
 
 import {dodagologo} from "../../assets/images/logos.js";
 import { clearSession, login, sendOtp, signup, verifyOtp } from "../../services/authService.js";
+import { getFingerprintHash } from "../../services/fingerprintService.js";
 
 const emptyOtp = ["", "", "", "", "", ""];
 
@@ -39,8 +40,12 @@ const LoginPage = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
+  const [fingerprintHash, setFingerprintHash] = useState(null);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const redirectForAccountType = useCallback((accountType) => {
     if (accountType === "admin") {
@@ -62,6 +67,18 @@ const LoginPage = () => {
   }, [navigate]);
 
   useEffect(() => {
+    const incomingRef = searchParams.get("ref")?.trim();
+    if (incomingRef) {
+      sessionStorage.setItem("cravzoReferralCode", incomingRef.toUpperCase());
+      setReferralCode(incomingRef.toUpperCase());
+    } else {
+      setReferralCode(sessionStorage.getItem("cravzoReferralCode") || "");
+    }
+
+    getFingerprintHash().then(setFingerprintHash);
+  }, [searchParams]);
+
+  useEffect(() => {
     const user = JSON.parse(localStorage.getItem("dodagoCurrentUser"));
 
     if (user?.isLoggedIn) {
@@ -79,6 +96,7 @@ const LoginPage = () => {
         email,
         otp: otp.join(""),
         role: "CUSTOMER",
+        fingerprintHash,
       });
 
       setIsLoggedIn(true);
@@ -116,12 +134,19 @@ const LoginPage = () => {
 
     try {
       if (isSignup) {
+        if (!privacyAccepted) {
+          setMessage("Please accept the Privacy Policy to create your account.");
+          return;
+        }
+
         await signup({
           name,
           email,
           phone,
           password,
           role: "CUSTOMER",
+          referralCode: referralCode || undefined,
+          fingerprintHash: fingerprintHash || undefined,
         });
         setShowOtp(true);
         setMessage("OTP sent to your email.");
@@ -226,6 +251,28 @@ const LoginPage = () => {
                 required
               />
               <p className="-mt-2 text-xs text-slate-400">At least 8 characters</p>
+
+              {isSignup ? (
+                <>
+                  {referralCode ? (
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-700">
+                      Referral code applied: {referralCode}
+                    </div>
+                  ) : null}
+                  <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold leading-5 text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={privacyAccepted}
+                      onChange={(event) => setPrivacyAccepted(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-slate-300 text-indigo-700 focus:ring-indigo-500"
+                      required
+                    />
+                    <span>
+                      I agree to the <Link to="/privacy" className="text-indigo-700 underline">Privacy Policy</Link> and referral anti-fraud checks, including device fingerprint hash and IP hash processing.
+                    </span>
+                  </label>
+                </>
+              ) : null}
 
               {showOtp ? (
                 <>

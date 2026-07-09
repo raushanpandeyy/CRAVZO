@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Bell, Camera, LogOut, Mail, Phone, Save, User } from "lucide-react";
+import { AlertTriangle, Bell, Camera, Gift, LogOut, Mail, Phone, Save, Trash2, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { getStoredUser } from "../../services/authService.js";
 import { useAuth } from "../../hooks/useAuth.js";
 import { ensureFcmToken } from "../../firebase/notificationService.js";
-import { getProfile, updateProfile, uploadImage } from "../../services/userService.js";
+import { deleteAccount, getProfile, updateProfile, uploadImage } from "../../services/userService.js";
+import { getMyReferral } from "../../services/referralService.js";
 import { SkeletonAvatar, SkeletonForm } from "../../components/Skeleton.jsx";
 
 const fallbackAvatar =
@@ -27,6 +28,9 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [enablingNotifications, setEnablingNotifications] = useState(false);
+  const [referralStats, setReferralStats] = useState(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -47,6 +51,7 @@ const Profile = () => {
 
   useEffect(() => {
     loadProfile();
+    getMyReferral().then(setReferralStats).catch(() => setReferralStats(null));
   }, []);
 
   const previewAvatar = useMemo(() => form.avatarUrl || fallbackAvatar, [form.avatarUrl]);
@@ -109,6 +114,21 @@ const Profile = () => {
   const handleLogout = async () => {
     await logout();
     navigate("/");
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    setMessage("");
+    setError("");
+
+    try {
+      await deleteAccount(deleteConfirmation);
+      navigate("/");
+    } catch (requestError) {
+      setError(requestError.message || "Failed to delete account");
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   const handleEnableNotifications = async () => {
@@ -177,6 +197,51 @@ const Profile = () => {
 
         {message ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
         {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => navigate("/account/refer")}
+            className="flex items-center justify-between rounded-[28px] bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:rounded-3xl sm:p-6"
+          >
+            <div>
+              <p className="text-sm font-black uppercase tracking-wide text-indigo-600">Refer & Earn</p>
+              <h2 className="mt-1 text-xl font-black text-slate-900">{referralStats?.qualifiedReferrals || 0} qualified friends</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">Code: {referralStats?.referralCode || "Loading"}</p>
+            </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700">
+              <Gift className="h-6 w-6" />
+            </div>
+          </button>
+
+          <div className="rounded-[28px] bg-white p-5 shadow-sm sm:rounded-3xl sm:p-6">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg font-black text-slate-900">Delete Account</h2>
+                <p className="mt-1 text-sm leading-5 text-slate-500">Type DELETE to remove personal account data. Active orders must be completed first.</p>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    value={deleteConfirmation}
+                    onChange={(event) => setDeleteConfirmation(event.target.value)}
+                    placeholder="Type DELETE"
+                    className="min-w-0 flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none focus:border-rose-400"
+                  />
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleteConfirmation !== "DELETE" || deletingAccount}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-rose-600 px-4 py-3 text-sm font-black text-white disabled:bg-slate-300"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deletingAccount ? "Deleting" : "Delete"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
           <div className="rounded-[28px] bg-white p-5 shadow-sm sm:rounded-3xl sm:p-8">

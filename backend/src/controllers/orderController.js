@@ -5,8 +5,9 @@ import { connectRedis } from "../config/redis.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { createPersistedOrder, serializeOrder } from "../services/orderCheckoutService.js";
+import { markReferredQualifiedAndIssueMilestones } from "../services/referralService.js";
 import { queueNotification } from "../services/notificationQueue.js";
-import { emitOrderStatusUpdate, emitNewOrderToVendor, emitNewOrderToRiders } from "../services/orderSocketService.js";
+import { emitOrderStatusUpdate, emitNewOrderToVendor } from "../services/orderSocketService.js";
 import { initiateRazorpayRefund } from "../services/razorpayRefundService.js";
 import { createOrderSchema } from "../validators/orderValidators.js";
 
@@ -31,7 +32,8 @@ const sanitizeCustomerForNonAdmin = (customer, userRole) => {
     return customer;
   }
   if (!customer) return null;
-  const { phone, ...rest } = customer;
+  const rest = { ...customer };
+  delete rest.phone;
   return rest;
 };
 
@@ -64,6 +66,8 @@ const createOrder = async (req, res) => {
     restaurantInstructions = null,
     deliveryInstructions = null,
     tipAmount = 0,
+    couponCode = null,
+    referralVoucherCode = null,
   } = createOrderSchema.parse(req.body);
 
   // Fix #3: Pre-geocode address before transaction opens
@@ -89,6 +93,8 @@ const createOrder = async (req, res) => {
     restaurantInstructions,
     deliveryInstructions,
     tipAmount,
+    couponCode,
+    referralVoucherCode,
   });
 
   // Queue notifications after order is persisted ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â background worker handles FCM
@@ -645,14 +651,8 @@ const updateOrderStatus = async (req, res) => {
     }
 
     // Fix #6: Rider claim race condition (TOCTOU).
-    //
-    // Old flow:  read riderId=null ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ check ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ write riderId=me
-    //            Two riders can both read null and both write ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â last write wins,
-    //            resulting in ghost assignment (two riders think they own one order).
-    //
-    // New flow for "claim" (canClaimOrder):
-    //   Use updateMany with WHERE riderId IS NULL as an atomic conditional update.
-    //   If another rider claimed between our read and our write, count=0 ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ 409.
+    // Old flow read riderId=null, checked permissions, then wrote riderId=me.
+    // New flow uses updateMany with riderId=null as an atomic guard.
     if (canClaimOrder) {
       const claimed = await prisma.order.updateMany({
         where: {
@@ -877,6 +877,11 @@ const verifyDeliveryOtp = async (req, res) => {
   const updated = await prisma.order.update({ where: { id: order.id }, data: {
     status: "DELIVERED", paymentStatus: "PAID", deliveredAt: new Date(), deliveryOtpHash: null, deliveryOtpExpiresAt: null,
   }, include: { restaurant: true, address: true, customer: true, rider: true, items: { include: { menuItem: true } } } });
+  await markReferredQualifiedAndIssueMilestones({
+    customerId: updated.customerId,
+    orderId: updated.id,
+    paymentStatus: updated.paymentStatus,
+  });
   emitOrderStatusUpdate(updated, req.user.role);
   queueNotification("order-status-changed", { order: updated, actorRole: req.user.role });
   res.status(200).json(apiResponse({ message: "Delivery completed successfully", data: serializeOrder(updated) }));

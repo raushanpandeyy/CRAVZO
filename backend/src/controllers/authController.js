@@ -5,9 +5,11 @@ import { env } from "../config/env.js";
 import { prisma } from "../config/database.js";
 import { ROLES } from "../constants/roles.js";
 import { generateOTP } from "../services/otpService.js";
+import { createReferralAtSignup } from "../services/referralService.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { emailBloomFilter, otpBloomFilter } from "../utils/bloomFilter.js";
+import { deriveIpFromRequest, evaluateFingerprint, hashIp } from "../utils/deviceFingerprint.js";
 import { signToken } from "../utils/jwt.js";
 import { sendOTP } from "../utils/sendOtp.js";
 import { sendSMS } from "../utils/sendSms.js";
@@ -99,6 +101,48 @@ const createOtpRecord = async ({ email, role, purpose = getOtpPurposeForRole(rol
     console.log("OTP sent:", response);
   } catch (error) {
     console.error("OTP sending failed:", error.message);
+  }
+};
+
+const captureSignupDevice = async ({ req, user, fingerprintHash, referralCode }) => {
+  const normalizedFingerprint = fingerprintHash?.trim() || null;
+  const ipHash = hashIp(deriveIpFromRequest(req));
+
+  const risk = await evaluateFingerprint(prisma, normalizedFingerprint, ipHash);
+  if (risk.block) {
+    throw new ApiError(403, risk.reason || "Suspicious activity detected. Please contact support.");
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        signupFingerprintHash: normalizedFingerprint,
+        signupIpHash: ipHash,
+      },
+    });
+
+    if (normalizedFingerprint) {
+      await tx.deviceFingerprint.create({
+        data: {
+          fingerprintHash: normalizedFingerprint,
+          ipHash,
+          userAgent: req.get("user-agent") || null,
+          userId: user.id,
+        },
+      });
+    }
+  });
+
+  if (referralCode && user.role === ROLES.CUSTOMER) {
+    await createReferralAtSignup({
+      referredUserId: user.id,
+      referralCode,
+      fingerprintHash: normalizedFingerprint,
+      ipHash,
+      suspectHint: Boolean(risk.suspect),
+      suspectReason: risk.reason || null,
+    });
   }
 };
 
@@ -213,6 +257,13 @@ export const verifyOtpController = async (req, res) => {
       throw new ApiError(409, "User already exists");
     }
 
+    const signupFingerprint = payload.fingerprintHash || record.pendingSignupData.fingerprintHash;
+    const signupIpHash = hashIp(deriveIpFromRequest(req));
+    const signupRisk = await evaluateFingerprint(prisma, signupFingerprint?.trim() || null, signupIpHash);
+    if (signupRisk.block) {
+      throw new ApiError(403, signupRisk.reason || "Suspicious activity detected. Please contact support.");
+    }
+
     user = await prisma.user.create({
       data: {
         name: record.pendingSignupData.name,
@@ -231,6 +282,14 @@ export const verifyOtpController = async (req, res) => {
             : undefined,
       },
     });
+
+    await captureSignupDevice({
+      req,
+      user,
+      fingerprintHash: payload.fingerprintHash || record.pendingSignupData.fingerprintHash,
+      referralCode: record.pendingSignupData.referralCode,
+    });
+
     // Bloom filter: register this email so future signup attempts skip DB query
     emailBloomFilter.add(email);
   } else if (user.status === "PENDING" && user.role === ROLES.CUSTOMER) {
@@ -300,6 +359,8 @@ export const signUp = async (req, res) => {
     passwordHash,
     role,
     onboardingData: payload.onboardingData || null,
+    referralCode: payload.referralCode?.trim().toUpperCase() || null,
+    fingerprintHash: payload.fingerprintHash?.trim() || null,
   };
 
   await createOtpRecord({ email, role, pendingSignupData });
@@ -497,6 +558,8 @@ export const phoneSignup = async (req, res) => {
         phone,
         role,
         name: payload.name || "User",
+        referralCode: payload.referralCode?.trim().toUpperCase() || null,
+        fingerprintHash: payload.fingerprintHash?.trim() || null,
       },
       expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
       updatedAt: new Date(),
@@ -554,6 +617,13 @@ export const verifyPhoneOtp = async (req, res) => {
   const signupData = record.pendingSignupData;
   const placeholderEmail = `phone_${phone.replace(/[^0-9]/g, "")}@dodago.app`;
 
+  const signupFingerprint = payload.fingerprintHash || signupData.fingerprintHash;
+  const signupIpHash = hashIp(deriveIpFromRequest(req));
+  const signupRisk = await evaluateFingerprint(prisma, signupFingerprint?.trim() || null, signupIpHash);
+  if (signupRisk.block) {
+    throw new ApiError(403, signupRisk.reason || "Suspicious activity detected. Please contact support.");
+  }
+
   const user = await prisma.user.create({
     data: {
       name: signupData.name || "User",
@@ -563,6 +633,13 @@ export const verifyPhoneOtp = async (req, res) => {
       role: signupData.role,
       status: role === ROLES.RIDER ? "PENDING" : "ACTIVE",
     },
+  });
+
+  await captureSignupDevice({
+    req,
+    user,
+    fingerprintHash: payload.fingerprintHash || signupData.fingerprintHash,
+    referralCode: signupData.referralCode,
   });
 
   await prisma.otpVerification.update({

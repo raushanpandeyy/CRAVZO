@@ -1,11 +1,12 @@
 import React from 'react';
-import { ShoppingBag, CreditCard, MapPin, Star, Bookmark, User, MessageCircle, Info, Shield, PhoneCall } from "lucide-react";
+import { ShoppingBag, CreditCard, MapPin, Star, Bookmark, User, MessageCircle, Info, Shield, PhoneCall, Gift } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const navItems = [
   { to: '/account/profile', label: 'Profile', Icon: User },
   { to: '/account/orders', label: 'Orders', Icon: ShoppingBag },
   { to: '/account/payments', label: 'Payments', Icon: CreditCard },
+  { to: '/account/refer', label: 'Refer & Earn', Icon: Gift },
   { to: '/account/addresses', label: 'Addresses', Icon: MapPin },
   { to: '/account/favourites', label: 'Favourites', Icon: Bookmark },
   { to: '/account/reviews', label: 'Reviews', Icon: Star },

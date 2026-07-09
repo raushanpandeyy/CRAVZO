@@ -108,6 +108,19 @@ const compressImage = async (file) => {
   return blobToDataUrl(blob);
 };
 
+
+const deleteAccount = async (confirmation = "DELETE") => {
+  const response = await apiRequest(API_ENDPOINTS.user.deleteAccount, {
+    method: "DELETE",
+    body: JSON.stringify({ confirmation }),
+  });
+
+  localStorage.removeItem("dodagoAuthToken");
+  localStorage.removeItem("dodagoCurrentUser");
+  window.dispatchEvent(new Event("userChange"));
+  return response;
+};
+
 const uploadImage = async (file, folder = "dodago") => {
   const dataUrl = await compressImage(file);
   const response = await apiRequest(API_ENDPOINTS.user.uploadImage, {
@@ -121,4 +134,4 @@ const uploadImage = async (file, folder = "dodago") => {
   return response.data;
 };
 
-export { getProfile, updateProfile, uploadImage };
+export { deleteAccount, getProfile, updateProfile, uploadImage };

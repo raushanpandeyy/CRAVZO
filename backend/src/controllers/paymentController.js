@@ -65,7 +65,7 @@ const getRazorpayConfig = async (_req, res) => {
 
 
 const createCODOrder = async (req, res) => {
-  const { restaurantId, items, address = null, addressId = null, notes = null, restaurantInstructions = null, deliveryInstructions = null, tipAmount = 0, couponCode = null } = createOrderSchema.parse({
+  const { restaurantId, items, address = null, addressId = null, notes = null, restaurantInstructions = null, deliveryInstructions = null, tipAmount = 0, couponCode = null, referralVoucherCode = null } = createOrderSchema.parse({
     ...req.body,
     paymentMethod: "COD",
   });
@@ -83,6 +83,7 @@ const createCODOrder = async (req, res) => {
     deliveryInstructions,
     tipAmount,
     couponCode,
+    referralVoucherCode,
   });
 
   runNotificationTask(notifyVendorNewOrder(order), "notifyVendorNewOrder");
@@ -98,7 +99,7 @@ const createCODOrder = async (req, res) => {
 
 
 const createCheckoutOrder = async (req, res) => {
-  const { restaurantId, items, address = null, addressId = null, paymentMethod, notes = null, restaurantInstructions = null, deliveryInstructions = null, tipAmount = 0, couponCode = null } =
+  const { restaurantId, items, address = null, addressId = null, paymentMethod, notes = null, restaurantInstructions = null, deliveryInstructions = null, tipAmount = 0, couponCode = null, referralVoucherCode = null } =
     createCheckoutOrderSchema.parse(req.body);
   const draft = await prepareOrderDraft({
     customerId: req.user.sub,
@@ -112,6 +113,7 @@ const createCheckoutOrder = async (req, res) => {
     deliveryInstructions,
     tipAmount,
     couponCode,
+    referralVoucherCode,
     persistAddress: false,
   });
 
@@ -153,6 +155,7 @@ const verifyAndCreatePaidOrder = async (req, res) => {
     razorpaySignature,
     paymentMethod,
     couponCode = null,
+    referralVoucherCode = null,
   } = verifyPaymentOrderSchema.parse(req.body);
 
   const generatedSignature = crypto
@@ -190,6 +193,7 @@ const verifyAndCreatePaidOrder = async (req, res) => {
     deliveryInstructions,
     tipAmount,
     couponCode,
+    referralVoucherCode,
   });
 
   const expectedAmount = Math.round(Number(draft.totalAmount) * 100);
@@ -215,6 +219,7 @@ const verifyAndCreatePaidOrder = async (req, res) => {
     deliveryInstructions,
     tipAmount,
     couponCode,
+    referralVoucherCode,
     gatewayProvider: "RAZORPAY",
     gatewayOrderId: razorpayOrderId,
     gatewayPaymentId: razorpayPaymentId,

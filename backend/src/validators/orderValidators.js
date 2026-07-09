@@ -42,6 +42,14 @@ const orderPayloadSchema = z.object({
   deliveryInstructions: z.string().trim().max(500).optional().nullable(),
   tipAmount: z.coerce.number().min(0).max(5000).default(0),
   couponCode: z.string().trim().min(1).max(50).transform((value) => value.toUpperCase()).optional().nullable(),
+  referralVoucherCode: z
+    .string()
+    .trim()
+    .min(4)
+    .max(48)
+    .regex(/^[A-Za-z0-9_-]+$/, "Invalid referral voucher code")
+    .optional()
+    .nullable(),
 });
 
 const createOrderSchema = requireDeliveryAddress(orderPayloadSchema);

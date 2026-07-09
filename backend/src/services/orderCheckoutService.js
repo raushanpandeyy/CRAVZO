@@ -2,6 +2,11 @@ import { prisma } from "../config/database.js";
 import { env } from "../config/env.js";
 import { ApiError } from "../utils/apiError.js";
 import { getLatLngFromAddress } from "../utils/geocode.js";
+import {
+  markReferredQualifiedAndIssueMilestones,
+  previewVoucher,
+  redeemVoucherInTx,
+} from "./referralService.js";
 
 const DELIVERY_BASE_FEE = env.DELIVERY_BASE_FEE;
 const DELIVERY_BASE_KM = env.DELIVERY_BASE_KM;
@@ -38,11 +43,6 @@ const getDeliveryBaseFee = (distanceKm) => {
   }
   const lastSlab = DELIVERY_SLABS[DELIVERY_SLABS.length - 1];
   return lastSlab.fee + Math.ceil(distance - lastSlab.maxKm) * 10;
-};
-
-const calculateDeliveryFee = (distanceKm) => {
-  const baseFee = getDeliveryBaseFee(distanceKm);
-  return baseFee * (1 + DELIVERY_GST_RATE);
 };
 
 const calculateDeliveryWithBreakdown = (distanceKm) => {
@@ -85,6 +85,9 @@ const serializeOrder = (order) => ({
   codCharge: Number(order.codCharge),
   discount: Number(order.discount),
   couponCode: order.couponCode,
+  referralVoucherCode: order.referralVoucherCode,
+  referralVoucherId: order.referralVoucherId,
+  referralVoucherDiscount: Number(order.referralVoucherDiscount || 0),
   totalTax: Number(order.totalTax),
   totalAmount: Number(order.totalAmount),
   deliveryDistance: order.deliveryDistance ? Number(order.deliveryDistance) : null,
@@ -150,6 +153,7 @@ const prepareOrderDraft = async ({
   deliveryInstructions = null,
   tipAmount = 0,
   couponCode = null,
+  referralVoucherCode = null,
   persistAddress = true,
 },
 // Fix #1: Accept an optional Prisma transaction client.
@@ -352,6 +356,28 @@ db = prisma,
     appliedCouponCode = coupon.code;
   }
 
+  // Referral milestone voucher (no cash wallet involved).
+  // Bounded by available budget bucket (delivery fee for FREE_DELIVERY, subtotal for FLAT_DISCOUNT).
+  let referralVoucherDiscount = 0;
+  let appliedReferralVoucherCode = null;
+  let appliedReferralVoucherId = null;
+  let appliedReferralRewardType = null;
+  if (referralVoucherCode) {
+    const voucherPreview = await previewVoucher({
+      customerId,
+      voucherCode: referralVoucherCode,
+      draftSubtotal: subtotal,
+      draftDeliveryFee: deliveryBreakdown.total,
+    });
+    if (!voucherPreview) {
+      throw new ApiError(400, "Referral voucher is invalid, expired, or not applicable");
+    }
+    referralVoucherDiscount = voucherPreview.discount;
+    appliedReferralVoucherCode = voucherPreview.voucherCode;
+    appliedReferralVoucherId = voucherPreview.voucherId;
+    appliedReferralRewardType = voucherPreview.rewardType;
+  }
+
   const subtotalBeforeExtra = subtotal + deliveryBreakdown.total + PLATFORM_FEE + packagingFeeBase + packagingTax + foodGst;
   
   let gatewayFee = 0;
@@ -364,7 +390,9 @@ db = prisma,
 
   const totalTax = foodGst + packagingTax + deliveryBreakdown.tax + platformTax;
 
-  const totalAmount = subtotal + foodGst + packagingFeeBase + packagingTax + deliveryBreakdown.total + PLATFORM_FEE + gatewayFee + codCharge + Number(tipAmount) - discount;
+  const totalAmount = subtotal + foodGst + packagingFeeBase + packagingTax + deliveryBreakdown.total + PLATFORM_FEE + gatewayFee + codCharge + Number(tipAmount) - discount - referralVoucherDiscount;
+
+  const totalDiscount = Number((discount + referralVoucherDiscount).toFixed(2));
 
   return {
     restaurantId,
@@ -385,8 +413,12 @@ db = prisma,
     platformTax,
     gatewayFee,
     codCharge,
-    discount,
+    discount: totalDiscount,
     couponCode: appliedCouponCode,
+    referralVoucherCode: appliedReferralVoucherCode,
+    referralVoucherId: appliedReferralVoucherId,
+    referralRewardType: appliedReferralRewardType,
+    referralVoucherDiscount: Number(referralVoucherDiscount.toFixed(2)),
     totalTax: Number(totalTax.toFixed(2)),
     totalAmount: Number(totalAmount.toFixed(2)),
     deliveryDistance,
@@ -423,6 +455,7 @@ const createPersistedOrder = async ({
   gatewayPaymentId = null,
   gatewaySignature = null,
   couponCode = null,
+  referralVoucherCode = null,
 }) => {
   // Fix #1: Wrap the entire order creation in a serializable transaction.
   //
@@ -450,6 +483,7 @@ const createPersistedOrder = async ({
           deliveryInstructions,
           tipAmount,
           couponCode,
+          referralVoucherCode,
         },
         tx, // pass the transaction client so all queries inside use it
       );
@@ -490,6 +524,9 @@ const createPersistedOrder = async ({
           codCharge: draft.codCharge,
           discount: draft.discount,
           couponCode: draft.couponCode,
+          referralVoucherCode: draft.referralVoucherCode,
+          referralVoucherId: draft.referralVoucherId,
+          referralVoucherDiscount: draft.referralVoucherDiscount,
           totalTax: draft.totalTax,
           totalAmount: draft.totalAmount,
           deliveryDistance: draft.deliveryDistance,
@@ -528,6 +565,14 @@ const createPersistedOrder = async ({
           data: { currentUses: { increment: 1 } },
         });
       }
+
+      if (draft.referralVoucherCode) {
+        await redeemVoucherInTx(tx, {
+          voucherCode: draft.referralVoucherCode,
+          orderId: createdOrder.id,
+        });
+      }
+
       return createdOrder;
     },
     {
@@ -539,6 +584,12 @@ const createPersistedOrder = async ({
       timeout: 10000,
     },
   );
+
+  await markReferredQualifiedAndIssueMilestones({
+    customerId,
+    orderId: order.id,
+    paymentStatus,
+  });
 
   return order;
 };

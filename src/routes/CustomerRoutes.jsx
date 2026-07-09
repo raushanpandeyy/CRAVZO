@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect } from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 
 // Common Components
@@ -39,6 +39,7 @@ const Addresses = lazy(() => import('../pages/customer/Addresses.jsx'));
 const Favourites = lazy(() => import('../pages/customer/Favourites.jsx'));
 const Reviews = lazy(() => import('../pages/customer/Reviews.jsx'));
 const Payments = lazy(() => import('../pages/customer/Payments.jsx'));
+const ReferAndEarn = lazy(() => import('../pages/customer/ReferAndEarn.jsx'));
 const ChatPage = lazy(() => import('../pages/customer/ChatPage.jsx'));
 
 function CustomerRoutes() {
@@ -90,6 +91,7 @@ function CustomerRoutes() {
                 <Route path="favourites" element={<Favourites />} />
                 <Route path="reviews" element={<Reviews />} />
                 <Route path="payments" element={<Payments />} />
+                <Route path="refer" element={<ReferAndEarn />} />
                 <Route path="chat" element={<ChatPage />} />
                 <Route path="about" element={<AboutUs />} />
                 <Route path="contact" element={<ContactUs />} />
@@ -104,6 +106,7 @@ function CustomerRoutes() {
               <Route path="/about" element={<AboutUs />} />
               <Route path="/contact" element={<ContactUs />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/refer" element={<ReferAndEarn />} />
             </Routes>
           </ErrorBoundary>
         </Suspense>

@@ -139,6 +139,28 @@ const CouponInput = ({ onApply, currentDiscount, onRemove }) => {
   );
 };
 
+
+const ReferralVoucherInput = ({ value, onChange }) => (
+  <div className="border-t border-slate-100 pt-4">
+    <div className="rounded-xl border border-dashed border-indigo-200 bg-indigo-50/40 p-4">
+      <div className="flex items-center gap-3">
+        <Tag className="h-5 w-5 text-indigo-600" />
+        <div>
+          <p className="font-bold text-slate-800">Referral Voucher</p>
+          <p className="text-xs text-slate-500">Paste a voucher from Refer & Earn. Discount is validated at checkout.</p>
+        </div>
+      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={(event) => onChange(event.target.value.toUpperCase())}
+        placeholder="CRAV-XXXX-T1-ABC123"
+        className="mt-3 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold uppercase focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+      />
+    </div>
+  </div>
+);
+
 const AddressCard = ({ address, isSelected, onSelect }) => {
   const addressText = [address.line1, address.line2, address.city, address.state, address.postalCode].filter(Boolean).join(", ");
 
@@ -171,7 +193,7 @@ const AddressCard = ({ address, isSelected, onSelect }) => {
   );
 };
 
-const PaymentOption = ({ icon: Icon, title, subtitle, isSelected, onSelect, badge, extra }) => (
+const PaymentOption = ({ icon, title, subtitle, isSelected, onSelect, badge, extra }) => (
   <button
     type="button"
     onClick={onSelect}
@@ -180,7 +202,7 @@ const PaymentOption = ({ icon: Icon, title, subtitle, isSelected, onSelect, badg
     }`}
   >
     <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${isSelected ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"}`}>
-      <Icon className="h-6 w-6" />
+      {React.createElement(icon, { className: "h-6 w-6" })}
     </div>
     <div className="flex-1">
       <div className="flex items-center gap-2">
@@ -196,7 +218,7 @@ const PaymentOption = ({ icon: Icon, title, subtitle, isSelected, onSelect, badg
   </button>
 );
 
-const PricingSummary = ({ cart, itemTotal, deliveryAndTax, packagingFeeBase, razorpayFee, codCharge, discount, finalTotal, distanceKm, deliveryBase, deliveryGst, foodGst, packagingTax, platformFee, platformTax, cgst, sgst }) => {
+const PricingSummary = ({ itemTotal, deliveryAndTax, packagingFeeBase, razorpayFee, codCharge, discount, finalTotal, distanceKm, deliveryBase, deliveryGst, foodGst, packagingTax, platformFee, cgst, sgst }) => {
   const [showTax, setShowTax] = useState(false);
 
   return (
@@ -407,6 +429,7 @@ const CheckoutPage = () => {
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("UPI");
   const [couponDiscount, setCouponDiscount] = useState(0);
+  const [referralVoucherCode, setReferralVoucherCode] = useState("");
   const [distanceKm, setDistanceKm] = useState(3);
   const [restaurantCoords, setRestaurantCoords] = useState(null);
 
@@ -452,7 +475,7 @@ const CheckoutPage = () => {
             setDistanceKm(haversineKm(restCoords.lat, restCoords.lng, defaultAddress.latitude, defaultAddress.longitude));
           }
         }
-      } catch (requestError) {
+      } catch {
         setSavedAddresses([]);
       } finally {
         setIsLoadingAddresses(false);
@@ -624,6 +647,7 @@ const CheckoutPage = () => {
           couponDiscount,
           finalTotal,
         },
+        referralVoucherCode: referralVoucherCode.trim() || null,
       };
 
       if (paymentMethod === "COD") {
@@ -643,7 +667,7 @@ const CheckoutPage = () => {
 
       const razorpay = new RazorpayCheckout({
         key: razorpayConfig.keyId,
-        amount: Math.floor(finalTotal * 100),
+        amount: Math.round(Number(checkoutData.amount) * 100),
         currency: checkoutData.razorpayOrder.currency,
         name: "Dodago",
         description: "Food order payment",
@@ -915,9 +939,13 @@ const CheckoutPage = () => {
                 onRemove={handleRemoveCoupon}
               />
 
+              <ReferralVoucherInput
+                value={referralVoucherCode}
+                onChange={setReferralVoucherCode}
+              />
+
               <div className="mt-6 border-t border-slate-100 pt-4">
                 <PricingSummary
-                  cart={cart}
                   itemTotal={itemTotal}
                   deliveryAndTax={deliveryAndTax}
                   packagingFeeBase={packagingFeeBase}
@@ -931,7 +959,6 @@ const CheckoutPage = () => {
                   foodGst={foodGst}
                   packagingTax={packagingTax}
                   platformFee={PLATFORM_FEE}
-                  platformTax={platformTax}
                   cgst={cgst}
                   sgst={sgst}
                 />
@@ -939,7 +966,6 @@ const CheckoutPage = () => {
 
               <div className="mt-3">
                 <InvoiceDownload
-                  cart={cart}
                   itemTotal={itemTotal}
                   packagingFeeBase={packagingFeeBase}
                   foodGst={foodGst}
