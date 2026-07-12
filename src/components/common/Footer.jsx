@@ -68,7 +68,8 @@ const Footer = () => {
           <div>
             <h2 className="mb-5 font-semibold">Get in touch</h2>
             <div className="space-y-2 text-sm text-slate-600">
-              <p>+91 98765 43210</p>
+              <p>Raushan Pandey: +91 9984185916</p>
+              <p>Yash Chauhan: +91 8527879902</p>
               <p>hello@dodago.shop</p>
             </div>
           </div>

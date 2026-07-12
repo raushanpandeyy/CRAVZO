@@ -56,7 +56,3 @@ export const parathe =
 export const restaurant =
   "https://res.cloudinary.com/dp3l13mm5/image/upload/v1778514673/resturant_mnd3xp.png";
 
-export const VendorImage =
-  "https://res.cloudinary.com/dp3l13mm5/image/upload/v1778515021/VendorImage_vc1qut.png";
-export const Rider =
-  "https://res.cloudinary.com/dp3l13mm5/image/upload/v1778515021/Rider_v3urzm.png";

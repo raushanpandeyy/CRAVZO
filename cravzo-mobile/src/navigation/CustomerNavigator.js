@@ -1,7 +1,7 @@
 import React from "react";
-import { View, Text, TouchableOpacity } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Home, Search, ReceiptText, User } from "lucide-react-native";
 
 import HomeScreen from "../screens/customer/HomeScreen";
@@ -26,6 +26,7 @@ import AddressFormScreen from "../screens/customer/AddressFormScreen";
 import AddressMapPicker from "../components/AddressMapPicker";
 import ChatScreen from "../components/ChatScreen";
 import OrderTrackingScreen from "../screens/customer/OrderTrackingScreen";
+import VerifyOtpScreen from "../screens/customer/VerifyOtpScreen";
 import { colors } from "../constants/colors";
 
 const Tab = createBottomTabNavigator();
@@ -38,45 +39,34 @@ const NAV_ITEMS = [
   { label: "Profile", icon: User, name: "Profile" },
 ];
 
-function BottomTabBar({ state, descriptors, navigation }) {
-  return (
-    <View style={{ paddingBottom: 12, backgroundColor: "transparent" }}>
-      <View style={{ marginHorizontal: 16 }}>
-        <View className="flex-row rounded-3xl border border-indigo-100 bg-white/95 p-1.5 shadow-xl shadow-indigo-900/10">
-          {state.routes.map((route, index) => {
-            const { options } = descriptors[route.key];
-            const isFocused = state.index === index;
-            const navItem = NAV_ITEMS.find((n) => n.name === route.name);
-            const NavIcon = navItem?.icon || Home;
-            const onPress = () => {
-              const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-              if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
-            };
-            return (
-              <TouchableOpacity key={route.key} onPress={onPress} className="flex-1 items-center gap-0.5 rounded-2xl px-1 py-1.5">
-                <View className={`h-8 w-8 items-center justify-center rounded-xl ${isFocused ? "bg-indigo-950 shadow-md shadow-indigo-950/20" : ""}`}>
-                  <NavIcon size={16} color={isFocused ? "#fff" : colors.slate[500]} />
-                </View>
-                <Text className={`text-[10px] font-extrabold ${isFocused ? "text-indigo-950" : "text-slate-500"}`}>
-                  {navItem?.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-    </View>
-  );
-}
-
 function BottomTabs() {
+  const insets = useSafeAreaInsets();
   return (
-    <Tab.Navigator tabBar={(props) => <BottomTabBar {...props} />} screenOptions={{ headerShown: false }}>
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Search" component={RestaurantListScreen} />
-      <Tab.Screen name="Orders" component={OrdersScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
-    </Tab.Navigator>
+    <Tab.Navigator
+      screenOptions={({ route }) => {
+          const navItem = NAV_ITEMS.find((n) => n.name === route.name) || NAV_ITEMS[0];
+          const NavIcon = navItem.icon;
+          return {
+            headerShown: false,
+            tabBarLabel: navItem.label,
+            tabBarActiveTintColor: colors.brand.dark,
+            tabBarInactiveTintColor: colors.slate[500],
+            tabBarStyle: {
+              height: Math.max(insets.bottom + 70, 88),
+              paddingTop: 8,
+              paddingBottom: Math.max(insets.bottom + 12, 28),
+              borderTopWidth: 0,
+              elevation: 12,
+            },
+            tabBarLabelStyle: { fontSize: 10, fontWeight: "800" },
+            tabBarIcon: ({ color }) => <NavIcon size={20} color={color} />,
+          };
+        }}      >
+        <Tab.Screen name="Home" component={HomeScreen} />
+        <Tab.Screen name="Search" component={RestaurantListScreen} />
+        <Tab.Screen name="Orders" component={OrdersScreen} />
+        <Tab.Screen name="Profile" component={ProfileScreen} />
+      </Tab.Navigator>
   );
 }
 
@@ -102,6 +92,7 @@ export default function CustomerNavigator() {
       <Stack.Screen name="CustomerChat" component={ChatScreen} />
       <Stack.Screen name="OrderTracking" component={OrderTrackingScreen} />
       <Stack.Screen name="Referral" component={ReferralScreen} />
+      <Stack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
     </Stack.Navigator>
   );
 }

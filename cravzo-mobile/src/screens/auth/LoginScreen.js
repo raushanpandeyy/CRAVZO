@@ -67,7 +67,7 @@ export default function LoginScreen({ navigation }) {
       const data = await login({ email, password });
       dispatch(setUser(data.user || data));
     } catch (e) {
-      setMessage(e.response?.data?.message || "Login failed. Check your credentials.");
+      setMessage(e.response?.data?.message || e.message || "Login failed. Check your credentials.");
     } finally {
       setIsSubmitting(false);
     }

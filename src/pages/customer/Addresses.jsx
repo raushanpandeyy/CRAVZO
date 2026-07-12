@@ -3,6 +3,7 @@ import { Building, Home, LocateFixed, MapPin, Plus, Save, Trash2 } from "lucide-
 
 import { createAddress, deleteAddress, getAddresses, updateAddress } from "../../services/addressService.js";
 import { getStoredUser } from "../../services/authService.js";
+import GoogleAddressPicker from "../../components/GoogleAddressPicker.jsx";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton.jsx";
 
 const emptyForm = {
@@ -349,6 +350,19 @@ export default function SavedAddresses() {
                 Use Current Location
               </button>
               <div className="grid gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <GoogleAddressPicker
+                    value={{ ...form, latitude: form.lat, longitude: form.lng }}
+                    onChange={(nextAddress) => {
+                      setForm((prev) => ({
+                        ...prev,
+                        ...Object.fromEntries(Object.entries(nextAddress).filter(([, value]) => value !== "" && value !== null && value !== undefined)),
+                        lat: nextAddress.latitude ?? prev.lat,
+                        lng: nextAddress.longitude ?? prev.lng,
+                      }));
+                    }}
+                  />
+                </div>
                 <input
                   value={form.fullName}
                   onChange={(event) => handleFieldChange("fullName", event.target.value)}
@@ -442,3 +456,5 @@ export default function SavedAddresses() {
     </div>
   );
 }
+
+

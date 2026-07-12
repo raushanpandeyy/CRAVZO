@@ -18,6 +18,7 @@ import {
   listRestaurants,
   updateRestaurantStatus,
 } from "../controllers/adminRestaurantController.js";
+import { getAdminPricingSettings, updateAdminPricingSettings } from "../controllers/adminPricingController.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
 
@@ -26,6 +27,8 @@ const adminRouter = Router();
 adminRouter.use(authenticate, authorize("ADMIN"));
 
 adminRouter.get("/overview", asyncHandler(getAdminOverview));
+adminRouter.get("/pricing-settings", asyncHandler(getAdminPricingSettings));
+adminRouter.patch("/pricing-settings", asyncHandler(updateAdminPricingSettings));
 adminRouter.post("/orders/:orderId/refund/initiate", asyncHandler(initiateAdminRefund));
 adminRouter.post("/orders/:orderId/refund/reconcile", asyncHandler(reconcileAdminRefund));
 adminRouter.get("/support/user-search", asyncHandler(searchUserSupportDetails));

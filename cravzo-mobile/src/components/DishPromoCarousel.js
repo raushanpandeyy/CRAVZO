@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
+  StyleSheet,
 } from "react-native";
 import { apiRequest } from "../services/api";
 import OptimizedImage from "./OptimizedImage";
@@ -141,19 +142,19 @@ const DishPromoCarousel = ({ promotions: propPromotions, navigation }) => {
               style={{ width: SCREEN_WIDTH, height: 240 }}
               resizeMode="cover"
             />
-            <View className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-            {slide.title && (
+            <View style={styles.slideOverlay} />
+            {slide.title ? (
               <Text className="absolute bottom-3 left-3 text-sm font-black text-white">
                 {slide.title}
               </Text>
-            )}
-            {slide.subtitle && (
+            ) : null}
+            {slide.subtitle ? (
               <View className="absolute bottom-3 right-3 rounded-full bg-indigo-600 px-3 py-1 shadow">
                 <Text className="text-[11px] font-extrabold text-white">
                   {slide.subtitle}
                 </Text>
               </View>
-            )}
+            ) : null}
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -177,3 +178,10 @@ const DishPromoCarousel = ({ promotions: propPromotions, navigation }) => {
 };
 
 export default React.memo(DishPromoCarousel);
+
+const styles = StyleSheet.create({
+  slideOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.24)",
+  },
+});

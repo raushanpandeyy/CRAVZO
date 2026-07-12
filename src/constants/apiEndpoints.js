@@ -69,6 +69,7 @@ export const API_ENDPOINTS = {
 
   admin: {
     overview: (params) => withQuery(`${BASE}/admin/overview`, params),
+    pricingSettings: `${BASE}/admin/pricing-settings`,
     supportUserSearch: (query) =>
       `${BASE}/admin/support/user-search?query=${encodeURIComponent(query)}`,
     users: (params) => withQuery(`${BASE}/admin/users`, params),

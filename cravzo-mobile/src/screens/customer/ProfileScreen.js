@@ -1,3 +1,4 @@
+import { selectUserState, selectCurrentUser, selectIsLoggedIn } from "../../store/selectors";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
@@ -60,7 +61,7 @@ const infoItems = [
 
 export default function ProfileScreen({ navigation }) {
   const dispatch = useDispatch();
-  const { isLoggedIn, data: userData } = useSelector((state) => state.user);
+  const { isLoggedIn, data: userData } = useSelector(selectUserState);
 
   const [profile, setProfile] = useState(null);
   const [form, setForm] = useState({
@@ -69,7 +70,7 @@ export default function ProfileScreen({ navigation }) {
     phone: userData?.phone || "",
     avatarUrl: userData?.avatarUrl || "",
   });
-  const [loading, setLoading] = useState(!userData);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [message, setMessage] = useState("");
@@ -85,14 +86,15 @@ export default function ProfileScreen({ navigation }) {
     setError("");
     try {
       const user = await getProfile();
-      setProfile(user);
-      setForm({
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phone || "",
-        avatarUrl: user.avatarUrl || "",
-      });
-      dispatch(setUser(normalizeUser(user)));
+      const normalized = normalizeUser(user);
+      setProfile(normalized);
+      setForm((prev) => ({
+        name: normalized.name || prev.name || "",
+        email: normalized.email || prev.email || "",
+        phone: normalized.phone || prev.phone || "",
+        avatarUrl: normalized.avatarUrl || prev.avatarUrl || "",
+      }));
+      dispatch(setUser(normalized));
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Failed to load profile");
     } finally {
@@ -103,6 +105,17 @@ export default function ProfileScreen({ navigation }) {
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+  useEffect(() => {
+    if (!userData) return;
+    const normalized = normalizeUser(userData);
+    setProfile((prev) => prev || normalized);
+    setForm((prev) => ({
+      name: prev.name || normalized.name || "",
+      email: prev.email || normalized.email || "",
+      phone: prev.phone || normalized.phone || "",
+      avatarUrl: prev.avatarUrl || normalized.avatarUrl || "",
+    }));
+  }, [userData]);
 
   const handleFieldChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -523,5 +536,3 @@ export default function ProfileScreen({ navigation }) {
     </ScrollView>
   );
 }
-
-

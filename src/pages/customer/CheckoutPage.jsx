@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Plus, CreditCard, Check, X, Tag, ChevronDown, ChevronUp, Trash2, Receipt } from "lucide-react";
+import { MapPin, Plus, CreditCard, Check, X, Tag, ChevronDown, ChevronUp, Trash2, Receipt, MessageSquare, Bike, Gift } from "lucide-react";
 
 import { createAddress as saveAddress, getAddresses } from "../../services/addressService.js";
 import { getProfile } from "../../services/userService.js";
 import { getRestaurantById } from "../../services/foodService.js";
+import { getOrderQuote } from "../../services/orderService.js";
+import GoogleAddressPicker from "../../components/GoogleAddressPicker.jsx";
 import { Skeleton } from "../../components/Skeleton.jsx";
 import {
   createCODOrder,
@@ -22,9 +24,16 @@ const RAZORPAY_PERCENT = 0.02;
 const COD_CHARGE = 5;
 const DELIVERY_SLABS = [
   { maxKm: 1, fee: 17 },
-  { maxKm: 2, fee: 23 },
-  { maxKm: 3, fee: 30 },
-  { maxKm: 4, fee: 35 },
+  { maxKm: 2, fee: 25 },
+  { maxKm: 3, fee: 33 },
+  { maxKm: 4, fee: 40 },
+];
+const TIP_OPTIONS = [0, 10, 20, 30, 50];
+const DELIVERY_INSTRUCTION_OPTIONS = [
+  "Do not ring the bell",
+  "Call me when nearby",
+  "Leave at the door",
+  "Dogs in house",
 ];
 
 const emptyAddress = {
@@ -41,13 +50,23 @@ const emptyAddress = {
 
 const formatCurrency = (amount) => `₹${Math.floor(amount)}`;
 
+const roundUpToHundredMeters = (distanceKm) => Math.max(0.1, Math.ceil(Number(distanceKm || 1) * 10) / 10);
+
 const calculateDeliveryBase = (distanceKm) => {
-  const distance = distanceKm || 1;
-  for (const slab of DELIVERY_SLABS) {
-    if (distance <= slab.maxKm) return slab.fee;
+  const distance = roundUpToHundredMeters(distanceKm);
+  if (distance <= 1) return 17;
+
+  for (let index = 1; index < DELIVERY_SLABS.length; index += 1) {
+    const previous = DELIVERY_SLABS[index - 1];
+    const next = DELIVERY_SLABS[index];
+    if (distance <= next.maxKm) {
+      const progress = (distance - previous.maxKm) / (next.maxKm - previous.maxKm);
+      return Number((previous.fee + progress * (next.fee - previous.fee)).toFixed(2));
+    }
   }
+
   const lastSlab = DELIVERY_SLABS[DELIVERY_SLABS.length - 1];
-  return lastSlab.fee + Math.ceil(distance - lastSlab.maxKm) * 10;
+  return Number((lastSlab.fee + (distance - lastSlab.maxKm) * 10).toFixed(2));
 };
 
 const haversineKm = (lat1, lng1, lat2, lng2) => {
@@ -218,7 +237,7 @@ const PaymentOption = ({ icon, title, subtitle, isSelected, onSelect, badge, ext
   </button>
 );
 
-const PricingSummary = ({ itemTotal, deliveryAndTax, packagingFeeBase, razorpayFee, codCharge, discount, finalTotal, distanceKm, deliveryBase, deliveryGst, foodGst, packagingTax, platformFee, cgst, sgst }) => {
+const PricingSummary = ({ itemTotal, deliveryAndTax, packagingFeeBase, razorpayFee, codCharge, discount, finalTotal, distanceKm, deliveryBase, deliveryGst, rainCharge = 0, foodGst, packagingTax, platformFee, cgst, sgst, tipAmount = 0, isQuoteLoading = false, quoteError = "" }) => {
   const [showTax, setShowTax] = useState(false);
 
   return (
@@ -253,6 +272,12 @@ const PricingSummary = ({ itemTotal, deliveryAndTax, packagingFeeBase, razorpayF
               <span>Delivery ({distanceKm.toFixed(1)} km)</span>
               <span>{formatCurrency(deliveryBase)}</span>
             </div>
+            {rainCharge > 0 && (
+              <div className="flex justify-between text-blue-600">
+                <span>Rain charge</span>
+                <span>{formatCurrency(rainCharge)}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span>Food GST (5%)</span>
               <span>{formatCurrency(foodGst + packagingTax)}</span>
@@ -276,6 +301,16 @@ const PricingSummary = ({ itemTotal, deliveryAndTax, packagingFeeBase, razorpayF
           </div>
         )}
       </div>
+
+      {tipAmount > 0 && (
+        <div className="flex justify-between text-sm text-indigo-700">
+          <span>Rider Tip</span>
+          <span className="font-medium">{formatCurrency(tipAmount)}</span>
+        </div>
+      )}
+
+      {isQuoteLoading && <p className="text-xs font-medium text-indigo-500">Refreshing delivery charges...</p>}
+      {quoteError && <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">{quoteError}</p>}
 
       {razorpayFee > 0 && (
         <div className="flex justify-between text-sm">
@@ -432,6 +467,14 @@ const CheckoutPage = () => {
   const [referralVoucherCode, setReferralVoucherCode] = useState("");
   const [distanceKm, setDistanceKm] = useState(3);
   const [restaurantCoords, setRestaurantCoords] = useState(null);
+  const [restaurantInstructions, setRestaurantInstructions] = useState("");
+  const [deliveryOptions, setDeliveryOptions] = useState([]);
+  const [customDeliveryInstruction, setCustomDeliveryInstruction] = useState("");
+  const [tipAmount, setTipAmount] = useState(0);
+  const [appliedCouponCode, setAppliedCouponCode] = useState("");
+  const [orderQuote, setOrderQuote] = useState(null);
+  const [isQuoteLoading, setIsQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
 
   useEffect(() => {
     const hydrateCheckout = async () => {
@@ -524,23 +567,43 @@ const CheckoutPage = () => {
     setAddress((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleApplyCoupon = async (code) => {
-    const validCoupons = {
-      DODAGO10: 10,
-      SAVE20: 20,
-      FIRST50: 50,
-    };
+  const deliveryInstructionText = useMemo(
+    () => [...deliveryOptions, customDeliveryInstruction.trim()].filter(Boolean).join("; "),
+    [deliveryOptions, customDeliveryInstruction]
+  );
 
-    if (validCoupons[code]) {
-      setCouponDiscount(validCoupons[code]);
-      setMessage("Coupon applied!");
-      setTimeout(() => setMessage(""), 3000);
-    } else {
-      throw new Error("Invalid coupon code");
-    }
+  const buildOrderPayload = ({ addressIdOverride = selectedAddressId || null, couponCodeOverride = appliedCouponCode } = {}) => ({
+    restaurantId: cart[0]?.restaurantId,
+    items: cart.map((item) => ({
+      menuItemId: item.id,
+      quantity: item.quantity,
+      size: item.size || null,
+      notes: item.notes || null,
+      selectedSideDishes: item.selectedSideDishes && item.selectedSideDishes.length > 0 ? item.selectedSideDishes : undefined,
+    })),
+    addressId: addressIdOverride,
+    address: addressIdOverride ? null : address,
+    paymentMethod,
+    restaurantInstructions: restaurantInstructions.trim() || null,
+    deliveryInstructions: deliveryInstructionText || null,
+    tipAmount,
+    couponCode: couponCodeOverride?.trim() || null,
+    referralVoucherCode: referralVoucherCode.trim() || null,
+  });
+  const handleApplyCoupon = async (code) => {
+    const normalizedCode = code.trim().toUpperCase();
+    if (!normalizedCode) return;
+    const quote = await getOrderQuote(buildOrderPayload({ couponCodeOverride: normalizedCode }));
+    setAppliedCouponCode(normalizedCode);
+    setOrderQuote(quote);
+    setCouponDiscount(Number(quote.discount || 0));
+    setQuoteError("");
+    setMessage("Coupon applied!");
+    setTimeout(() => setMessage(""), 3000);
   };
 
   const handleRemoveCoupon = () => {
+    setAppliedCouponCode("");
     setCouponDiscount(0);
   };
 
@@ -550,7 +613,7 @@ const CheckoutPage = () => {
     return acc + baseTotal + sideTotal;
   }, 0), [cart]);
 
-  const { deliveryBase, deliveryGst, deliveryTotal, packagingFeeBase, foodGst, packagingTax, platformFeeBase, platformTax, deliveryAndTax, totalTax, grandTotal, cgst, sgst } = useMemo(() => {
+  const localPricing = useMemo(() => {
     const dBase = calculateDeliveryBase(distanceKm);
     const dGst = dBase * DELIVERY_GST_RATE;
     const dTotal = dBase + dGst;
@@ -566,6 +629,7 @@ const CheckoutPage = () => {
     return {
       deliveryBase: dBase,
       deliveryGst: dGst,
+      rainCharge: 0,
       deliveryTotal: dTotal,
       packagingFeeBase: pkgBase,
       foodGst: fGst,
@@ -580,21 +644,78 @@ const CheckoutPage = () => {
     };
   }, [itemTotal, distanceKm]);
 
-  const subtotalBeforeFees = useMemo(() => grandTotal - couponDiscount, [grandTotal, couponDiscount]);
+  const pricing = useMemo(() => {
+    if (!orderQuote) return localPricing;
+
+    const totalTaxValue = Number(orderQuote.totalTax || 0);
+    return {
+      deliveryBase: Number(orderQuote.deliveryFeeBase || 0),
+      deliveryGst: Number(orderQuote.deliveryTax || 0),
+      rainCharge: Number(orderQuote.rainCharge || 0),
+      deliveryTotal: Number(orderQuote.deliveryFee || 0),
+      packagingFeeBase: Number(orderQuote.packagingFeeBase || 0),
+      foodGst: Math.max(0, Number(orderQuote.totalTax || 0) - Number(orderQuote.deliveryTax || 0) - Number(orderQuote.packagingTax || 0) - Number(orderQuote.platformTax || 0)),
+      packagingTax: Number(orderQuote.packagingTax || 0),
+      platformFeeBase: Number(orderQuote.platformFeeBase || 0),
+      platformTax: Number(orderQuote.platformTax || 0),
+      deliveryAndTax: Number(orderQuote.deliveryFee || 0) + totalTaxValue - Number(orderQuote.deliveryTax || 0) + Number(orderQuote.platformFee || 0),
+      totalTax: totalTaxValue,
+      grandTotal: Number(orderQuote.totalAmount || 0) - Number(orderQuote.gatewayFee || 0) - Number(orderQuote.codCharge || 0),
+      cgst: totalTaxValue / 2,
+      sgst: totalTaxValue / 2,
+    };
+  }, [localPricing, orderQuote]);
+
+  const { deliveryBase, deliveryGst, deliveryTotal, rainCharge, packagingFeeBase, foodGst, packagingTax, platformFeeBase, platformTax, deliveryAndTax, totalTax, grandTotal, cgst, sgst } = pricing;
+
+  const subtotalBeforeFees = useMemo(() => Math.max(0, grandTotal - couponDiscount + tipAmount), [grandTotal, couponDiscount, tipAmount]);
 
   const razorpayFee = useMemo(() => {
+    if (orderQuote) return Number(orderQuote.gatewayFee || 0);
     if (paymentMethod !== "UPI") return 0;
     return Math.floor(subtotalBeforeFees * RAZORPAY_PERCENT);
-  }, [subtotalBeforeFees, paymentMethod]);
+  }, [orderQuote, subtotalBeforeFees, paymentMethod]);
 
   const codCharge = useMemo(() => {
+    if (orderQuote) return Number(orderQuote.codCharge || 0);
     if (paymentMethod !== "COD") return 0;
     return COD_CHARGE;
-  }, [paymentMethod]);
+  }, [orderQuote, paymentMethod]);
 
-  const finalTotal = useMemo(() => subtotalBeforeFees + razorpayFee + codCharge, [subtotalBeforeFees, razorpayFee, codCharge]);
+  const finalTotal = useMemo(() => (
+    orderQuote ? Number(orderQuote.totalAmount || 0) : subtotalBeforeFees + razorpayFee + codCharge
+  ), [orderQuote, subtotalBeforeFees, razorpayFee, codCharge]);
 
   const preferredUpiId = profile?.paymentMethods?.upiIds?.[0] || "";
+
+  useEffect(() => {
+    const hasCompleteManualAddress = address.fullName && address.phone && address.line1 && address.city && address.state && address.postalCode;
+    const canQuote = cart.length > 0 && cart[0]?.restaurantId && (selectedAddressId || hasCompleteManualAddress);
+
+    if (!canQuote) {
+      setOrderQuote(null);
+      setQuoteError("");
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      setIsQuoteLoading(true);
+      try {
+        const quote = await getOrderQuote(buildOrderPayload());
+        setOrderQuote(quote);
+        setCouponDiscount(Number(quote.discount || 0));
+        if (quote.deliveryDistance) setDistanceKm(Number(quote.deliveryDistance));
+        setQuoteError("");
+      } catch (requestError) {
+        setOrderQuote(null);
+        setQuoteError(requestError.message || "Could not refresh delivery charges");
+      } finally {
+        setIsQuoteLoading(false);
+      }
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [cart, selectedAddressId, address, paymentMethod, appliedCouponCode, referralVoucherCode, deliveryInstructionText, restaurantInstructions, tipAmount]);
 
   const ensureAddressSavedIfNeeded = async () => {
     if (selectedAddressId) return selectedAddressId;
@@ -626,17 +747,7 @@ const CheckoutPage = () => {
     try {
       const resolvedAddressId = await ensureAddressSavedIfNeeded();
       const orderPayload = {
-        restaurantId: cart[0]?.restaurantId,
-        items: cart.map((item) => ({
-          menuItemId: item.id,
-          quantity: item.quantity,
-          size: item.size || null,
-          notes: item.notes || null,
-          selectedSideDishes: item.selectedSideDishes && item.selectedSideDishes.length > 0 ? item.selectedSideDishes : undefined,
-        })),
-        addressId: resolvedAddressId,
-        address,
-        paymentMethod,
+        ...buildOrderPayload({ addressIdOverride: resolvedAddressId }),
         pricing: {
           itemTotal,
           deliveryFee: deliveryTotal,
@@ -647,7 +758,6 @@ const CheckoutPage = () => {
           couponDiscount,
           finalTotal,
         },
-        referralVoucherCode: referralVoucherCode.trim() || null,
       };
 
       if (paymentMethod === "COD") {
@@ -800,6 +910,17 @@ const CheckoutPage = () => {
               ) : null}
 
               {(showNewAddressForm || savedAddresses.length === 0) && (
+                <>
+                  <GoogleAddressPicker
+                    value={address}
+                    onChange={(nextAddress) => {
+                      setSelectedAddressId("");
+                      setAddress((prev) => ({
+                        ...prev,
+                        ...Object.fromEntries(Object.entries(nextAddress).filter(([, value]) => value !== "" && value !== null && value !== undefined)),
+                      }));
+                    }}
+                  />
                 <div className="mt-4 space-y-4 rounded-2xl border-2 border-slate-200 p-4">
                   <input
                     required
@@ -879,7 +1000,78 @@ const CheckoutPage = () => {
                     Save this address for future orders
                   </label>
                 </div>
+                </>
               )}
+            </div>
+
+            <div className="rounded-3xl bg-white p-6 shadow-sm">
+              <h2 className="mb-4 flex items-center gap-3 text-lg font-bold text-slate-900">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+                  <MessageSquare className="h-4 w-4" />
+                </div>
+                Instructions for restaurant
+              </h2>
+              <textarea
+                value={restaurantInstructions}
+                onChange={(e) => setRestaurantInstructions(e.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="Example: Less spicy, no onion, pack sauce separately"
+                className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+
+            <div className="rounded-3xl bg-white p-6 shadow-sm">
+              <h2 className="mb-4 flex items-center gap-3 text-lg font-bold text-slate-900">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                  <Bike className="h-4 w-4" />
+                </div>
+                Delivery instructions for rider
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {DELIVERY_INSTRUCTION_OPTIONS.map((option) => {
+                  const selected = deliveryOptions.includes(option);
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setDeliveryOptions((current) => selected ? current.filter((item) => item !== option) : [...current, option])}
+                      className={`rounded-full border px-3 py-2 text-xs font-bold transition ${selected ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300"}`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+              <textarea
+                value={customDeliveryInstruction}
+                onChange={(e) => setCustomDeliveryInstruction(e.target.value)}
+                maxLength={500}
+                rows={3}
+                placeholder="Other instruction or landmark for rider"
+                className="mt-3 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+
+            <div className="rounded-3xl bg-white p-6 shadow-sm">
+              <h2 className="mb-4 flex items-center gap-3 text-lg font-bold text-slate-900">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600">
+                  <Gift className="h-4 w-4" />
+                </div>
+                Tip your rider
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {TIP_OPTIONS.map((amount) => (
+                  <button
+                    key={amount}
+                    type="button"
+                    onClick={() => setTipAmount(amount)}
+                    className={`min-w-16 rounded-xl border px-4 py-3 text-sm font-black transition ${tipAmount === amount ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-200 bg-white text-slate-700 hover:border-indigo-300"}`}
+                  >
+                    {amount === 0 ? "No tip" : formatCurrency(amount)}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="rounded-3xl bg-white p-6 shadow-sm">
@@ -956,6 +1148,7 @@ const CheckoutPage = () => {
                   distanceKm={distanceKm}
                   deliveryBase={deliveryBase}
                   deliveryGst={deliveryGst}
+                  rainCharge={rainCharge}
                   foodGst={foodGst}
                   packagingTax={packagingTax}
                   platformFee={PLATFORM_FEE}

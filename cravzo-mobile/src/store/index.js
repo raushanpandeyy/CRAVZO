@@ -6,7 +6,6 @@ import { createMMKV } from "react-native-mmkv";
 import userReducer from "./slices/userSlice";
 import cartReducer from "./slices/cartSlice";
 import foodReducer from "./slices/foodSlice";
-import vendorReducer from "./slices/vendorSlice";
 
 const isWeb = Platform.OS === "web";
 
@@ -39,7 +38,6 @@ const rootReducer = combineReducers({
   user: userReducer,
   cart: cartReducer,
   food: foodReducer,
-  vendor: vendorReducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

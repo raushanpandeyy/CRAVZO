@@ -7,6 +7,12 @@ import { createAddressSchema, updateAddressSchema } from "../validators/addressV
 const buildFullAddress = ({ line1, line2, city, state, postalCode }) =>
   [line1, line2, city, state, postalCode, "India"].filter(Boolean).join(", ");
 
+const getPayloadCoords = (payload) => {
+  const lat = payload.latitude ?? payload.lat;
+  const lng = payload.longitude ?? payload.lng;
+  return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+};
+
 const serializeAddress = (address) => ({
   id: address.id,
   label: address.label,
@@ -58,7 +64,8 @@ const createAddress = async (req, res) => {
     state: payload.state.trim(),
     postalCode: payload.postalCode.trim(),
   });
-  const coords = await getLatLngFromAddress(fullAddress);
+  const payloadCoords = getPayloadCoords(payload);
+  const coords = payloadCoords || await getLatLngFromAddress(fullAddress);
   const lat = coords.lat;
   const lng = coords.lng;
 
@@ -131,9 +138,10 @@ const updateAddress = async (req, res) => {
     nextAddressFields.state !== existingAddress.state ||
     nextAddressFields.postalCode !== existingAddress.postalCode;
 
-  const coords = addressChanged
+  const payloadCoords = getPayloadCoords(payload);
+  const coords = payloadCoords || (addressChanged
     ? await getLatLngFromAddress(buildFullAddress(nextAddressFields))
-    : { lat: existingAddress.latitude, lng: existingAddress.longitude };
+    : { lat: existingAddress.latitude, lng: existingAddress.longitude });
 
   const address = await prisma.$transaction(async (tx) => {
     const shouldBeDefault = payload.isDefault === true;
@@ -159,7 +167,7 @@ const updateAddress = async (req, res) => {
         ...(payload.city !== undefined ? { city: payload.city.trim() } : {}),
         ...(payload.state !== undefined ? { state: payload.state.trim() } : {}),
         ...(payload.postalCode !== undefined ? { postalCode: payload.postalCode.trim() } : {}),
-        ...(addressChanged ? { latitude: coords.lat, longitude: coords.lng } : {}),
+        ...(addressChanged || payloadCoords ? { latitude: coords.lat, longitude: coords.lng } : {}),
         ...(payload.isDefault !== undefined ? { isDefault: payload.isDefault } : {}),
       },
     });
@@ -214,3 +222,4 @@ const deleteAddress = async (req, res) => {
 };
 
 export { createAddress, deleteAddress, listAddresses, updateAddress };
+

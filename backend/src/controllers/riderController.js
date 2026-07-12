@@ -2,6 +2,7 @@ import { prisma } from "../config/database.js";
 import { connectRedis } from "../config/redis.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
+import { emitRiderLocationUpdate } from "../services/orderSocketService.js";
 
 const RIDER_GEO_KEY = "rider:geo";
 
@@ -58,13 +59,25 @@ export const updateRiderLocation = async (req, res) => {
     throw new ApiError(400, "latitude and longitude are required");
   }
 
-  const [rider] = await Promise.all([
+  const [rider, activeOrder] = await Promise.all([
     prisma.user.update({
       where: { id: req.user.sub },
       data: { latitude, longitude },
     }),
+    prisma.order.findFirst({
+      where: {
+        riderId: req.user.sub,
+        status: { in: ["READY_FOR_PICKUP", "OUT_FOR_DELIVERY"] },
+      },
+      include: { restaurant: { select: { vendorId: true } } },
+      orderBy: { updatedAt: "desc" },
+    }),
     updateRiderGeo(req.user.sub, latitude, longitude),
   ]);
+
+  if (activeOrder) {
+    emitRiderLocationUpdate(activeOrder, { latitude, longitude });
+  }
 
   res.status(200).json(
     apiResponse({

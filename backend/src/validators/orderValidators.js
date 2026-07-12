@@ -11,6 +11,8 @@ const orderAddressSchema = z.object({
   city: z.string().trim().min(2).max(80),
   state: z.string().trim().min(2).max(80),
   postalCode: z.string().trim().min(4).max(12),
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
 });
 
 const sideDishSelectionSchema = z.object({
@@ -53,6 +55,7 @@ const orderPayloadSchema = z.object({
 });
 
 const createOrderSchema = requireDeliveryAddress(orderPayloadSchema);
+const quoteOrderSchema = requireDeliveryAddress(orderPayloadSchema);
 
 const createCheckoutOrderSchema = requireDeliveryAddress(
   orderPayloadSchema.extend({
@@ -70,4 +73,5 @@ const verifyPaymentOrderSchema = requireDeliveryAddress(
     }),
 );
 
-export { createCheckoutOrderSchema, createOrderSchema, verifyPaymentOrderSchema };
+export { createCheckoutOrderSchema, createOrderSchema, quoteOrderSchema, verifyPaymentOrderSchema };
+

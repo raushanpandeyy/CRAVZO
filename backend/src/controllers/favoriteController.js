@@ -3,23 +3,28 @@ import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { createFavoriteSchema } from "../validators/favoriteValidators.js";
 
-const serializeFavorite = (favorite) => ({
-  id: favorite.id,
-  restaurantId: favorite.restaurant.id,
-  createdAt: favorite.createdAt,
-  restaurant: {
-    id: favorite.restaurant.id,
-    name: favorite.restaurant.name,
-    slug: favorite.restaurant.slug,
-    description: favorite.restaurant.description,
-    cuisine: favorite.restaurant.cuisine,
-    location: [favorite.restaurant.addressLine1, favorite.restaurant.city].filter(Boolean).join(", "),
-    city: favorite.restaurant.city,
-    imageUrl: favorite.restaurant.imageUrl,
-    isOpen: favorite.restaurant.isOpen,
-    status: favorite.restaurant.status,
-  },
-});
+const serializeFavorite = (favorite) => {
+  const restaurant = favorite.restaurant;
+  return {
+    id: favorite.id,
+    restaurantId: favorite.restaurantId || restaurant?.id || null,
+    createdAt: favorite.createdAt,
+    restaurant: restaurant
+      ? {
+          id: restaurant.id,
+          name: restaurant.name,
+          slug: restaurant.slug,
+          description: restaurant.description,
+          cuisine: restaurant.cuisine,
+          location: [restaurant.addressLine1, restaurant.city].filter(Boolean).join(", "),
+          city: restaurant.city,
+          imageUrl: restaurant.imageUrl,
+          isOpen: restaurant.isOpen,
+          status: restaurant.status,
+        }
+      : null,
+  };
+};
 
 const listFavorites = async (req, res) => {
   const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
@@ -138,8 +143,8 @@ const deleteFavorite = async (req, res) => {
   );
 };
 
-// Fix 4: Lightweight check — returns single boolean instead of entire favorites list
-// GET /api/favorites/check?restaurantId=xxx&menuItemId=xxx → { isFavorite: true/false }
+// Lightweight check: returns single boolean instead of entire favorites list
+// GET /api/favorites/check?restaurantId=xxx&menuItemId=xxx -> { isFavorite: true/false }
 const checkFavorite = async (req, res) => {
   const { restaurantId, menuItemId } = req.query;
   if (!restaurantId) {

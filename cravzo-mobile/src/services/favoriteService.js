@@ -1,9 +1,42 @@
 import { apiRequest } from "./api";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
 
+const unwrapList = (response, keys = []) => {
+  const payload = response?.data ?? response;
+  if (Array.isArray(payload)) return payload;
+  for (const key of keys) {
+    const value = payload?.[key] ?? payload?.data?.[key];
+    if (Array.isArray(value)) return value;
+  }
+  return [];
+};
+
+const normalizeRestaurant = (restaurant = {}) => ({
+  ...restaurant,
+  id: restaurant.id || restaurant._id || restaurant.restaurantId,
+  imageUrl: restaurant.imageUrl || restaurant.image || restaurant.logoUrl,
+  location: restaurant.location || restaurant.address || restaurant.city || "",
+  cuisine: Array.isArray(restaurant.cuisine) ? restaurant.cuisine.join(", ") : restaurant.cuisine,
+});
+
+const normalizeFavorite = (fav = {}) => {
+  const restaurant = normalizeRestaurant(fav.restaurant || fav);
+  return {
+    ...fav,
+    id: fav.id || fav._id || fav.restaurantId || restaurant.id,
+    restaurantId: fav.restaurantId || restaurant.id,
+    restaurant,
+  };
+};
+
 export const getFavorites = async () => {
-  const response = await apiRequest(API_ENDPOINTS.favorites.list);
-  return response.data || [];
+  try {
+    const response = await apiRequest(API_ENDPOINTS.favorites.list);
+    return unwrapList(response, ["favorites", "items", "results"]).map(normalizeFavorite);
+  } catch (error) {
+    if (error.response?.status >= 500) return [];
+    throw error;
+  }
 };
 
 export const addFavorite = async (restaurantId) => {
@@ -11,7 +44,7 @@ export const addFavorite = async (restaurantId) => {
     method: "POST",
     data: { restaurantId },
   });
-  return response.data;
+  return response.data || response;
 };
 
 export const removeFavorite = async (id) => {
@@ -21,7 +54,8 @@ export const removeFavorite = async (id) => {
 export const isFavorite = async (restaurantId) => {
   try {
     const response = await apiRequest(API_ENDPOINTS.favorites.check(restaurantId));
-    return !!response.data?.isFavorite;
+    const payload = response.data || response;
+    return !!payload?.isFavorite;
   } catch {
     return false;
   }
@@ -30,7 +64,8 @@ export const isFavorite = async (restaurantId) => {
 export const checkIsFavorite = async (restaurantId) => {
   try {
     const response = await apiRequest(API_ENDPOINTS.favorites.check(restaurantId));
-    return response.data || { isFavorite: false, id: null };
+    const payload = response.data || response;
+    return { isFavorite: !!payload?.isFavorite, id: payload?.id || null };
   } catch {
     return { isFavorite: false, id: null };
   }

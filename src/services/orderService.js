@@ -10,6 +10,27 @@ const createOrder = async (payload) => {
   return response.data;
 };
 
+const getOrderQuote = async (payload) => {
+  const response = await apiRequest("/api/v1/orders/quote", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    skipCache: true,
+  });
+
+  return response.data;
+};
+const getOrderTracking = async (orderId) => {
+  const response = await apiRequest(`/api/v1/orders/${orderId}/tracking`, { skipCache: true });
+  return response.data;
+};
+
+const requestDeliveryOtp = async (orderId) => {
+  const response = await apiRequest(`/api/v1/orders/${orderId}/delivery-otp`, {
+    method: "POST",
+    skipCache: true,
+  });
+  return response.data;
+};
 // Fix 13: Support cursor-based pagination. Backend already sends meta.nextCursor
 // but getMyOrders was ignoring it and always fetching page 1.
 // Now returns { orders, nextCursor, hasMore } so Orders.jsx can load more.
@@ -46,6 +67,16 @@ const getRiderOrders = async () => {
   return response.data || [];
 };
 
+const verifyDeliveryOtp = async (orderId, otp) => {
+  const response = await apiRequest(`/api/v1/orders/${orderId}/verify-delivery-otp`, {
+    method: "POST",
+    body: JSON.stringify({ otp }),
+    skipCache: true,
+  });
+  invalidateCache("/api/orders");
+  return response.data;
+};
+
 const updateOrderStatus = async (orderId, status) => {
   const response = await apiRequest(`/api/orders/${orderId}/status`, {
     method: "PATCH",
@@ -58,4 +89,4 @@ const updateOrderStatus = async (orderId, status) => {
 
 const cancelOrder = async (orderId) => updateOrderStatus(orderId, "CANCELLED");
 
-export { cancelOrder, createOrder, getMyOrders, getRiderOrders, getVendorOrders, updateOrderStatus };
+export { cancelOrder, createOrder, getMyOrders, getOrderQuote, getOrderTracking, getRiderOrders, getVendorOrders, requestDeliveryOtp, updateOrderStatus, verifyDeliveryOtp };

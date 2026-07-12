@@ -157,6 +157,22 @@ const onNewOrder = (handler) => {
   };
 };
 
+
+const onRiderLocationUpdate = (handler) => {
+  let pending = true;
+  let off = null;
+
+  getChatSocket().then((s) => {
+    if (!pending) return;
+    s.on("order:rider-location", handler);
+    off = () => s.off("order:rider-location", handler);
+  }).catch(() => {});
+
+  return () => {
+    pending = false;
+    off?.();
+  };
+};
 const disconnectSocket = () => {
   if (socket?.connected) {
     socket.disconnect();
@@ -173,6 +189,7 @@ export {
   onChatNotification,
   onNewOrder,
   onOrderStatusUpdate,
+  onRiderLocationUpdate,
   onSocketMessage,
   sendSocketMessage,
   disconnectSocket,

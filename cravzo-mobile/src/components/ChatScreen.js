@@ -1,3 +1,4 @@
+import { selectUserState, selectCurrentUser, selectIsLoggedIn } from "../store/selectors";
 import React, { useState, useEffect, useRef } from "react";
 import {
   View, Text, TextInput, TouchableOpacity, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image,
@@ -10,7 +11,7 @@ import { apiRequest } from "../services/api";
 import { useSelector } from "react-redux";
 
 export default function ChatScreen({ navigation, route }) {
-  const { data: user } = useSelector((state) => state.user);
+  const { data: user } = useSelector(selectUserState);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -28,14 +29,7 @@ export default function ChatScreen({ navigation, route }) {
 
     const init = async () => {
       try {
-        let roomEndpoint;
-        if (orderId) {
-          roomEndpoint = user?.accountType === "vendor"
-            ? `/api/chats/orders/${orderId}/vendor`
-            : `/api/chats/orders/${orderId}`;
-        } else {
-          roomEndpoint = "/api/chats/support";
-        }
+        const roomEndpoint = orderId ? `/api/chats/orders/${orderId}` : "/api/chats/support";
 
         const res = await apiRequest(roomEndpoint);
         const room = res.data || res;
@@ -77,7 +71,7 @@ export default function ChatScreen({ navigation, route }) {
       cleanupMsg();
       disconnectSocket();
     };
-  }, [orderId, user?.accountType]);
+  }, [orderId]);
 
   // Join room once roomId is available
   useEffect(() => {

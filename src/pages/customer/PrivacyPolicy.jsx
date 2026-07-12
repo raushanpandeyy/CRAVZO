@@ -49,7 +49,7 @@ const PrivacyPolicy = () => {
     {
       icon: Mail,
       title: "Grievance Contact",
-      content: "For privacy requests, account deletion help, or grievances, email yushpandey3@gmail.com or call +91 9984185916. We aim to respond within 30 days. This policy is intended to align with India's Digital Personal Data Protection Act, 2023 and related rules as applicable.",
+      content: "For privacy requests, account deletion help, or grievances, email yushpandey3@gmail.com or call Raushan Pandey at +91 9984185916 or Yash Chauhan at +91 8527879902. We aim to respond within 30 days. This policy is intended to align with India's Digital Personal Data Protection Act, 2023 and related rules as applicable.",
     },
   ];
 

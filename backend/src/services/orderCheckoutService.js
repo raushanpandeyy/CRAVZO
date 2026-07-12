@@ -2,11 +2,13 @@ import { prisma } from "../config/database.js";
 import { env } from "../config/env.js";
 import { ApiError } from "../utils/apiError.js";
 import { getLatLngFromAddress } from "../utils/geocode.js";
+import { getGoogleRouteDistanceKm } from "../utils/googleMaps.js";
 import {
   markReferredQualifiedAndIssueMilestones,
   previewVoucher,
   redeemVoucherInTx,
 } from "./referralService.js";
+import { getPricingSettings } from "./pricingSettingsService.js";
 
 const DELIVERY_BASE_FEE = env.DELIVERY_BASE_FEE;
 const DELIVERY_BASE_KM = env.DELIVERY_BASE_KM;
@@ -31,31 +33,45 @@ const geocodeDeliveryAddress = async (address) => {
 
 const DELIVERY_SLABS = [
   { maxKm: 1, fee: 17 },
-  { maxKm: 2, fee: 23 },
-  { maxKm: 3, fee: 30 },
-  { maxKm: 4, fee: 35 },
+  { maxKm: 2, fee: 25 },
+  { maxKm: 3, fee: 33 },
+  { maxKm: 4, fee: 40 },
 ];
 
-const getDeliveryBaseFee = (distanceKm) => {
-  const distance = distanceKm || 1;
-  for (const slab of DELIVERY_SLABS) {
-    if (distance <= slab.maxKm) return slab.fee;
-  }
-  const lastSlab = DELIVERY_SLABS[DELIVERY_SLABS.length - 1];
-  return lastSlab.fee + Math.ceil(distance - lastSlab.maxKm) * 10;
+const roundUpToHundredMeters = (distanceKm) => Math.max(0.1, Math.ceil(Number(distanceKm || 1) * 10) / 10);
+
+const interpolateFee = (distance, previous, next) => {
+  const progress = (distance - previous.maxKm) / (next.maxKm - previous.maxKm);
+  return previous.fee + progress * (next.fee - previous.fee);
 };
 
-const calculateDeliveryWithBreakdown = (distanceKm) => {
+const getDeliveryBaseFee = (distanceKm) => {
+  const distance = roundUpToHundredMeters(distanceKm);
+  if (distance <= 1) return 17;
+
+  for (let index = 1; index < DELIVERY_SLABS.length; index += 1) {
+    const previous = DELIVERY_SLABS[index - 1];
+    const next = DELIVERY_SLABS[index];
+    if (distance <= next.maxKm) return Number(interpolateFee(distance, previous, next).toFixed(2));
+  }
+
+  const lastSlab = DELIVERY_SLABS[DELIVERY_SLABS.length - 1];
+  return Number((lastSlab.fee + (distance - lastSlab.maxKm) * 10).toFixed(2));
+};
+
+const calculateDeliveryWithBreakdown = (distanceKm, pricingSettings = {}) => {
   const baseFee = getDeliveryBaseFee(distanceKm);
+  const rainCharge = pricingSettings.rainChargeEnabled ? Number(pricingSettings.rainChargeAmount || 25) : 0;
   const tax = baseFee * DELIVERY_GST_RATE;
   return {
     base: baseFee,
+    rainCharge,
     tax,
-    total: baseFee + tax,
+    total: baseFee + tax + rainCharge,
   };
 };
 
-const calculateDistanceKm = (lat1, lng1, lat2, lng2) => {
+const calculateStraightLineDistanceKm = (lat1, lng1, lat2, lng2) => {
   const toRadians = (deg) => (deg * Math.PI) / 180;
   const earthRadius = 6371;
   const dLat = toRadians(lat2 - lat1);
@@ -64,6 +80,15 @@ const calculateDistanceKm = (lat1, lng1, lat2, lng2) => {
     Math.sin(dLat / 2) ** 2 +
     Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) ** 2;
   return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const calculateDeliveryDistanceKm = async (restaurantLat, restaurantLng, customerLat, customerLng) => {
+  const routeDistance = await getGoogleRouteDistanceKm({
+    origin: { lat: restaurantLat, lng: restaurantLng },
+    destination: { lat: customerLat, lng: customerLng },
+  });
+  const distance = routeDistance ?? calculateStraightLineDistanceKm(restaurantLat, restaurantLng, customerLat, customerLng);
+  return Number(distance.toFixed(2));
 };
 
 const serializeOrder = (order) => ({
@@ -224,8 +249,8 @@ db = prisma,
 
   let resolvedAddressId = null;
   let deliveryDistance = null;
-  const defaultBase = getDeliveryBaseFee(3);
-  let deliveryBreakdown = { base: defaultBase, tax: 0, total: defaultBase };
+  const pricingSettings = await getPricingSettings();
+  let deliveryBreakdown = calculateDeliveryWithBreakdown(3, pricingSettings);
 
   if (addressId) {
     const existingAddress = await db.address.findFirst({
@@ -247,15 +272,13 @@ db = prisma,
       restaurant.latitude !== null &&
       restaurant.longitude !== null
     ) {
-      deliveryDistance = Number(
-        calculateDistanceKm(
+      deliveryDistance = await calculateDeliveryDistanceKm(
           restaurant.latitude,
           restaurant.longitude,
           existingAddress.latitude,
           existingAddress.longitude
-        ).toFixed(2)
       );
-      deliveryBreakdown = calculateDeliveryWithBreakdown(deliveryDistance);
+      deliveryBreakdown = calculateDeliveryWithBreakdown(deliveryDistance, pricingSettings);
     } else if (existingAddress.latitude === null || existingAddress.longitude === null) {
       // Geocode OUTSIDE the transaction Ã¢â‚¬â€ external HTTP calls must not hold
       // a DB transaction open. We update coordinates using the outer prisma
@@ -266,15 +289,13 @@ db = prisma,
           where: { id: existingAddress.id },
           data: { latitude: coords.lat, longitude: coords.lng },
         });
-        deliveryDistance = Number(
-          calculateDistanceKm(
+        deliveryDistance = await calculateDeliveryDistanceKm(
             restaurant.latitude,
             restaurant.longitude,
             coords.lat,
             coords.lng
-          ).toFixed(2)
         );
-        deliveryBreakdown = calculateDeliveryWithBreakdown(deliveryDistance);
+        deliveryBreakdown = calculateDeliveryWithBreakdown(deliveryDistance, pricingSettings);
       }
     }
   } else if (address && address.fullName && address.phone && address.line1 && address.city && address.state && address.postalCode) {
@@ -318,15 +339,13 @@ db = prisma,
     }
 
     if (coords.lat !== null && coords.lng !== null && restaurant.latitude !== null && restaurant.longitude !== null) {
-      deliveryDistance = Number(
-        calculateDistanceKm(
+      deliveryDistance = await calculateDeliveryDistanceKm(
           restaurant.latitude,
           restaurant.longitude,
           coords.lat,
           coords.lng
-        ).toFixed(2)
       );
-      deliveryBreakdown = calculateDeliveryWithBreakdown(deliveryDistance);
+      deliveryBreakdown = calculateDeliveryWithBreakdown(deliveryDistance, pricingSettings);
     }
   }
 
@@ -405,6 +424,7 @@ db = prisma,
     deliveryFee: deliveryBreakdown.total,
     deliveryFeeBase: deliveryBreakdown.base,
     deliveryTax: deliveryBreakdown.tax,
+    rainCharge: deliveryBreakdown.rainCharge,
     packagingFee: packagingFeeBase + packagingTax,
     packagingFeeBase,
     packagingTax,

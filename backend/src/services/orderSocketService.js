@@ -56,3 +56,17 @@ export const emitNewOrderToRiders = (order, onlineRiderIds) => {
     createdAt: new Date().toISOString(),
   });
 };
+export const emitRiderLocationUpdate = (order, location) => {
+  if (!ioInstance || !order?.customerId) return;
+
+  const recipientIds = [order.customerId];
+  if (order.restaurant?.vendorId) recipientIds.push(order.restaurant.vendorId);
+
+  emitToUsers(recipientIds, "order:rider-location", {
+    orderId: order.id,
+    riderId: order.riderId,
+    latitude: location.latitude,
+    longitude: location.longitude,
+    updatedAt: new Date().toISOString(),
+  });
+};

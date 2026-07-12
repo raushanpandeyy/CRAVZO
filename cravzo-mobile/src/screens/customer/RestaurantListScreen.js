@@ -49,7 +49,7 @@ const DishCard = ({ dish, onPress }) => (
     <View className="h-12 w-14 items-center justify-center overflow-hidden rounded-xl bg-slate-100">
       {dish.imageUrl ? <OptimizedImage source={{ uri: dish.imageUrl }} className="h-full w-full" resizeMode="cover" /> : <Utensils size={20} color={colors.slate[500]} />}
     </View>
-    <View className="flex-1"><Text className="text-sm font-extrabold text-slate-900">{dish.name}</Text><Text className="text-xs font-medium text-slate-500">{dish.restaurantName}{dish.price > 0 ? <Text className="font-bold text-indigo-600">  ?{Math.floor(dish.price)}</Text> : null}</Text></View>
+    <View className="flex-1"><Text className="text-sm font-extrabold text-slate-900">{dish.name}</Text><Text className="text-xs font-medium text-slate-500">{dish.restaurantName}{dish.price > 0 ? <Text className="font-bold text-indigo-600">  {"\u20b9"}{Math.floor(dish.price)}</Text> : null}</Text></View>
   </TouchableOpacity>
 );
 

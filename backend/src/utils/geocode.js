@@ -1,7 +1,9 @@
 import { createHash } from "crypto";
-import { connectRedis } from "../config/redis.js";
 
-const GEOCODE_CACHE_TTL = 7 * 24 * 60 * 60; // 7 days — locations rarely change
+import { connectRedis } from "../config/redis.js";
+import { getGoogleLatLngFromAddress } from "./googleMaps.js";
+
+const GEOCODE_CACHE_TTL = 7 * 24 * 60 * 60; // 7 days - locations rarely change
 
 const getCachedCoords = async (address) => {
   try {
@@ -26,6 +28,12 @@ const setCachedCoords = async (address, coords) => {
 export const getLatLngFromAddress = async (address) => {
   const cached = await getCachedCoords(address);
   if (cached) return cached;
+
+  const googleCoords = await getGoogleLatLngFromAddress(address);
+  if (googleCoords.lat !== null && googleCoords.lng !== null) {
+    await setCachedCoords(address, googleCoords);
+    return googleCoords;
+  }
 
   try {
     const res = await fetch(

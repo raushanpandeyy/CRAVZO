@@ -54,6 +54,7 @@ const OrderChatModal = ({
             disabled={isDisabled}
             disabledReason={disabledReason || defaultReason}
             variant="panel"
+            allowLocationShare={chatType !== "vendor"}
           />
         </Suspense>
       </div>

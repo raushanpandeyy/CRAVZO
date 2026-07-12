@@ -12,14 +12,14 @@ export default function AboutUsScreen({ navigation }) {
             className="h-10 w-10 items-center justify-center rounded-full bg-slate-100">
             <ChevronLeft size={20} color={colors.slate[900]} />
           </TouchableOpacity>
-          <Text className="text-xl font-extrabold text-slate-900">About CRAVZO</Text>
+          <Text className="text-xl font-extrabold text-slate-900">About DODAGO</Text>
         </View>
       </View>
       <ScrollView className="flex-1 px-4 pt-6">
         <View className="bg-white rounded-3xl p-6 shadow-sm mb-4">
           <Text className="text-2xl font-extrabold text-indigo-700 mb-2">Our Story</Text>
           <Text className="text-sm text-slate-600 leading-6">
-            CRAVZO was born from a simple idea: great food should be accessible to everyone, everywhere. 
+            DODAGO was born from a simple idea: great food should be accessible to everyone, everywhere. 
             We connect food lovers with their favorite local restaurants, ensuring every craving is satisfied 
             with just a few taps.
           </Text>

@@ -1,5 +1,5 @@
 import React, { useState, lazy, Suspense } from "react";
-import { Lock, User } from "lucide-react";
+import { Eye, EyeOff, Lock, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { VendorImage } from "../../assets/images/vendorrider.js";
@@ -18,20 +18,33 @@ const vendorPrimaryButtonClassName =
   "rounded-2xl bg-indigo-950 py-3.5 font-extrabold text-white shadow-lg shadow-indigo-950/20 transition active:scale-[0.99] disabled:opacity-70";
 
 function FormInput({ label, icon: Icon, value, onChange, type = "text", placeholder }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === "password";
+
   return (
     <div className="space-y-1">
       <label className="text-sm font-bold text-slate-600">{label}</label>
       <div className="relative">
         {Icon ? <Icon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} /> : null}
         <input
-          type={type}
+          type={isPassword && showPassword ? "text" : type}
           value={value}
           onChange={onChange}
           placeholder={placeholder}
-          className={`w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 pr-4 text-sm font-semibold text-slate-950 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100 ${
+          className={`w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 text-sm font-semibold text-slate-950 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100 ${
             Icon ? "pl-12" : "pl-4"
-          }`}
+          } ${isPassword ? "pr-12" : "pr-4"}`}
         />
+        {isPassword ? (
+          <button
+            type="button"
+            onClick={() => setShowPassword((current) => !current)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-indigo-700"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+          </button>
+        ) : null}
       </div>
     </div>
   );

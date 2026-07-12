@@ -31,7 +31,7 @@ export default function CitywiseScreen({ navigation }) {
         <View className="space-y-4">
           {cities.map((city) => (
             <TouchableOpacity key={city.name}
-              onPress={() => navigation.navigate("Search", { query: city.name })}
+              onPress={() => navigation.navigate("MainTabs", { screen: "Search", params: { query: city.name } })}
               className="bg-white rounded-3xl overflow-hidden shadow-sm"
             >
               <OptimizedImage source={{ uri: city.img }} className="w-full h-40" resizeMode="cover" />

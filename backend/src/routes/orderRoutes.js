@@ -9,6 +9,7 @@ import {
   getRiderOrders,
   getVendorOrders,
   getVendorPayouts,
+  quoteOrder,
   reorderOrder,
   requestVendorPayout,
   updateOrderStatus,
@@ -23,6 +24,7 @@ const orderRouter = Router();
 orderRouter.use(authenticate);
 // Fix #11: Rate limit order creation per authenticated user
 orderRouter.post("/", authorize("CUSTOMER"), orderLimiter, asyncHandler(createOrder));
+orderRouter.post("/quote", authorize("CUSTOMER"), asyncHandler(quoteOrder));
 orderRouter.get("/my", authorize("CUSTOMER"), asyncHandler(getMyOrders));
 orderRouter.get("/vendor", authorize("VENDOR", "ADMIN"), asyncHandler(getVendorOrders));
 orderRouter.get("/vendor/payouts", authorize("VENDOR", "ADMIN"), asyncHandler(getVendorPayouts));

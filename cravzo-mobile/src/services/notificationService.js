@@ -58,7 +58,13 @@ export const registerForPushNotifications = IS_WEB
 
       storage.set(NOTIF_GRANTED_KEY, "true");
 
-      const tokenData = await Notifications.getDevicePushTokenAsync();
+      let tokenData;
+      try {
+        tokenData = await Notifications.getDevicePushTokenAsync();
+      } catch (error) {
+        storage.set(NOTIF_GRANTED_KEY, "false");
+        return null;
+      }
       const pushToken = tokenData.data;
       const platform = Platform.OS === "android" ? "ANDROID" : "IOS";
 
@@ -132,4 +138,3 @@ export const getLastNotificationResponse = IS_WEB
   : async () => {
       return Notifications.getLastNotificationResponseAsync();
     };
-

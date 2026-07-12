@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Bot, ImagePlus, MessageCircle, Send, ShieldCheck, User, X } from "lucide-react";
+import { Bot, ImagePlus, MapPin, MessageCircle, Send, ShieldCheck, User, X } from "lucide-react";
 
 import {
   getChatMessages,
@@ -51,6 +51,7 @@ const Chat = ({
   disabled = false,
   disabledReason = "Chat is disabled for this order.",
   variant = "floating",
+  allowLocationShare = false,
 }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -192,6 +193,46 @@ const Chat = ({
     }
   };
 
+  const shareLocation = () => {
+    if (disabled || sending || !room?.id) return;
+    if (!navigator.geolocation) {
+      setError("Location sharing is not available on this device");
+      return;
+    }
+
+    setSending(true);
+    setError("");
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+        try {
+          const response = await sendSocketMessage({
+            roomId: room.id,
+            text: `My exact delivery location: ${mapsUrl}`,
+            imageUrl: "",
+            clientId: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          });
+          appendMessage(response.message);
+        } catch (requestError) {
+          try {
+            const createdMessage = await sendChatMessage(room.id, { text: `My exact delivery location: ${mapsUrl}` });
+            appendMessage(createdMessage);
+          } catch (fallbackError) {
+            setError(fallbackError.message || requestError.message || "Failed to share location");
+          }
+        } finally {
+          setSending(false);
+        }
+      },
+      () => {
+        setSending(false);
+        setError("Allow location permission to share your exact location");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
+    );
+  };
+
   const handleImageChange = (event) => {
     const file = event.target.files?.[0];
     if (!file || !room?.id) return;
@@ -234,6 +275,7 @@ const Chat = ({
 
   if (!isOpen) return null;
 
+  const isCustomerUser = [user?.role, user?.accountType].some((value) => String(value || "").toUpperCase() === "CUSTOMER");
   const RepIcon = repInfo.icon;
   const containerClass =
     variant === "panel"
@@ -304,6 +346,17 @@ const Chat = ({
           </div>
         ) : null}
         {error ? <div className="mb-3 rounded-xl bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">{error}</div> : null}
+        {allowLocationShare && isCustomerUser && mode === "order" ? (
+          <button
+            type="button"
+            onClick={shareLocation}
+            disabled={disabled || sending || !room?.id}
+            className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-black text-indigo-700 disabled:opacity-50"
+          >
+            <MapPin className="h-4 w-4" />
+            Share exact location
+          </button>
+        ) : null}
         <div className="flex gap-2">
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
           <button

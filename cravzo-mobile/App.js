@@ -14,6 +14,7 @@ import { PersistGate } from "redux-persist/integration/react";
 import { store, persistor } from "./src/store";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import AppNavigator, { navigateFromNotification } from "./src/navigation/AppNavigator";
 
@@ -98,15 +99,17 @@ function NotificationInit() {
 export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Provider store={store}>
-        <PersistGate onAfterLift={hideSplash} loading={null} persistor={persistor}>
-          <ErrorBoundary>
-            <StatusBar style="dark" />
-            <NotificationInit />
-            <AppNavigator />
-          </ErrorBoundary>
-        </PersistGate>
-      </Provider>
+      <SafeAreaProvider>
+        <Provider store={store}>
+          <PersistGate onAfterLift={hideSplash} loading={null} persistor={persistor}>
+            <ErrorBoundary>
+              <StatusBar style="dark" />
+              <NotificationInit />
+              <AppNavigator />
+            </ErrorBoundary>
+          </PersistGate>
+        </Provider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

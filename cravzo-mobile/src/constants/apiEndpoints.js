@@ -56,22 +56,6 @@ export const API_ENDPOINTS = {
     save: `${BASE}/reviews`,
     remove: (id) => `${BASE}/reviews/${id}`,
   },
-  admin: {
-    overview: (params) => withQuery(`${BASE}/admin/overview`, params),
-    supportUserSearch: (query) =>
-      `${BASE}/admin/support/user-search?query=${encodeURIComponent(query)}`,
-    users: (params) => withQuery(`${BASE}/admin/users`, params),
-    user: (id) => `${BASE}/admin/users/${id}`,
-    userOrders: (id) => `${BASE}/admin/users/${id}/orders`,
-    restaurants: (params) => withQuery(`${BASE}/admin/restaurants`, params),
-    createRestaurant: `${BASE}/admin/restaurants`,
-    userStatus: (id) => `${BASE}/admin/users/${id}/status`,
-    restaurantStatus: (id) => `${BASE}/admin/restaurants/${id}/status`,
-    pendingVendors: `${BASE}/admin/vendors/pending`,
-    approveVendor: (id) => `${BASE}/admin/vendors/${id}/approve`,
-    pendingRiders: `${BASE}/admin/riders/pending`,
-    approveRider: (id) => `${BASE}/admin/riders/${id}/approve`,
-  },
   restaurant: {
     list: `${BASE}/restaurants`,
     nearby: (lat, lng) =>

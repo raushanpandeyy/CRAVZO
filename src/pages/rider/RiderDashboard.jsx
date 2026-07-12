@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { MessageCircle } from "lucide-react";
 
-import { getRiderOrders, updateOrderStatus } from "../../services/orderService.js";
+import { getRiderOrders, updateOrderStatus, verifyDeliveryOtp } from "../../services/orderService.js";
 import { updateRiderLocation, updateRiderStatus } from "../../services/riderService.js";
 import { getProfile } from "../../services/userService.js";
 import { onNewOrder, onOrderStatusUpdate } from "../../services/chatSocket.js";
@@ -44,6 +44,7 @@ const RiderDashboard = () => {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [chatOrder, setChatOrder] = useState(null);
+  const [deliveryOtpInputs, setDeliveryOtpInputs] = useState({});
   const [riderLocation, setRiderLocation] = useState(null);
   const [orderRequest, setOrderRequest] = useState(null);
   const [showRequest, setShowRequest] = useState(false);
@@ -264,6 +265,21 @@ const RiderDashboard = () => {
     }
   };
 
+  const handleVerifyDeliveryOtp = async (orderId) => {
+    const otp = String(deliveryOtpInputs[orderId] || "").trim();
+    setMessage("");
+    setError("");
+    try {
+      await verifyDeliveryOtp(orderId, otp);
+      setMessage("Delivery completed with customer OTP.");
+      setDeliveryOtpInputs((current) => ({ ...current, [orderId]: "" }));
+      await loadOrders({ silent: true });
+      setSelectedOrder(null);
+    } catch (requestError) {
+      setError(requestError.message || "Failed to verify delivery OTP");
+    }
+  };
+
   const availableOrders = useMemo(() => orders.filter((order) => order.isAvailable), [orders]);
   const activeOrders = useMemo(
     () => orders.filter((order) => !order.isAvailable && ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(order.status)),
@@ -312,12 +328,24 @@ const RiderDashboard = () => {
 
     if (order.status === "OUT_FOR_DELIVERY") {
       return (
-        <button
-          onClick={() => handleStatusUpdate(order.id, "DELIVERED", "Order marked delivered.")}
-          className={`${className} bg-emerald-600`}
-        >
-          Mark Delivered
-        </button>
+        <div className={`${fullWidth ? "w-full" : ""} flex gap-2`}>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={4}
+            value={deliveryOtpInputs[order.id] || ""}
+            onChange={(event) => setDeliveryOtpInputs((current) => ({ ...current, [order.id]: event.target.value.replace(/\D/g, "").slice(0, 4) }))}
+            placeholder="OTP"
+            className={`${fullWidth ? "flex-1" : "w-20"} rounded-xl border border-slate-300 px-3 py-2 text-center text-sm font-black tracking-[0.25em] outline-none focus:border-emerald-500`}
+          />
+          <button
+            onClick={() => handleVerifyDeliveryOtp(order.id)}
+            disabled={(deliveryOtpInputs[order.id] || "").length !== 4}
+            className={`${fullWidth ? "flex-1" : ""} ${className} bg-emerald-600 disabled:bg-slate-400`}
+          >
+            Verify & Deliver
+          </button>
+        </div>
       );
     }
 
@@ -503,7 +531,7 @@ const RiderDashboard = () => {
                 </span>
                 <h4 className="mt-2 text-xl font-black text-gray-800">{selectedOrder.restaurant?.name}</h4>
               </div>
-              <p className="font-bold text-green-600">{formatCurrency(selectedOrder.deliveryFee)}</p>
+              <p className="font-bold text-green-600">{formatCurrency(Number(selectedOrder.deliveryFee || 0) + Number(selectedOrder.tipAmount || 0))}</p>
             </div>
 
             <div className="mb-6 space-y-4">
@@ -527,6 +555,20 @@ const RiderDashboard = () => {
                   <p className="text-xs text-gray-500">Customer address will appear after pickup.</p>
                 </div>
               )}
+
+              {(selectedOrder.deliveryInstructions || Number(selectedOrder.tipAmount || 0) > 0) ? (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                  {Number(selectedOrder.tipAmount || 0) > 0 ? (
+                    <p className="text-sm font-bold text-blue-900">Rider tip: {formatCurrency(selectedOrder.tipAmount)}</p>
+                  ) : null}
+                  {selectedOrder.deliveryInstructions ? (
+                    <div className={Number(selectedOrder.tipAmount || 0) > 0 ? "mt-2" : ""}>
+                      <p className="text-sm font-bold text-blue-900">Customer instructions</p>
+                      <p className="mt-1 text-sm text-blue-800">{selectedOrder.deliveryInstructions}</p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="border-t pt-4">
                 {selectedOrder.items.map((item) => (

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState, lazy, Suspense } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Lock, Mail, Phone, ShieldCheck, User } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, Phone, ShieldCheck, User } from "lucide-react";
 
 
 
@@ -29,6 +29,7 @@ const AuthInput = ({ icon: Icon, className = "", ...props }) => (
 );
 
 const LoginPage = () => {
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignup, setIsSignup] = useState(false);
@@ -243,14 +244,25 @@ const LoginPage = () => {
                 required
               />
 
-              <AuthInput
-                type="password"
-                placeholder="Password"
-                icon={Lock}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
+              <div className="relative">
+                <AuthInput
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  icon={Lock}
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="pr-12"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-indigo-700"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
               <p className="-mt-2 text-xs text-slate-400">At least 8 characters</p>
 
               {isSignup ? (

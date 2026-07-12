@@ -26,12 +26,13 @@ export const getAppConfig = async (req, res) => {
           deliveryPerKmRate: env.DELIVERY_PER_KM_RATE,
           deliverySlabs: [
             { maxKm: 1, fee: 17 },
-            { maxKm: 2, fee: 23 },
-            { maxKm: 3, fee: 30 },
-            { maxKm: 4, fee: 35 },
+            { maxKm: 2, fee: 25 },
+            { maxKm: 3, fee: 33 },
+            { maxKm: 4, fee: 40 },
           ],
           foodGstRate: env.FOOD_GST_RATE,
           deliveryGstRate: env.DELIVERY_GST_RATE,
+          rainChargeAmount: env.RAIN_CHARGE_AMOUNT,
           platformFee: env.PLATFORM_FEE,
           packagingPercent: env.PACKAGING_PERCENT,
           razorpayPercent: env.RAZORPAY_PERCENT,
@@ -255,5 +256,3 @@ export const updateAdsOrder = async (req, res) => {
 
   return res.status(200).json(apiResponse({ message: "Ads order updated" }));
 };
-
-

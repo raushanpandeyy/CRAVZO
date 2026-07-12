@@ -1,4 +1,5 @@
 import React, { useState, lazy, Suspense } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Rider } from "../../assets/images/vendorrider.js";
@@ -22,6 +23,30 @@ const riderPrimaryButtonClassName =
 const riderSecondaryButtonClassName =
   "w-full rounded-2xl border border-purple-200 bg-white py-3.5 font-extrabold text-purple-800 transition active:scale-[0.99] disabled:opacity-70";
 
+
+const PasswordInput = ({ value, onChange }) => {
+  const [showPassword, setShowPassword] = useState(false);
+
+  return (
+    <div className="relative">
+      <input
+        placeholder="Password"
+        type={showPassword ? "text" : "password"}
+        className={`${riderFieldClassName} pr-12`}
+        value={value}
+        onChange={onChange}
+      />
+      <button
+        type="button"
+        onClick={() => setShowPassword((current) => !current)}
+        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-purple-700"
+        aria-label={showPassword ? "Hide password" : "Show password"}
+      >
+        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+      </button>
+    </div>
+  );
+};
 const RiderSignup = () => {
   const navigate = useNavigate();
 
@@ -170,10 +195,7 @@ const RiderSignup = () => {
             value={form.email}
             onChange={(event) => updateForm("email", event.target.value)}
           />
-          <input
-            placeholder="Password"
-            type="password"
-            className={riderFieldClassName}
+          <PasswordInput
             value={form.password}
             onChange={(event) => updateForm("password", event.target.value)}
           />
@@ -234,10 +256,7 @@ const RiderSignup = () => {
               onChange={(event) => updateForm("email", event.target.value)}
             />
 
-            <input
-              placeholder="Password"
-              type="password"
-              className={riderFieldClassName}
+            <PasswordInput
               value={form.password}
               onChange={(event) => updateForm("password", event.target.value)}
             />

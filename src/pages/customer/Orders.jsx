@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { ArrowRight, Clock3, Loader2, MessageCircle, Star, X } from "lucide-react";
+import { ArrowRight, Clock3, Loader2, MessageCircle, Navigation, Star, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { cart } from "../../assets/images/logos.js";
@@ -22,6 +22,7 @@ const OrderChatModal = lazy(() => import("../../components/OrderChatModal.jsx"))
 const OrderFeedbackModal = lazy(() => import("../../components/OrderFeedbackModal.jsx"));
 
 const riderChatClosedStatuses = ["DELIVERED", "CANCELLED", "REJECTED"];
+const trackableStatuses = ["PENDING", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
 const SUBMITTED_KEY = "dodago_feedback_submitted";
 const DISMISSED_KEY = "dodago_feedback_dismissed";
 
@@ -85,7 +86,7 @@ export default function Orders() {
     }
   };
 
-  // Initial load — auto-show popup only once per session for the most recent unrated delivery
+  // Initial load: auto-show popup only once per session for the most recent unrated delivery
   useEffect(() => {
     const init = async () => {
       const data = await loadOrders(false);
@@ -108,7 +109,7 @@ export default function Orders() {
     init();
   }, []);
 
-  // Real-time order status updates via Socket.IO — replaces 45s polling
+  // Real-time order status updates via Socket.IO, replacing 45s polling
   useEffect(() => {
     const cleanup = onOrderStatusUpdate(({ orderId, status }) => {
       setOrders((prev) =>
@@ -207,14 +208,14 @@ export default function Orders() {
     setFeedbackOrder(order);
   }, []);
 
-  // Called when user submits feedback — mark submitted, update state
+  // Called when user submits feedback: mark submitted and update state
   const handleFeedbackSubmitted = () => {
     const updated = getSubmittedIds();
     setSubmittedIds(new Set(updated));
     setFeedbackOrder(null);
   };
 
-  // Called when user taps "Skip for now" — mark dismissed so popup never auto-shows again
+  // Called when user taps Skip for now: mark dismissed so popup never auto-shows again
   const handleFeedbackDismissed = (orderId) => {
     markDismissed(orderId);
     setDismissedIds(getDismissedIds());
@@ -312,7 +313,7 @@ export default function Orders() {
         )}
       </div>
 
-      {/* ── Order Detail Modal ── */}
+      {/* Order Detail Modal */}
       {selectedOrder ? (
         <div className="fixed inset-0 z-[80] flex items-end bg-slate-950/45 px-3 pb-3 sm:items-center sm:justify-center sm:p-6">
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl">
@@ -336,12 +337,12 @@ export default function Orders() {
               </button>
             </div>
 
-            {/* ── Order Progress Bar ── */}
+            {/* Order Progress Bar */}
             <div className="mb-4">
               <OrderProgressBar status={selectedOrder.status} />
             </div>
 
-            {/* ── Order Items ── */}
+            {/* Order Items */}
             <div className="space-y-3">
               {selectedOrder.items?.map((item) => (
                 <div key={item.id} className="flex justify-between gap-3 rounded-2xl bg-slate-50 p-3 text-sm">
@@ -358,7 +359,7 @@ export default function Orders() {
               ))}
             </div>
 
-            {/* ── Bill Summary ── */}
+            {/* Bill Summary */}
             <div className="mt-4 space-y-2 rounded-3xl bg-indigo-950 p-4 text-white">
               <div className="flex justify-between text-sm text-indigo-100">
                 <span>Items total</span>
@@ -380,7 +381,22 @@ export default function Orders() {
               </div>
             </div>
 
-            {/* ── Action Buttons ── */}
+            {/* Action Buttons */}
+            {trackableStatuses.includes(selectedOrder.status) ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const orderId = selectedOrder.id;
+                  setSelectedOrder(null);
+                  navigate(`/orders/${orderId}/tracking`);
+                }}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95"
+              >
+                <Navigation className="h-4 w-4" />
+                Live tracking & delivery OTP
+              </button>
+            ) : null}
+
             <button
               type="button"
               onClick={() =>
@@ -388,7 +404,7 @@ export default function Orders() {
                   selectedOrder.restaurant?.id ? `/restaurant/${selectedOrder.restaurant.id}` : "/",
                 )
               }
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-700 px-4 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-700 px-4 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95"
             >
               Open Restaurant <ArrowRight className="h-4 w-4" />
             </button>
@@ -437,7 +453,7 @@ export default function Orders() {
         </div>
       ) : null}
 
-      {/* ── Restaurant Chat Modal ── */}
+      {/* Restaurant Chat Modal */}
       {chatVendorOrder ? (
         <Suspense fallback={<div className="fixed inset-0 z-[90] bg-slate-950/40" />}>
           <OrderChatModal
@@ -453,7 +469,7 @@ export default function Orders() {
         </Suspense>
       ) : null}
 
-      {/* ── Rider Chat Modal ── */}
+      {/* Rider Chat Modal */}
       {chatOrder ? (
         <Suspense fallback={<div className="fixed inset-0 z-[90] bg-slate-950/40" />}>
           <OrderChatModal
@@ -468,7 +484,7 @@ export default function Orders() {
         </Suspense>
       ) : null}
 
-      {/* ── Cancel Confirmation Modal ── */}
+      {/* Cancel Confirmation Modal */}
       {cancelConfirmOrder ? (
         <div className="fixed inset-0 z-[90] flex items-end bg-slate-950/55 p-3 sm:items-center sm:justify-center sm:p-6">
           <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
@@ -500,7 +516,7 @@ export default function Orders() {
         </div>
       ) : null}
 
-      {/* ── Feedback Modal ── */}
+      {/* Feedback Modal */}
       {feedbackOrder ? (
         <Suspense fallback={<div className="fixed inset-0 z-[90] bg-slate-950/40" />}>
           <OrderFeedbackModal

@@ -27,6 +27,7 @@ const Citywise = lazy(() => import('../pages/customer/Citywise.jsx'));
 const RestaurantPage = lazy(() => import('../pages/customer/RestaurantPage.jsx'));
 const Cart = lazy(() => import('../pages/customer/Cart.jsx'));
 const CheckoutPage = lazy(() => import('../pages/customer/CheckoutPage.jsx'));
+const OrderTracking = lazy(() => import('../pages/customer/OrderTracking.jsx'));
 const PrivacyPolicy = lazy(() => import('../pages/customer/PrivacyPolicy.jsx'));
 const AboutUs = lazy(() => import('../pages/customer/AboutUs.jsx'));
 const ContactUs = lazy(() => import('../pages/customer/ContactUs.jsx'));
@@ -81,6 +82,7 @@ function CustomerRoutes() {
               <Route path="/restaurant/:id" element={<RestaurantPage />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/orders/:orderId/tracking" element={<OrderTracking />} />
 
               {/* ================= ACCOUNT ROUTES ================= */}
               <Route path="/account" element={<CustomerLayout />}>

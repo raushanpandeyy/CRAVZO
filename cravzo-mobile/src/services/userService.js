@@ -1,9 +1,11 @@
 import { apiRequest } from "./api";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
 
+const unwrapUser = (response) => response?.data?.user || response?.user || response?.data || response || null;
+
 export const getProfile = async () => {
   const res = await apiRequest(API_ENDPOINTS.user.profile);
-  return res.data || res.user || res;
+  return unwrapUser(res);
 };
 
 export const updateProfile = async (data) => {
@@ -11,7 +13,7 @@ export const updateProfile = async (data) => {
     method: "PUT",
     data,
   });
-  return res.data || res.user || res;
+  return unwrapUser(res);
 };
 
 export const uploadImage = async (formData) => {
@@ -28,4 +30,3 @@ export const deleteAccount = async () => {
     data: { confirmation: "DELETE" },
   });
 };
-

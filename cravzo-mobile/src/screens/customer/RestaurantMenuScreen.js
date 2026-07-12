@@ -1,3 +1,4 @@
+import { selectUserState, selectCurrentUser, selectIsLoggedIn } from "../../store/selectors";
 import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
@@ -7,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   TextInput,
+  StyleSheet,
 } from "react-native";
 import OptimizedImage from "../../components/OptimizedImage";
 import {
@@ -75,7 +77,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
   const [selectedSizes, setSelectedSizes] = useState({});
   const [selectedSideDishes, setSelectedSideDishes] = useState({});
   const cartItems = useSelector((state) => state.cart.items);
-  const currentUser = useSelector((state) => state.user.data);
+  const currentUser = useSelector(selectCurrentUser);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isFavorited, setIsFavorited] = useState(false);
@@ -87,22 +89,42 @@ export default function RestaurantMenuScreen({ route, navigation }) {
 
   useEffect(() => {
     (async () => {
-      try {
-        const [restData, items, reviewData, appConfig] = await Promise.all([
-          getRestaurantById(restaurantId),
-          listMenuItems(restaurantId),
-          getRestaurantReviews(restaurantId),
-          getAppConfig(),
-        ]);
-        setRestaurant(restData);
-        setMenuItems(items);
+      if (!restaurantId) {
+        setError("Restaurant not found");
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+      const [restaurantResult, menuResult, reviewsResult, configResult] = await Promise.allSettled([
+        getRestaurantById(restaurantId),
+        listMenuItems(restaurantId),
+        getRestaurantReviews(restaurantId),
+        getAppConfig(),
+      ]);
+
+      if (restaurantResult.status === "fulfilled") {
+        setRestaurant(restaurantResult.value);
+        if (Array.isArray(restaurantResult.value?.menuItems) && restaurantResult.value.menuItems.length) {
+          setMenuItems(restaurantResult.value.menuItems);
+        }
+      }
+      if (menuResult.status === "fulfilled" && menuResult.value.length) {
+        setMenuItems(menuResult.value);
+      }
+      if (reviewsResult.status === "fulfilled") {
+        const reviewData = Array.isArray(reviewsResult.value) ? reviewsResult.value : [];
         setReviews(reviewData);
-        setPricing(appConfig.pricing);
         const myReview = reviewData.find((r) => r.user?.id === currentUser?.id);
         if (myReview) {
           setReviewForm({ rating: myReview.rating, comment: myReview.comment || "" });
         }
-      } catch {
+      }
+      if (configResult.status === "fulfilled") {
+        setPricing(configResult.value?.pricing || null);
+      }
+      if (restaurantResult.status === "rejected" && menuResult.status === "rejected") {
         setError("Could not load restaurant details");
       }
       setLoading(false);
@@ -257,7 +279,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
               <Text className="text-6xl font-black text-indigo-600">{restaurant?.name?.[0] || "R"}</Text>
             </View>
           )}
-          <View className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+          <View style={styles.heroOverlay} />
         </View>
 
         {/* Restaurant Info Card */}
@@ -580,3 +602,10 @@ export default function RestaurantMenuScreen({ route, navigation }) {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  heroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.38)",
+  },
+});

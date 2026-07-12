@@ -1,6 +1,6 @@
 
 import React, { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { CalendarRange, MessageCircle, PackageCheck, Search, Store, UserCheck, Users, X, Star, Plus, Trash2, Eye, EyeOff, ChevronRight, ChevronLeft } from "lucide-react";
+import { CalendarRange, CloudRain, MessageCircle, PackageCheck, Search, Store, UserCheck, Users, X, Star, Plus, Trash2, Eye, EyeOff, ChevronRight, ChevronLeft } from "lucide-react";
 
 import { API_ENDPOINTS } from "../../constants/apiEndpoints.js";
 import { apiRequest } from "../../services/api.js";
@@ -149,6 +149,8 @@ const AdminDashboard = () => {
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [rainSettings, setRainSettings] = useState({ rainChargeEnabled: false, rainChargeAmount: 25 });
+  const [rainSaving, setRainSaving] = useState(false);
   const [featureEnabled, setFeatureEnabled] = useState(() => {
     const stored = localStorage.getItem("dodagoFeatureEnabled");
     return stored === "true";
@@ -171,6 +173,33 @@ const AdminDashboard = () => {
   const resetStatusMessages = () => {
     setMessage("");
     setError("");
+  };
+
+  const loadPricingSettings = async () => {
+    try {
+      const response = await apiRequest(API_ENDPOINTS.admin.pricingSettings, { skipCache: true });
+      setRainSettings(response.data || { rainChargeEnabled: false, rainChargeAmount: 25 });
+    } catch (requestError) {
+      setError(requestError.message || "Failed to load pricing settings");
+    }
+  };
+
+  const saveRainSettings = async (nextSettings) => {
+    setRainSaving(true);
+    setError("");
+    try {
+      const response = await apiRequest(API_ENDPOINTS.admin.pricingSettings, {
+        method: "PATCH",
+        body: JSON.stringify(nextSettings),
+        skipCache: true,
+      });
+      setRainSettings(response.data);
+      setMessage(response.message || "Rain charge settings updated.");
+    } catch (requestError) {
+      setError(requestError.message || "Failed to update rain charge settings");
+    } finally {
+      setRainSaving(false);
+    }
   };
   const loadOverview = async () => {
     const response = await apiRequest(
@@ -233,7 +262,7 @@ const AdminDashboard = () => {
     resetStatusMessages();
 
     try {
-      await Promise.all([loadOverview(), loadPending(), loadUsers(), loadRestaurants()]);
+      await Promise.all([loadOverview(), loadPending(), loadUsers(), loadRestaurants(), loadPricingSettings()]);
     } catch (requestError) {
       setError(requestError.message || "Failed to load admin data");
     } finally {
@@ -597,7 +626,7 @@ const refreshSupportResult = async () => {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="font-semibold text-slate-900">Order #{order.id.slice(-6)}</p>
-          <p className="text-sm text-slate-600">{order.customer?.name || "Customer"} • {order.restaurant?.name || "Restaurant"}</p>
+          <p className="text-sm text-slate-600">{order.customer?.name || "Customer"} ï¿½ {order.restaurant?.name || "Restaurant"}</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-semibold text-slate-700 ${accent}`}>{order.status.replaceAll("_", " ")}</span>
       </div>
@@ -629,6 +658,49 @@ const refreshSupportResult = async () => {
       {message ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-emerald-700">{message}</div> : null}
       {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-red-700">{error}</div> : null}
 
+      <section className="rounded-3xl border border-blue-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${rainSettings.rainChargeEnabled ? "bg-blue-600" : "bg-slate-200"}`}>
+              <CloudRain className={`h-5 w-5 ${rainSettings.rainChargeEnabled ? "text-white" : "text-slate-500"}`} />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Rain Charge Control</h2>
+              <p className="text-xs text-slate-500">When enabled, customers pay this extra amount on delivery during rain.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 px-3 py-2">
+              <span className="text-sm font-bold text-slate-500">Rs</span>
+              <input
+                type="number"
+                min="0"
+                max="500"
+                value={rainSettings.rainChargeAmount}
+                onChange={(event) => setRainSettings((current) => ({ ...current, rainChargeAmount: Number(event.target.value || 0) }))}
+                className="w-20 bg-transparent text-sm font-black text-slate-900 outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              disabled={rainSaving}
+              onClick={() => saveRainSettings({ ...rainSettings, rainChargeEnabled: !rainSettings.rainChargeEnabled })}
+              className={`relative h-7 w-12 rounded-full transition-colors disabled:opacity-60 ${rainSettings.rainChargeEnabled ? "bg-blue-600" : "bg-slate-300"}`}
+              aria-label="Toggle rain charge"
+            >
+              <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform ${rainSettings.rainChargeEnabled ? "translate-x-5" : "translate-x-0.5"}`} />
+            </button>
+            <button
+              type="button"
+              disabled={rainSaving}
+              onClick={() => saveRainSettings(rainSettings)}
+              className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </section>
       {/* Home Featured Section Toggle */}
       <section className="rounded-3xl border border-indigo-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between gap-4">
@@ -854,7 +926,7 @@ const refreshSupportResult = async () => {
                     <p className="font-semibold text-slate-900">{supportResult.user.name}</p>
                     <p className="text-sm text-slate-600">{supportResult.user.email}</p>
                     <p className="text-sm text-slate-600">{supportResult.user.phone || "No phone"}</p>
-                    <p className="mt-2 text-xs text-slate-500">Role: {supportResult.user.role} • Status: {supportResult.user.status}{supportResult.user.role === "RIDER" ? ` • ${supportResult.user.isOnline ? "Online" : "Offline"}` : ""}</p>
+                    <p className="mt-2 text-xs text-slate-500">Role: {supportResult.user.role} ï¿½ Status: {supportResult.user.status}{supportResult.user.role === "RIDER" ? ` ï¿½ ${supportResult.user.isOnline ? "Online" : "Offline"}` : ""}</p>
                   </div>
                   {supportResult.user.role !== "ADMIN" ? <button onClick={() => updateUserStatus(supportResult.user.id, supportResult.user.status === "BLOCKED" ? "ACTIVE" : "BLOCKED")} className={`rounded-full px-4 py-2 text-sm font-semibold text-white ${supportResult.user.status === "BLOCKED" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"}`}>{supportResult.user.status === "BLOCKED" ? "Unblock User" : "Block User"}</button> : null}
                 </div>
@@ -901,7 +973,7 @@ const refreshSupportResult = async () => {
                 <div>
                   <p className="font-semibold text-slate-900">{user.name}</p>
                   <p className="text-slate-600">{user.email}</p>
-                  <p className="text-xs text-slate-500">{user.phone || "No phone"} • {user.role} • {user.status}{user.role === "RIDER" ? ` • ${user.isOnline ? "Online" : "Offline"}` : ""}</p>
+                  <p className="text-xs text-slate-500">{user.phone || "No phone"} ï¿½ {user.role} ï¿½ {user.status}{user.role === "RIDER" ? ` ï¿½ ${user.isOnline ? "Online" : "Offline"}` : ""}</p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => { setSupportQuery(user.phone || user.email); setSupportResult(null); }} className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700">Lookup</button>
@@ -933,10 +1005,10 @@ const refreshSupportResult = async () => {
                   <div>
                     <p className="font-semibold text-slate-900">{restaurant.name}</p>
                     <p className="text-slate-600">{[restaurant.addressLine1, restaurant.city, restaurant.state].filter(Boolean).join(", ") || "Address not set"}</p>
-                    <p className="mt-1 text-xs text-slate-500">Vendor: {restaurant.vendor?.name || "NA"} • {restaurant.vendor?.phone || restaurant.vendor?.email || "No contact"}</p>
+                    <p className="mt-1 text-xs text-slate-500">Vendor: {restaurant.vendor?.name || "NA"} ï¿½ {restaurant.vendor?.phone || restaurant.vendor?.email || "No contact"}</p>
                     <p className="mt-1 text-xs text-slate-500">
                       Live: {restaurant.isOpen ? "Open" : "Closed"}
-                      {(restaurant.openingTime || restaurant.closingTime) ? ` • ${restaurant.openingTime || "--:--"} - ${restaurant.closingTime || "--:--"}` : ""}
+                      {(restaurant.openingTime || restaurant.closingTime) ? ` ï¿½ ${restaurant.openingTime || "--:--"} - ${restaurant.closingTime || "--:--"}` : ""}
                     </p>
                     {restaurant.openDays?.length ? (
                       <p className="mt-1 text-xs text-slate-500">Days: {restaurant.openDays.join(", ")}</p>

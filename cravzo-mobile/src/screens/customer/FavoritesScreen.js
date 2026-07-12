@@ -32,8 +32,9 @@ export default function FavoritesScreen({ navigation }) {
 
   const handleRemove = async (fav) => {
     try {
-      await removeFavorite(fav.id || fav.restaurantId);
-      setFavorites((prev) => prev.filter((f) => f.id !== fav.id && f.restaurantId !== fav.restaurantId));
+      const restaurantId = fav.restaurantId || fav.restaurant?.id || fav.id;
+      await removeFavorite(restaurantId);
+      setFavorites((prev) => prev.filter((f) => (f.restaurantId || f.restaurant?.id || f.id) !== restaurantId));
     } catch {
       Alert.alert("Error", "Failed to remove from favourites");
     }
@@ -131,7 +132,7 @@ export default function FavoritesScreen({ navigation }) {
                   <View className="p-4">
                     <Text className="text-lg font-black text-slate-950" numberOfLines={1}>{restaurant.name}</Text>
                     <Text className="mt-1 text-sm font-semibold text-slate-500" numberOfLines={1}>
-                      {restaurant.cuisine || ""} • {restaurant.location || restaurant.city || ""}
+                      {[restaurant.cuisine, restaurant.location || restaurant.city].filter(Boolean).join(" â€¢ ")}
                     </Text>
                     <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
                       <View className="flex-row items-center gap-1">

@@ -32,14 +32,14 @@ const VendorChatPage = lazy(() =>
 
 const VendorRoutes = () => {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <div className="hidden md:block">
         <Navbar />
       </div>
 
       <PartnerMobileNav role="vendor" />
 
-      <main className="flex-1 pt-16 pb-24 md:p-0">
+      <main className="min-h-0 flex-1 pt-16 pb-24 md:p-0">
         <Suspense
           fallback={
             <div className="flex items-center justify-center min-h-[60vh] text-slate-500 text-sm">

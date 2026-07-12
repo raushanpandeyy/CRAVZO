@@ -32,14 +32,14 @@ const RiderChatPage = lazy(() =>
 
 const RiderRoutes = () => {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex h-screen min-h-0 flex-col overflow-hidden">
       <div className="hidden md:block">
         <Navbar />
       </div>
 
       <PartnerMobileNav role="rider" />
 
-      <main className="flex-1 pt-16 pb-24 md:p-0">
+      <main className="min-h-0 flex-1 overflow-y-auto pt-16 pb-24 md:p-0">
         <Suspense
           fallback={
             <div className="flex items-center justify-center min-h-[60vh] text-slate-500 text-sm">

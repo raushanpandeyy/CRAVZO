@@ -8,6 +8,7 @@ export const login = async (payload) => {
     data: payload,
   });
   const result = res.data || res;
+  ensureCustomerAccount(result.user || result);
   persistSession(result);
   return result;
 };
@@ -33,6 +34,7 @@ export const verifyOtp = async (payload) => {
     data: payload,
   });
   const result = res.data || res;
+  ensureCustomerAccount(result.user || result);
   persistSession(result);
   return result;
 };
@@ -76,7 +78,10 @@ export const loadCurrentUser = async () => {
       return normalizeUser(user);
     }
     const cached = storage.getString("user");
-    return cached ? normalizeUser(JSON.parse(cached)) : null;
+    if (!cached) return null;
+    const cachedUser = JSON.parse(cached);
+    ensureCustomerAccount(cachedUser);
+    return normalizeUser(cachedUser);
   } catch {
     clearSession();
     return null;
@@ -98,11 +103,27 @@ const getStoredUser = () => {
   return raw ? JSON.parse(raw) : null;
 };
 
-export const normalizeUser = (user) => ({
-  ...user,
-  accountType: user.accountType || user.role?.toLowerCase() || "customer",
-  isLoggedIn: true,
-});
+const ensureCustomerAccount = (user) => {
+  const accountType = (user?.accountType || user?.role || "customer").toLowerCase();
+  if (accountType !== "customer") {
+    throw new Error("This app is only for customer accounts.");
+  }
+};
+
+export const normalizeUser = (user = {}) => {
+  const raw = user?.data?.user || user?.user || user?.data || user || {};
+  return {
+    ...raw,
+    id: raw.id || raw._id,
+    name: raw.name || raw.fullName || "",
+    email: raw.email || "",
+    phone: raw.phone || "",
+    avatarUrl: raw.avatarUrl || raw.imageUrl || raw.photoUrl || "",
+    role: raw.role || raw.accountType || "CUSTOMER",
+    accountType: (raw.accountType || raw.role || "customer").toLowerCase(),
+    isLoggedIn: true,
+  };
+};
 
 const jwtDecode = (token) => {
   try {

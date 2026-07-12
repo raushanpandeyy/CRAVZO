@@ -53,10 +53,7 @@ export default function VerifyOtpScreen({ navigation, route }) {
     setIsSubmitting(true);
     try {
       await verifyOtp({ email, otp: otp.join(""), role });
-      const accountType = role.toLowerCase();
-      if (accountType === "vendor") navigation.replace("VendorTabs");
-      else if (accountType === "rider") navigation.replace("RiderTabs");
-      else navigation.replace("MainTabs");
+      navigation.replace("MainTabs");
     } catch (err) {
       Alert.alert("Error", err.message || "Invalid OTP");
     } finally {

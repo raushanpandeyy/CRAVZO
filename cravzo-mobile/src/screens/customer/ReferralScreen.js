@@ -1,3 +1,4 @@
+import { selectUserState, selectCurrentUser, selectIsLoggedIn } from "../../store/selectors";
 import React, { useState, useCallback, useEffect } from "react";
 import {
   View,
@@ -15,7 +16,7 @@ import { colors } from "../../constants/colors";
 import { getMyReferralStats, applyReferralCode } from "../../services/referralService";
 
 export default function ReferralScreen({ navigation }) {
-  const { data: user } = useSelector((state) => state.user);
+  const { data: user } = useSelector(selectUserState);
 
   const [stats, setStats] = useState({
     referralCode: "",
@@ -34,10 +35,10 @@ export default function ReferralScreen({ navigation }) {
       setStats(data);
     } catch (err) {
       // Fall back to a deterministic client-side code so the screen still works.
-      const suffix = (user?.id || "CRAVZO").slice(-6).toUpperCase();
+      const suffix = (user?.id || "DODAGO").slice(-6).toUpperCase();
       setStats((prev) => ({
         ...prev,
-        referralCode: `CRAVZO${suffix}`,
+        referralCode: `DODAGO${suffix}`,
       }));
     } finally {
       setLoading(false);
@@ -49,13 +50,13 @@ export default function ReferralScreen({ navigation }) {
   }, [loadStats]);
 
   const referralCode = stats.referralCode || "";
-  const shareLink = `https://cravzo.app/refer/${referralCode}`;
+  const shareLink = `https://dodago.shop/refer/${referralCode}`;
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Join me on Cravzo and get ₹100 off your first order! Use my referral code: ${referralCode}\n\nDownload the app: ${shareLink}`,
-        title: "Refer a friend to Cravzo",
+        message: `Join me on Dodago and get ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹100 off your first order! Use my referral code: ${referralCode}\n\nDownload the app: ${shareLink}`,
+        title: "Refer a friend to Dodago",
       });
     } catch {}
   };
@@ -70,7 +71,7 @@ export default function ReferralScreen({ navigation }) {
     setApplying(true);
     try {
       await applyReferralCode(code);
-      Alert.alert("Success", "Referral code applied! ₹100 credited to your wallet.");
+      Alert.alert("Success", "Referral code applied! ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹100 credited to your wallet.");
       setApplyCode("");
       await loadStats();
     } catch (err) {
@@ -95,11 +96,11 @@ export default function ReferralScreen({ navigation }) {
             <Gift size={36} color="#dc2626" />
           </View>
           <Text className="text-2xl font-black text-slate-900 text-center">
-            Refer a friend & earn ₹100
+            Refer a friend & earn ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹100
           </Text>
           <Text className="text-sm text-slate-500 text-center mt-2 leading-5">
             Share your referral code with friends. When they apply it, you both
-            get ₹100 in your Cravzo wallet!
+            get ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹100 in your Dodago wallet!
           </Text>
         </View>
 
@@ -142,7 +143,7 @@ export default function ReferralScreen({ navigation }) {
               <Gift size={20} color="#d97706" />
             </View>
             <Text className="text-2xl font-black text-slate-900">
-              ₹{stats.creditEarned}
+              ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹{stats.creditEarned}
             </Text>
             <Text className="text-xs text-slate-500 mt-1">Credit earned</Text>
           </View>
@@ -156,7 +157,7 @@ export default function ReferralScreen({ navigation }) {
             </Text>
           </View>
           <Text className="text-sm text-slate-500 mb-3 leading-5">
-            Got a code from a friend? Apply it to receive ₹100 in your Cravzo
+            Got a code from a friend? Apply it to receive ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹100 in your Dodago
             wallet instantly.
           </Text>
           <View className="flex-row gap-2 mb-3">
@@ -190,7 +191,7 @@ export default function ReferralScreen({ navigation }) {
             </Text>
           </View>
           <Text className="text-3xl font-black text-indigo-900">
-            ₹{stats.walletBalance}
+            ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹{stats.walletBalance}
           </Text>
           <Text className="text-xs text-indigo-700 mt-1 leading-5">
             Use your wallet balance at checkout to pay for orders.

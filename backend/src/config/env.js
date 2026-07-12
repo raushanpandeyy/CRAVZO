@@ -31,6 +31,9 @@ const envSchema = z.object({
   FIREBASE_SERVICE_ACCOUNT_BASE64: z.string().optional(),
   MSG91_AUTH_KEY: z.string().optional(),
   MSG91_TEMPLATE_ID: z.string().optional(),
+  GOOGLE_MAPS_API_KEY: z.string().optional(),
+  RAIN_CHARGE_ENABLED: z.preprocess((value) => value === true || value === "true" || value === "1", z.boolean()).default(false),
+  RAIN_CHARGE_AMOUNT: z.coerce.number().default(25),
   SMS_PROVIDER: z.enum(["console", "msg91"]).default("console"),
 
   // Pricing (Fix 6)

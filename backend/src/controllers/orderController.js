@@ -4,12 +4,13 @@ import { prisma } from "../config/database.js";
 import { connectRedis } from "../config/redis.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
-import { createPersistedOrder, serializeOrder } from "../services/orderCheckoutService.js";
+import { createPersistedOrder, prepareOrderDraft, serializeOrder } from "../services/orderCheckoutService.js";
 import { markReferredQualifiedAndIssueMilestones } from "../services/referralService.js";
 import { queueNotification } from "../services/notificationQueue.js";
 import { emitOrderStatusUpdate, emitNewOrderToVendor } from "../services/orderSocketService.js";
 import { initiateRazorpayRefund } from "../services/razorpayRefundService.js";
-import { createOrderSchema } from "../validators/orderValidators.js";
+import { createOrderSchema, quoteOrderSchema } from "../validators/orderValidators.js";
+import { getGoogleRouteSummary } from "../utils/googleMaps.js";
 
 const RIDER_GEO_KEY = "rider:geo";
 
@@ -72,7 +73,7 @@ const createOrder = async (req, res) => {
 
   // Fix #3: Pre-geocode address before transaction opens
   let preGeocodedAddress = null;
-  if (address && !addressId) {
+  if (address && !addressId && (address.latitude === null || address.latitude === undefined || address.longitude === null || address.longitude === undefined)) {
     const { getLatLngFromAddress } = await import("../utils/geocode.js");
     const fullAddress = [address.line1, address.line2, address.city, address.state, address.postalCode, "India"]
       .filter(Boolean)
@@ -113,6 +114,66 @@ const createOrder = async (req, res) => {
   );
 };
 
+const quoteOrder = async (req, res) => {
+  const {
+    restaurantId,
+    items,
+    address = null,
+    addressId = null,
+    paymentMethod,
+    notes = null,
+    restaurantInstructions = null,
+    deliveryInstructions = null,
+    tipAmount = 0,
+    couponCode = null,
+    referralVoucherCode = null,
+  } = quoteOrderSchema.parse(req.body);
+
+  const draft = await prepareOrderDraft({
+    customerId: req.user.sub,
+    restaurantId,
+    items,
+    address,
+    addressId,
+    paymentMethod,
+    notes,
+    restaurantInstructions,
+    deliveryInstructions,
+    tipAmount,
+    couponCode,
+    referralVoucherCode,
+    persistAddress: false,
+  });
+
+  res.status(200).json(
+    apiResponse({
+      message: "Order quote calculated successfully",
+      data: {
+        subtotal: Number(draft.subtotal.toFixed(2)),
+        deliveryFee: Number(draft.deliveryFee.toFixed(2)),
+        deliveryFeeBase: Number(draft.deliveryFeeBase.toFixed(2)),
+        deliveryTax: Number(draft.deliveryTax.toFixed(2)),
+        rainCharge: Number((draft.rainCharge || 0).toFixed(2)),
+        packagingFee: Number(draft.packagingFee.toFixed(2)),
+        packagingFeeBase: Number(draft.packagingFeeBase.toFixed(2)),
+        packagingTax: Number(draft.packagingTax.toFixed(2)),
+        platformFee: Number(draft.platformFee.toFixed(2)),
+        platformFeeBase: Number(draft.platformFeeBase.toFixed(2)),
+        platformTax: Number(draft.platformTax.toFixed(2)),
+        gatewayFee: Number(draft.gatewayFee.toFixed(2)),
+        codCharge: Number(draft.codCharge.toFixed(2)),
+        discount: Number(draft.discount.toFixed(2)),
+        referralVoucherDiscount: Number((draft.referralVoucherDiscount || 0).toFixed(2)),
+        totalTax: Number(draft.totalTax.toFixed(2)),
+        totalAmount: Number(draft.totalAmount.toFixed(2)),
+        deliveryDistance: draft.deliveryDistance,
+        tipAmount: Number(draft.tipAmount || 0),
+        couponCode: draft.couponCode,
+        referralVoucherCode: draft.referralVoucherCode,
+      },
+    }),
+  );
+};
 const getMyOrders = async (req, res) => {
   // Fix #7: No pagination on getMyOrders ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â previously returned ALL orders ever.
   // A user with 200 orders = 200 restaurants + 600 items + 200 riders fetched
@@ -832,6 +893,20 @@ const getOrderTracking = async (req, res) => {
     (req.user.role === "VENDOR" && order.restaurant.vendorId === req.user.sub);
   if (!allowed) throw new ApiError(403, "You do not have permission to track this order");
 
+  const riderLocation = Number.isFinite(order.rider?.latitude) && Number.isFinite(order.rider?.longitude)
+    ? { lat: order.rider.latitude, lng: order.rider.longitude }
+    : null;
+  const restaurantLocation = Number.isFinite(order.restaurant?.latitude) && Number.isFinite(order.restaurant?.longitude)
+    ? { lat: order.restaurant.latitude, lng: order.restaurant.longitude }
+    : null;
+  const destinationLocation = Number.isFinite(order.address?.latitude) && Number.isFinite(order.address?.longitude)
+    ? { lat: order.address.latitude, lng: order.address.longitude }
+    : null;
+  const routeOrigin = riderLocation || restaurantLocation;
+  const route = routeOrigin && destinationLocation
+    ? await getGoogleRouteSummary({ origin: routeOrigin, destination: destinationLocation })
+    : null;
+
   res.status(200).json(apiResponse({ message: "Order tracking fetched", data: {
     id: order.id,
     status: order.status,
@@ -840,14 +915,20 @@ const getOrderTracking = async (req, res) => {
     deliveryInstructions: order.deliveryInstructions,
     restaurantInstructions: order.restaurantInstructions,
     tipAmount: Number(order.tipAmount || 0),
+    deliveryDistance: order.deliveryDistance ? Number(order.deliveryDistance) : null,
     pickedUpAt: order.pickedUpAt,
     deliveredAt: order.deliveredAt,
+    route: route ? {
+      source: riderLocation ? "RIDER_TO_CUSTOMER" : "RESTAURANT_TO_CUSTOMER",
+      distanceKm: route.distanceKm,
+      durationSeconds: route.durationSeconds,
+      encodedPolyline: route.encodedPolyline,
+    } : null,
     rider: order.rider,
     restaurant: { id: order.restaurant.id, name: order.restaurant.name, phone: order.restaurant.phone, latitude: order.restaurant.latitude, longitude: order.restaurant.longitude },
     destination: order.address ? { fullName: order.address.fullName, phone: order.address.phone, line1: order.address.line1, line2: order.address.line2, city: order.address.city, latitude: order.address.latitude, longitude: order.address.longitude } : null,
   }}));
 };
-
 const createDeliveryOtp = async (req, res) => {
   const order = await prisma.order.findUnique({ where: { id: req.params.orderId } });
   if (!order) throw new ApiError(404, "Order not found");
@@ -961,4 +1042,4 @@ const reorderOrder = async (req, res) => {
   );
 };
 
-export { assertVendorStatusTransition, createDeliveryOtp, createOrder, getMyOrders, getOrderTracking, getRiderOrderSuggestions, getRiderOrders, getVendorOrders, getVendorPayouts, reorderOrder, requestVendorPayout, updateOrderStatus, verifyDeliveryOtp };
+export { assertVendorStatusTransition, createDeliveryOtp, createOrder, getMyOrders, getOrderTracking, getRiderOrderSuggestions, getRiderOrders, getVendorOrders, getVendorPayouts, quoteOrder, reorderOrder, requestVendorPayout, updateOrderStatus, verifyDeliveryOtp };

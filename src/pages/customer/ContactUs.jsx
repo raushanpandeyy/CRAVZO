@@ -35,8 +35,8 @@ const ContactUs = () => {
     window.location.href = "mailto:yushpandey3@gmail.com?subject=Dodago%20Support%20Request&body=Hello%2C%0A%0AI%20need%20help%20with%3A%0A%0A";
   };
 
-  const openPhone = () => {
-    window.location.href = "tel:+919984185916";
+  const openPhone = (phone = "+919984185916") => {
+    window.location.href = `tel:${phone}`;
   };
 
   return (
@@ -76,7 +76,7 @@ const ContactUs = () => {
             </button>
 
             <button
-              onClick={openPhone}
+              onClick={() => openPhone()}
               className="w-full flex items-center gap-4 rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-all group"
             >
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600/10 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
@@ -84,7 +84,8 @@ const ContactUs = () => {
               </div>
               <div className="text-left flex-1">
                 <p className="font-bold text-slate-900">Call Us</p>
-                <p className="text-sm text-indigo-600 font-semibold">+91 9984185916</p>
+                <p className="text-sm text-indigo-600 font-semibold">Raushan Pandey: +91 9984185916</p>
+                <p className="text-sm text-indigo-600 font-semibold">Yash Chauhan: +91 8527879902</p>
                 <p className="text-xs text-slate-500 mt-1">Tap to call directly</p>
               </div>
             </button>
@@ -227,12 +228,16 @@ const ContactUs = () => {
         </div>
 
         <div className="mt-8 rounded-3xl bg-[#fff5f3] p-6 text-center">
-          <p className="text-sm text-slate-600">
-            For urgent matters, call us directly at{" "}
-            <button onClick={openPhone} className="font-bold text-indigo-600 hover:underline">
-              +91 9984185916
+          <p className="text-sm text-slate-600">For urgent matters, call us directly:</p>
+          <div className="mt-2 flex flex-col items-center justify-center gap-2 sm:flex-row">
+            <button onClick={() => openPhone()} className="font-bold text-indigo-600 hover:underline">
+              Raushan Pandey: +91 9984185916
             </button>
-          </p>
+            <span className="hidden text-slate-300 sm:inline">|</span>
+            <button onClick={() => openPhone("+918527879902")} className="font-bold text-indigo-600 hover:underline">
+              Yash Chauhan: +91 8527879902
+            </button>
+          </div>
         </div>
       </div>
     </div>

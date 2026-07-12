@@ -1,16 +1,16 @@
+import { selectUserState, selectCurrentUser, selectIsLoggedIn } from "../../store/selectors";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
-  Image,
   ScrollView,
   RefreshControl,
   TouchableOpacity,
   TextInput,
-  Dimensions,
   ActivityIndicator,
 } from "react-native";
 import { useSelector } from "react-redux";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Star, Clock3, Search, MapPin, ShoppingCart, User, MessageCircle, Utensils, X, Leaf } from "lucide-react-native";
 import DishPromoCarousel from "../../components/DishPromoCarousel";
 import OptimizedImage from "../../components/OptimizedImage";
@@ -36,8 +36,6 @@ import {
   northindian,
   dodagologo,
 } from "../../constants/images";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const categories = [
   { name: "Burger", image: burger },
@@ -148,12 +146,24 @@ const RestaurantSkeleton = () => (
 );
 
 export default function HomeScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
   const [restaurants, setRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [stickyQuery, setStickyQuery] = useState("");
+  const [showSticky, setShowSticky] = useState(false);
+  const [searchResults, setSearchResults] = useState({ restaurants: [], dishes: [] });
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [vegOnly, setVegOnly] = useState(false);
+  const [dietaryFilter, setDietaryFilter] = useState(null);
+  const cartCount = useSelector(selectCartItemCount);
+  const { data: user } = useSelector(selectUserState);
+  const debouncedQuery = useDebounce(query, 400);
+  const dropdownRef = useRef(null);
+  const topBarPadding = Math.max(insets.top + 8, 34);
 
   const loadRestaurants = useCallback(async (extraParams = {}) => {
     try {
@@ -182,17 +192,7 @@ export default function HomeScreen({ navigation }) {
       setRefreshing(false);
     }
   }, [vegOnly, dietaryFilter]);
-  const [showSticky, setShowSticky] = useState(false);
-  const cartCount = useSelector(selectCartItemCount);
-  const { data: user } = useSelector((state) => state.user);
 
-  const [searchResults, setSearchResults] = useState({ restaurants: [], dishes: [] });
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [vegOnly, setVegOnly] = useState(false);
-  const [dietaryFilter, setDietaryFilter] = useState(null);
-  const debouncedQuery = useDebounce(query, 400);
-  const dropdownRef = useRef(null);
 
   useEffect(() => {
     if (!debouncedQuery || debouncedQuery.length < 2) {
@@ -305,7 +305,7 @@ export default function HomeScreen({ navigation }) {
                           <Text className="text-sm font-extrabold text-slate-900" numberOfLines={1}>{dish.name}</Text>
                           <Text className="text-xs font-medium text-slate-500">
                             {dish.restaurantName}
-                            {dish.price > 0 && <Text className="ml-2 font-bold text-indigo-600">  ₹{Math.floor(dish.price)}</Text>}
+                            {dish.price > 0 && <Text className="ml-2 font-bold text-indigo-600">  {"\u20b9"}{Math.floor(dish.price)}</Text>}
                           </Text>
                         </View>
                       </TouchableOpacity>
@@ -333,7 +333,7 @@ export default function HomeScreen({ navigation }) {
                         <View className="flex-1">
                           <Text className="text-sm font-extrabold text-slate-900" numberOfLines={1}>{r.name}</Text>
                           <Text className="text-xs font-medium text-slate-500">
-                            {r.cuisine} • {r.city}
+                            {[r.cuisine, r.city].filter(Boolean).join(" - ")}
                           </Text>
                         </View>
                       </TouchableOpacity>
@@ -357,7 +357,7 @@ export default function HomeScreen({ navigation }) {
             <Text className="text-[10px] font-semibold text-indigo-100">Tap to browse by city</Text>
           </View>
         </View>
-        <Text className="text-xs font-bold text-white">View Cities →</Text>
+        <Text className="text-xs font-bold text-white">View Cities -></Text>
       </TouchableOpacity>
 
       <View className="py-3 border-b border-indigo-100">
@@ -496,7 +496,7 @@ export default function HomeScreen({ navigation }) {
                 <View className="p-4">
                   <Text className="text-lg font-black text-slate-950" numberOfLines={1}>{r.name}</Text>
                   <Text className="mt-1 text-sm font-semibold text-slate-500" numberOfLines={1}>
-                    {r.cuisine || ""} • {r.location || r.city || ""}
+                    {[r.cuisine, r.location || r.city].filter(Boolean).join(" - ")}
                   </Text>
                   <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
                     <View className="flex-row items-center gap-1">
@@ -517,7 +517,7 @@ export default function HomeScreen({ navigation }) {
     </ScrollView>
 
       {!showSticky ? (
-      <View className="absolute top-0 left-0 right-0 flex-row items-center justify-between px-4 pt-6 pb-1">
+      <View className="absolute top-0 left-0 right-0 flex-row items-center justify-between px-4 pb-1" style={{ paddingTop: topBarPadding }}>
         <View className="flex-row items-center gap-2 shrink">
         <TouchableOpacity onPress={() => navigation.navigate("Profile")} className="shrink-0">
               <OptimizedImage source={{ uri: dodagologo }} className="h-8 w-8 rounded-xl" resizeMode="cover" />
@@ -556,7 +556,7 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
       ) : (
-      <View className="absolute top-0 left-0 right-0 flex-row items-center gap-2 px-4 pt-6 pb-1 bg-white border-b border-slate-200">
+      <View className="absolute top-0 left-0 right-0 flex-row items-center gap-2 px-4 pb-1 bg-white border-b border-slate-200" style={{ paddingTop: topBarPadding }}>
         <TouchableOpacity onPress={() => navigation.navigate("Profile")} className="shrink-0">
           <OptimizedImage source={{ uri: dodagologo }} className="h-8 w-8 rounded-xl" resizeMode="cover" />
         </TouchableOpacity>
@@ -572,7 +572,7 @@ export default function HomeScreen({ navigation }) {
             returnKeyType="search"
           />
         </View>
-        <TouchableOpacity onPress={() => navigation.navigate("Profile")} className="h-9 w-9 items-center justify-center rounded-full bg-[#ff6b5f]">
+        <TouchableOpacity onPress={() => navigation.navigate("Cart")} className="h-9 w-9 items-center justify-center rounded-full bg-[#ff6b5f]">
           <ShoppingCart size={16} color="#fff" />
           {cartCount > 0 ? (
             <View className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-500 px-1.5 py-0.5">
@@ -585,4 +585,3 @@ export default function HomeScreen({ navigation }) {
     </View>
   );
 }
-

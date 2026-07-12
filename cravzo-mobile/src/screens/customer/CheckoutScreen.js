@@ -63,7 +63,7 @@ const DELIVERY_INSTRUCTION_OPTIONS = [
   "Dog at the gate",
 ];
 const TIP_OPTIONS = [0, 20, 30, 50, 100];
-const formatCurrency = (amount) => `ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹${Math.floor(amount)}`;
+const formatCurrency = (amount) => `\u20b9${Math.floor(amount)}`;
 
 const getPrice = (price) => {
   if (typeof price === "number") return price;
@@ -523,7 +523,7 @@ const {
       razorpaySignature: response.razorpay_signature,
     });
     dispatch(clearCart());
-    navigation.navigate("Orders");
+    navigation.navigate("MainTabs", { screen: "Orders" });
   };
   const handlePlaceOrder = async () => {
     if (!selectedAddressId && !address.line1) {
@@ -571,7 +571,7 @@ const {
       if (selectedPayment === "COD") {
         await createCODOrder(orderPayload);
         dispatch(clearCart());
-        navigation.navigate("Orders");
+        navigation.navigate("MainTabs", { screen: "Orders" });
       } else {
         await handleRazorpayPayment(orderPayload, resolvedAddressId);
       }
@@ -593,11 +593,11 @@ const {
   if (cartItems.length === 0) {
     return (
       <View className="flex-1 bg-slate-50 items-center justify-center px-4">
-        <Text className="text-5xl mb-6">ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â½ÃƒÂ¯Ã‚Â¸Ã‚Â</Text>
+        <Text className="text-5xl mb-6">Cart</Text>
         <Text className="text-2xl font-bold text-slate-900">Your cart is empty</Text>
         <Text className="mt-2 text-slate-500">Add some delicious items to get started!</Text>
         <TouchableOpacity
-          onPress={() => navigation.navigate("Home")}
+          onPress={() => navigation.navigate("MainTabs", { screen: "Home" })}
           className="mt-6 rounded-2xl bg-indigo-600 px-8 py-3 shadow-lg shadow-indigo-200"
         >
           <Text className="font-bold text-white">Browse Restaurants</Text>
@@ -918,7 +918,7 @@ const {
             </View>
           ) : (
             <Text className="text-base font-extrabold text-white">
-              Place Order ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â {formatCurrency(finalTotal)}
+              {`Place Order - ${formatCurrency(finalTotal)}`}
             </Text>
           )}
         </TouchableOpacity>

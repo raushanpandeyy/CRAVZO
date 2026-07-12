@@ -9,6 +9,10 @@ const baseAddressSchema = z.object({
   city: z.string().trim().min(2),
   state: z.string().trim().min(2),
   postalCode: z.string().trim().min(4).max(12),
+  lat: z.coerce.number().min(-90).max(90).optional().nullable(),
+  lng: z.coerce.number().min(-180).max(180).optional().nullable(),
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
   isDefault: z.boolean().optional(),
 });
 

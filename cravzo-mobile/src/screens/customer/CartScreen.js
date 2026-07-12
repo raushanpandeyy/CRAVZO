@@ -1,3 +1,4 @@
+import { selectUserState, selectCurrentUser, selectIsLoggedIn } from "../../store/selectors";
 import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
@@ -41,7 +42,7 @@ const getDistanceKm = (lat1, lng1, lat2, lng2) => {
 
 export default function CartScreen({ navigation }) {
   const dispatch = useDispatch();
-  const isLoggedIn = useSelector((state) => state.user.isLoggedIn);
+  const isLoggedIn = useSelector(selectIsLoggedIn);
   const cart = useSelector((state) => state.cart.items);
   const [showTax, setShowTax] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
@@ -157,7 +158,7 @@ export default function CartScreen({ navigation }) {
   if (cart.length === 0) {
     return (
       <View className="flex-1 bg-slate-50 items-center justify-center p-4">
-        <Text className="text-5xl mb-6">🛒</Text>
+        <Text className="text-5xl mb-6">ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂºÃ¢â‚¬â„¢</Text>
         <Text className="text-2xl font-bold text-slate-900">Your cart is empty</Text>
         <Text className="mt-2 text-slate-500">Add some delicious items to get started!</Text>
         <TouchableOpacity onPress={() => navigation.goBack()}
@@ -319,12 +320,10 @@ export default function CartScreen({ navigation }) {
           className="rounded-2xl bg-indigo-600 py-4 shadow-lg shadow-indigo-200"
         >
           <Text className="text-base font-extrabold text-white text-center">
-            Proceed to Checkout — {formatCurrency(pricing.finalTotal)}
+            Proceed to Checkout ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â {formatCurrency(pricing.finalTotal)}
           </Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
-
-
