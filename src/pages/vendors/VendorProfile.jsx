@@ -29,6 +29,7 @@ import { uploadImage } from "../../services/userService.js";
 import { VerifiedBadge, ProfileProgress, VerifiedBadgeLarge } from "../../components/vendors/VerifiedBadge.jsx";
 import { getCloudinaryUrl } from "../../utils/cloudinary.js";
 import { SkeletonAvatar, SkeletonForm } from "../../components/Skeleton.jsx";
+import GoogleAddressPicker from "../../components/GoogleAddressPicker.jsx";
 
 const DAYS_OF_WEEK = [
   "Monday",
@@ -443,7 +444,7 @@ const VendorProfile = () => {
 
   if (loading) {
     return (
-      <div className="flex-1 md:ml-40 min-h-screen bg-[#F4F7FB] p-4 sm:p-6 lg:p-8">
+      <div className="w-full min-h-screen bg-[#F4F7FB] p-4 pb-32 sm:p-6 lg:p-8">
         <div className="max-w-5xl mx-auto space-y-6">
           <SkeletonAvatar />
           <SkeletonForm rows={6} />
@@ -455,7 +456,7 @@ const VendorProfile = () => {
   }
 
   return (
-    <div className="flex-1 md:ml-40 min-h-screen overflow-y-auto bg-[#F4F7FB] p-4 sm:p-6 lg:p-8">
+    <div className="w-full min-h-screen bg-[#F4F7FB] p-4 pb-32 sm:p-6 sm:pb-32 lg:p-8 lg:pb-8">
 
       <div className="max-w-5xl mx-auto space-y-6">
 
@@ -683,46 +684,34 @@ const VendorProfile = () => {
             <span className="ml-auto text-xs text-slate-400 font-normal">Required for customers to find you</span>
           </h2>
 
-          {/* GPS Location Button */}
-          <div className="mb-4 rounded-xl bg-indigo-50 p-3 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold text-indigo-900">Set Location from GPS</p>
-              <p className="text-xs text-indigo-600 mt-0.5">
-                {restaurant?.latitude && restaurant?.longitude
-                  ? `✓ Location set (${Number(restaurant.latitude).toFixed(4)}, ${Number(restaurant.longitude).toFixed(4)})`
-                  : "Location not set — customers won't find you in nearby search"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                if (!navigator.geolocation) {
-                  setError("GPS not available on this device.");
-                  return;
-                }
-                setMessage("");
-                setError("Getting your location...");
-                navigator.geolocation.getCurrentPosition(
-                  (pos) => {
-                    setForm((prev) => ({
-                      ...prev,
-                      latitude: pos.coords.latitude,
-                      longitude: pos.coords.longitude,
-                      _lat: pos.coords.latitude,
-                      _lng: pos.coords.longitude,
-                    }));
-                    setError("");
-                    setMessage(`Location captured: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}. Save profile to apply.`);
-                  },
-                  () => setError("Could not get location. Allow GPS permission and try again."),
-                  { enableHighAccuracy: true, timeout: 8000 }
-                );
+          <div className="mb-4">
+            <GoogleAddressPicker
+              value={{
+                line1: form.addressLine1,
+                line2: form.addressLine2,
+                city: form.city,
+                state: form.state,
+                postalCode: form.postalCode,
+                latitude: form.latitude ?? form._lat,
+                longitude: form.longitude ?? form._lng,
               }}
-              className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-indigo-700 active:scale-95"
-            >
-              <MapPin className="inline h-4 w-4 mr-1" />
-              Use GPS
-            </button>
+              onChange={(nextAddress) => {
+                setForm((prev) => ({
+                  ...prev,
+                  ...(nextAddress.line1 ? { addressLine1: nextAddress.line1 } : {}),
+                  ...(nextAddress.line2 ? { addressLine2: nextAddress.line2 } : {}),
+                  ...(nextAddress.city ? { city: nextAddress.city } : {}),
+                  ...(nextAddress.state ? { state: nextAddress.state } : {}),
+                  ...(nextAddress.postalCode ? { postalCode: nextAddress.postalCode } : {}),
+                  latitude: nextAddress.latitude ?? prev.latitude,
+                  longitude: nextAddress.longitude ?? prev.longitude,
+                  _lat: nextAddress.latitude ?? prev._lat,
+                  _lng: nextAddress.longitude ?? prev._lng,
+                }));
+                setMessage("Location selected. Save profile to apply.");
+                setError("");
+              }}
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
