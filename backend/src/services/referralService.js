@@ -4,8 +4,7 @@ import { prisma } from "../config/database.js";
 import { logger } from "../utils/logger.js";
 
 // ==================== CONFIG ====================
-// Milestone tiers. Threshold = number of COMPLETED (qualified) referrals
-// required to unlock that tier. rewardType drives how the reward is applied
+// Milestone tiers. Threshold rules differ by tier: Tier 1 needs verified signups plus at least one paid-qualified referral; Tier 2 needs paid-qualified referrals. rewardType drives how the reward is applied
 // to the next paid order.
 //
 //  - FREE_DELIVERY: covers up to rewardValue of delivery fee on next order.
@@ -16,6 +15,8 @@ const MILESTONES = [
   {
     tier: 1,
     threshold: 3,
+    minQualifiedReferrals: 1,
+    qualificationMode: "VERIFIED_WITH_ONE_PAID",
     rewardType: "FREE_DELIVERY",
     rewardValue: 60, // ₹60 covers base delivery for most slabs
     validityDays: 30,
@@ -23,6 +24,8 @@ const MILESTONES = [
   {
     tier: 2,
     threshold: 5,
+    minQualifiedReferrals: 5,
+    qualificationMode: "ALL_PAID",
     rewardType: "FLAT_DISCOUNT",
     rewardValue: 200,
     minOrderValue: 250,
@@ -119,7 +122,7 @@ const createReferralAtSignup = async ({ referredUserId, referralCode, fingerprin
 
   const status = suspectHint ? "SUSPECT" : "OTP_VERIFIED";
 
-  return prisma.referral.create({
+  const created = await prisma.referral.create({
     data: {
       referrerId: referrer.id,
       referredId: referredUserId,
@@ -130,6 +133,9 @@ const createReferralAtSignup = async ({ referredUserId, referralCode, fingerprin
       suspectReason: suspectHint ? suspectReason : null,
     },
   });
+
+  await issueMilestonesForUser(referrer.id);
+  return created;
 };
 
 // ==================== POST-QUALIFICATION HOOK ====================
@@ -169,15 +175,21 @@ const markReferredQualifiedAndIssueMilestones = async ({ customerId, orderId, pa
 };
 
 // ==================== MILESTONE ISSUANCE ====================
-// For each configured tier, if the user has >= threshold COMPLETED referrals
-// and no ISSUED/REDEEMED voucher yet for that tier, issue a fresh voucher.
+// For each configured tier, if the user meets that tier's rule and no voucher exists, issue a fresh voucher.
 const issueMilestonesForUser = async (referrerId) => {
-  const completedCount = await prisma.referral.count({
-    where: { referrerId, status: "COMPLETED" },
-  });
+  const [verifiedCount, completedCount] = await Promise.all([
+    prisma.referral.count({
+      where: { referrerId, status: { in: ["OTP_VERIFIED", "COMPLETED"] } },
+    }),
+    prisma.referral.count({
+      where: { referrerId, status: "COMPLETED" },
+    }),
+  ]);
 
   for (const tier of MILESTONES) {
-    if (completedCount < tier.threshold) continue;
+    const hasEnoughVerified = verifiedCount >= tier.threshold;
+    const hasEnoughQualified = completedCount >= (tier.minQualifiedReferrals || tier.threshold);
+    if (!hasEnoughVerified || !hasEnoughQualified) continue;
 
     // Skip tiers the user has already earned (any status = ISSUED/REDEEMED/EXPIRED)
     const alreadyIssued = await prisma.referralMilestone.findFirst({
@@ -319,8 +331,9 @@ const getMyReferralStats = async (userId) => {
 
   const referralCode = user?.referralCode || (await ensureReferralCode(prisma, userId));
 
-  const [pendingCount, suspectCount, completedCount, vouchers] = await Promise.all([
+  const [pendingCount, verifiedCount, suspectCount, completedCount, vouchers] = await Promise.all([
     prisma.referral.count({ where: { referrerId: userId, status: { in: ["PENDING", "OTP_VERIFIED"] } } }),
+    prisma.referral.count({ where: { referrerId: userId, status: { in: ["OTP_VERIFIED", "COMPLETED"] } } }),
     prisma.referral.count({ where: { referrerId: userId, status: "SUSPECT" } }),
     prisma.referral.count({ where: { referrerId: userId, status: "COMPLETED" } }),
     prisma.referralMilestone.findMany({
@@ -330,16 +343,13 @@ const getMyReferralStats = async (userId) => {
     }),
   ]);
 
-  // Find next milestone (lowest threshold above completedCount)
-  const nextMilestone = MILESTONES.find((m) => completedCount < m.threshold) || null;
-  const prevThreshold =
-    MILESTONES.filter((m) => completedCount >= m.threshold).reduce(
-      (max, m) => Math.max(max, m.threshold),
-      0,
-    );
+  const hasEarnedTier = (tier) =>
+    verifiedCount >= tier.threshold && completedCount >= (tier.minQualifiedReferrals || tier.threshold);
+  const nextMilestone = MILESTONES.find((m) => !hasEarnedTier(m)) || null;
 
   return {
     referralCode,
+    verifiedReferrals: verifiedCount,
     qualifiedReferrals: completedCount,
     pendingReferrals: pendingCount,
     suspectReferrals: suspectCount,
@@ -349,8 +359,12 @@ const getMyReferralStats = async (userId) => {
           threshold: nextMilestone.threshold,
           rewardType: nextMilestone.rewardType,
           rewardValue: nextMilestone.rewardValue,
-          progress: completedCount - prevThreshold,
-          remaining: nextMilestone.threshold - completedCount,
+          qualificationMode: nextMilestone.qualificationMode,
+          minQualifiedReferrals: nextMilestone.minQualifiedReferrals || nextMilestone.threshold,
+          verifiedProgress: Math.min(verifiedCount, nextMilestone.threshold),
+          qualifiedProgress: Math.min(completedCount, nextMilestone.minQualifiedReferrals || nextMilestone.threshold),
+          remainingVerified: Math.max(0, nextMilestone.threshold - verifiedCount),
+          remainingQualified: Math.max(0, (nextMilestone.minQualifiedReferrals || nextMilestone.threshold) - completedCount),
         }
       : null,
     milestonesConfig: MILESTONES.map((m) => ({
@@ -359,6 +373,8 @@ const getMyReferralStats = async (userId) => {
       rewardType: m.rewardType,
       rewardValue: m.rewardValue,
       minOrderValue: m.minOrderValue || null,
+      qualificationMode: m.qualificationMode,
+      minQualifiedReferrals: m.minQualifiedReferrals || m.threshold,
     })),
     vouchers: vouchers.map((v) => ({
       id: v.id,
