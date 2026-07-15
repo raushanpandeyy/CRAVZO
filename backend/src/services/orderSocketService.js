@@ -67,6 +67,10 @@ export const emitRiderLocationUpdate = (order, location) => {
     riderId: order.riderId,
     latitude: location.latitude,
     longitude: location.longitude,
-    updatedAt: new Date().toISOString(),
+    accuracy: location.accuracy,
+    heading: location.heading,
+    speed: location.speed,
+    timestamp: location.timestamp,
+    updatedAt: location.updatedAt ? new Date(location.updatedAt).toISOString() : new Date().toISOString(),
   });
 };

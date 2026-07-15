@@ -1,8 +1,9 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { CheckCircle, Clock, Eye, MessageCircle, ShoppingBag } from "lucide-react";
+import { CheckCircle, Clock, Eye, MessageCircle, Printer, ShoppingBag } from "lucide-react";
 
 import { getVendorOrders, updateOrderStatus } from "../../services/orderService.js";
 import { SkeletonRow } from "../../components/Skeleton.jsx";
+import { printOrderDocument } from "../../utils/orderPrint.js";
 
 const vendorStatusFlow = {
   PENDING: "ACCEPTED",
@@ -211,6 +212,20 @@ const OrderPanel = () => {
                       <Eye className="w-4 h-4" />
                       View
                     </button>
+                    <button
+                      onClick={() => printOrderDocument(order, "bill")}
+                      className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1 rounded text-sm flex items-center gap-1"
+                    >
+                      <Printer className="w-4 h-4" />
+                      Bill
+                    </button>
+                    <button
+                      onClick={() => printOrderDocument(order, "kitchen")}
+                      className="bg-amber-50 hover:bg-amber-100 text-amber-700 px-3 py-1 rounded text-sm flex items-center gap-1"
+                    >
+                      <Printer className="w-4 h-4" />
+                      Ticket
+                    </button>
 
                     {vendorStatusFlow[order.status] ? (
                       <button
@@ -297,6 +312,12 @@ const OrderPanel = () => {
                   Call Customer
                 </button>
               ) : null}
+              <button onClick={() => printOrderDocument(selectedOrder, "bill")} className="flex-1 rounded bg-indigo-600 py-2 text-white hover:bg-indigo-700">
+                Print Bill
+              </button>
+              <button onClick={() => printOrderDocument(selectedOrder, "kitchen")} className="flex-1 rounded bg-amber-600 py-2 text-white hover:bg-amber-700">
+                Print Ticket
+              </button>
               <button onClick={() => setChatOrderState({ order: selectedOrder, chatType: "vendor" })} className="flex-1 rounded bg-emerald-600 py-2 text-white hover:bg-emerald-700">
                 Customer Chat
               </button>
@@ -328,4 +349,6 @@ const OrderPanel = () => {
 };
 
 export default OrderPanel;
+
+
 

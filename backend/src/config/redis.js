@@ -5,14 +5,16 @@ import { env } from "./env.js";
 const redisClient = env.REDIS_URL
   ? createClient({
       url: env.REDIS_URL,
+      commandsQueueMaxLength: 1000,
+      disableOfflineQueue: true,
       socket: {
+        connectTimeout: env.REDIS_CONNECT_TIMEOUT_MS,
         reconnectStrategy: (retries) => {
-          if (retries > 20) {
+          if (retries > env.REDIS_MAX_RECONNECT_RETRIES) {
             console.error("Redis: max reconnect attempts reached");
             return new Error("Redis max reconnect attempts");
           }
-          // Exponential backoff: 500ms, 1s, 2s, 4s, 8s... max 30s
-          const delay = Math.min(Math.pow(2, retries) * 500, 30000);
+          const delay = Math.min(Math.pow(2, retries) * 200, 5000);
           console.warn(`Redis: reconnecting in ${delay}ms (attempt ${retries})`);
           return delay;
         },
@@ -35,14 +37,24 @@ const connectRedis = async () => {
     return redisConnectionPromise;
   }
 
-  redisClient.on("error", (error) => {
-    if (error.code === "ECONNREFUSED" || error.code === "NR_CLOSED") return;
-    console.error("Redis connection error:", error.message);
-  });
+  if (!redisClient.__errorHandlerAttached) {
+    redisClient.on("error", (error) => {
+      if (error.code === "ECONNREFUSED" || error.code === "NR_CLOSED") return;
+      console.error("Redis connection error:", error.message);
+    });
+    redisClient.__errorHandlerAttached = true;
+  }
 
-  redisConnectionPromise = redisClient
-    .connect()
-    .then(() => {
+  redisConnectionPromise = Promise.race([
+    redisClient.connect(),
+    new Promise((resolve) => setTimeout(() => resolve(null), env.REDIS_CONNECT_TIMEOUT_MS)),
+  ])
+    .then((client) => {
+      if (!client) {
+        redisConnectionPromise = null;
+        console.error("Redis connection timed out");
+        return null;
+      }
       console.log("Redis connected");
       return redisClient;
     })
@@ -62,7 +74,12 @@ const sendRedisCommand = async (args) => {
     throw new Error("Redis client is not available");
   }
 
-  return client.sendCommand(args);
+  return Promise.race([
+    client.sendCommand(args),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Redis command timed out")), env.REDIS_COMMAND_TIMEOUT_MS),
+    ),
+  ]);
 };
 
 export { connectRedis, redisClient, sendRedisCommand };

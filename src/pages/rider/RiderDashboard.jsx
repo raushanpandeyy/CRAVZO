@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
-import { MessageCircle } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
+import { BatteryWarning, MapPin, MessageCircle, Wifi, WifiOff } from "lucide-react";
 
 import { getRiderOrders, updateOrderStatus, verifyDeliveryOtp } from "../../services/orderService.js";
 import { updateRiderLocation, updateRiderStatus } from "../../services/riderService.js";
@@ -9,6 +9,9 @@ import { onNewOrder, onOrderStatusUpdate } from "../../services/chatSocket.js";
 const OrderRequestPopup = lazy(() => import("../../components/OrderRequestPopup.jsx"));
 const RiderMap = lazy(() => import("./LazyRiderMap.jsx"));
 const OrderChatModal = lazy(() => import("../../components/OrderChatModal.jsx"));
+
+const LOCATION_HEARTBEAT_MS = 10000;
+const LOCATION_MOVEMENT_THRESHOLD = 0.0003;
 
 const formatCurrency = (amount) => `Rs ${Math.floor(amount || 0)}`;
 
@@ -46,12 +49,16 @@ const RiderDashboard = () => {
   const [chatOrder, setChatOrder] = useState(null);
   const [deliveryOtpInputs, setDeliveryOtpInputs] = useState({});
   const [riderLocation, setRiderLocation] = useState(null);
+  const [locationStatus, setLocationStatus] = useState("pending");
+  const [wakeLockActive, setWakeLockActive] = useState(false);
+  const [wakeLockSupported, setWakeLockSupported] = useState(() => typeof navigator !== "undefined" && "wakeLock" in navigator);
+  const [isPageVisible, setIsPageVisible] = useState(() => typeof document === "undefined" || !document.hidden);
   const [orderRequest, setOrderRequest] = useState(null);
   const [showRequest, setShowRequest] = useState(false);
   const firstLoadRef = useRef(true);
-  const availableIdsRef = useRef([]);
   const lastLocationSyncRef = useRef({ lat: null, lng: null, syncedAt: 0 });
   const isOnlineRef = useRef(false);
+  const wakeLockRef = useRef(null);
   const previousAvailableOrdersRef = useRef([]);
 
   const openNavigation = (target) => {
@@ -73,19 +80,19 @@ const RiderDashboard = () => {
     try {
       const rawData = await getRiderOrders();
       const data = Array.isArray(rawData) ? rawData : [];
-      
+
       const currentAvailableIds = data.filter((order) => order.isAvailable).map((order) => order.id);
-      
+
       if (currentAvailableIds.length > 0) {
         if (firstLoadRef.current) {
           const latestOrder = data.find(o => o.isAvailable);
           if (latestOrder) {
             setOrderRequest(latestOrder);
             setShowRequest(true);
-            
+
             if ("Notification" in window && Notification.permission === "granted") {
               new Notification("Dodago - New Order!", {
-                body: `${latestOrder.restaurant?.name || "New order"} - Earn ₹${Math.floor(latestOrder.deliveryFee || 0)}`,
+                body: `${latestOrder.restaurant?.name || "New order"} - Earn Rs ${Math.floor(latestOrder.deliveryFee || 0)}`,
                 icon: "/dodagologo.png",
                 tag: "new-order",
                 requireInteraction: true,
@@ -105,7 +112,7 @@ const RiderDashboard = () => {
 
             if ("Notification" in window && Notification.permission === "granted") {
               new Notification("Dodago - New Order!", {
-                body: `${latestOrder.restaurant?.name || "New order"} - Earn ₹${Math.floor(latestOrder.deliveryFee || 0)}`,
+                body: `${latestOrder.restaurant?.name || "New order"} - Earn Rs ${Math.floor(latestOrder.deliveryFee || 0)}`,
                 icon: "/dodagologo.png",
                 tag: "new-order",
                 requireInteraction: true,
@@ -166,7 +173,7 @@ const RiderDashboard = () => {
     loadRiderState();
     loadOrders();
 
-    // Real-time order updates via Socket.IO — replaces 45s polling
+    // Real-time order updates via Socket.IO replace 45s polling
     const cleanups = [
       onNewOrder((data) => {
         setOrderRequest(data);
@@ -189,45 +196,130 @@ const RiderDashboard = () => {
     isOnlineRef.current = isOnline;
   }, [isOnline]);
 
+  const syncRiderLocation = useCallback(async (location, { force = false } = {}) => {
+    if (!location || !isOnlineRef.current) return false;
+
+    const lastSync = lastLocationSyncRef.current;
+    const movedEnough =
+      lastSync.lat === null ||
+      Math.abs(lastSync.lat - location.lat) > LOCATION_MOVEMENT_THRESHOLD ||
+      Math.abs(lastSync.lng - location.lng) > LOCATION_MOVEMENT_THRESHOLD;
+    const waitedEnough = Date.now() - lastSync.syncedAt > LOCATION_HEARTBEAT_MS;
+
+    if (!force && (!movedEnough || !waitedEnough)) return false;
+
+    setLocationStatus("syncing");
+    try {
+      await updateRiderLocation(location.lat, location.lng, {
+        accuracy: location.accuracy,
+        heading: location.heading,
+        speed: location.speed,
+        timestamp: location.timestamp,
+      });
+      lastLocationSyncRef.current = {
+        lat: location.lat,
+        lng: location.lng,
+        syncedAt: Date.now(),
+      };
+      setLocationStatus("synced");
+      return true;
+    } catch {
+      setLocationStatus("error");
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
+    const handleVisibilityChange = () => {
+      const visible = !document.hidden;
+      setIsPageVisible(visible);
+      if (visible && riderLocation) {
+        syncRiderLocation(riderLocation, { force: true });
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [riderLocation, syncRiderLocation]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const requestWakeLock = async () => {
+      if (!isOnline || document.hidden) return;
+      if (!("wakeLock" in navigator)) {
+        setWakeLockSupported(false);
+        return;
+      }
+
+      try {
+        const lock = await navigator.wakeLock.request("screen");
+        if (cancelled) {
+          await lock.release();
+          return;
+        }
+        wakeLockRef.current = lock;
+        setWakeLockSupported(true);
+        setWakeLockActive(true);
+        lock.addEventListener("release", () => setWakeLockActive(false));
+      } catch {
+        setWakeLockActive(false);
+      }
+    };
+
+    requestWakeLock();
+
+    return () => {
+      cancelled = true;
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release().catch(() => {});
+        wakeLockRef.current = null;
+      }
+      setWakeLockActive(false);
+    };
+  }, [isOnline, isPageVisible]);
+
+  useEffect(() => {
+    if (!isOnline || !riderLocation) return undefined;
+    const interval = window.setInterval(() => {
+      syncRiderLocation(riderLocation, { force: true });
+    }, 25000);
+    return () => window.clearInterval(interval);
+  }, [isOnline, riderLocation, syncRiderLocation]);
+
+  useEffect(() => {
+    if (!("geolocation" in navigator)) {
+      setLocationStatus("unsupported");
+      return undefined;
+    }
+
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const nextLocation = {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          heading: pos.coords.heading,
+          speed: pos.coords.speed,
+          timestamp: pos.timestamp,
         };
 
         setRiderLocation(nextLocation);
-
-        const lastSync = lastLocationSyncRef.current;
-        const movedEnough =
-          lastSync.lat === null ||
-          Math.abs(lastSync.lat - nextLocation.lat) > 0.0008 ||
-          Math.abs(lastSync.lng - nextLocation.lng) > 0.0008;
-        const waitedEnough = Date.now() - lastSync.syncedAt > 15000;
-
-        if (isOnlineRef.current && movedEnough && waitedEnough) {
-          updateRiderLocation(nextLocation.lat, nextLocation.lng)
-            .then(() => {
-              lastLocationSyncRef.current = {
-                lat: nextLocation.lat,
-                lng: nextLocation.lng,
-                syncedAt: Date.now(),
-              };
-            })
-            .catch(() => { });
-        }
+        setLocationStatus((current) => (current === "syncing" ? current : "watching"));
+        syncRiderLocation(nextLocation);
       },
-      () => { },
+      () => {
+        setLocationStatus("error");
+      },
       {
         enableHighAccuracy: true,
-        maximumAge: 10000,
-        timeout: 5000,
+        maximumAge: 5000,
+        timeout: 10000,
       },
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, []);
+  }, [syncRiderLocation]);
 
   const toggleOnlineStatus = async () => {
     setError("");
@@ -236,14 +328,10 @@ const RiderDashboard = () => {
       const nextStatus = !isOnline;
       await updateRiderStatus(nextStatus);
       setIsOnline(nextStatus);
+      isOnlineRef.current = nextStatus;
       setMessage(`You are now ${nextStatus ? "online" : "offline"}.`);
       if (nextStatus && riderLocation) {
-        await updateRiderLocation(riderLocation.lat, riderLocation.lng);
-        lastLocationSyncRef.current = {
-          lat: riderLocation.lat,
-          lng: riderLocation.lng,
-          syncedAt: Date.now(),
-        };
+        await syncRiderLocation(riderLocation, { force: true });
       }
       await loadOrders({ silent: true });
     } catch (requestError) {
@@ -406,6 +494,28 @@ const RiderDashboard = () => {
       <div className="mx-auto mt-6 max-w-4xl space-y-6 px-4">
         {message ? <div className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
         {error ? <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+
+        {isOnline ? (
+          <div className="rounded-2xl border border-indigo-100 bg-white px-4 py-3 shadow-sm">
+            <div className="flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-700">
+              <span className="inline-flex items-center gap-2 text-indigo-700">
+                <MapPin className="h-4 w-4" />
+                {locationStatus === "synced" ? "Location synced" : locationStatus === "syncing" ? "Syncing location" : locationStatus === "error" ? "Location issue" : "Location watching"}
+              </span>
+              <span className={`inline-flex items-center gap-2 ${wakeLockActive ? "text-emerald-700" : "text-amber-700"}`}>
+                <BatteryWarning className="h-4 w-4" />
+                {wakeLockActive ? "Screen stay-awake active" : wakeLockSupported ? "Keep screen awake" : "Wake lock unsupported"}
+              </span>
+              <span className={`inline-flex items-center gap-2 ${isPageVisible ? "text-emerald-700" : "text-amber-700"}`}>
+                {isPageVisible ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+                {isPageVisible ? "Page active" : "Page backgrounded"}
+              </span>
+            </div>
+            <p className="mt-2 text-xs font-medium text-slate-500">
+              Web tracking can pause if the phone locks, browser closes, battery saver starts, or this page stays in background. Keep this screen open while delivering.
+            </p>
+          </div>
+        ) : null}
 
         <section className="rounded-3xl bg-white p-6 shadow-lg">
           <h3 className="mb-4 text-xl font-bold text-slate-900">Orders in your area</h3>

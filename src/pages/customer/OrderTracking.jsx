@@ -17,6 +17,30 @@ const formatDistance = (km) => Number.isFinite(Number(km)) ? `${Number(km).toFix
 const buildAddress = (address) => [address?.line1, address?.line2, address?.city].filter(Boolean).join(", ");
 const hasCoords = (point) => point?.latitude != null && point?.longitude != null;
 
+const getLocationFreshness = (timestamp, now = Date.now()) => {
+  if (!timestamp) {
+    return { status: "unknown", label: "Location waiting", detail: "Rider location will appear after the next update." };
+  }
+
+  const updatedAt = new Date(timestamp).getTime();
+  if (!Number.isFinite(updatedAt)) {
+    return { status: "unknown", label: "Location waiting", detail: "Rider location time is unavailable." };
+  }
+
+  const ageSeconds = Math.max(0, Math.floor((now - updatedAt) / 1000));
+  const ageText = ageSeconds < 60 ? `${ageSeconds}s ago` : `${Math.floor(ageSeconds / 60)}m ago`;
+
+  if (ageSeconds <= 30) {
+    return { status: "live", label: "Live location", detail: `Updated ${ageText}` };
+  }
+
+  if (ageSeconds <= 120) {
+    return { status: "delayed", label: "Location delayed", detail: `Last update ${ageText}` };
+  }
+
+  return { status: "paused", label: "Location paused", detail: `Last update ${ageText}. Rider may have locked the phone or closed the web app.` };
+};
+
 export default function OrderTrackingPage() {
   const { orderId } = useParams();
   const navigate = useNavigate();
@@ -25,6 +49,7 @@ export default function OrderTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [now, setNow] = useState(() => Date.now());
 
   const loadTracking = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setRefreshing(true);
@@ -46,6 +71,11 @@ export default function OrderTrackingPage() {
     return () => window.clearInterval(interval);
   }, [loadTracking]);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 15000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   useEffect(() => onOrderStatusUpdate(({ orderId: updatedOrderId, status }) => {
     if (updatedOrderId !== orderId) return;
     setTracking((current) => current ? { ...current, status } : current);
@@ -54,12 +84,18 @@ export default function OrderTrackingPage() {
 
   useEffect(() => onRiderLocationUpdate((payload) => {
     if (payload.orderId !== orderId) return;
+    setNow(Date.now());
     setTracking((current) => current ? {
       ...current,
       rider: {
         ...current.rider,
         latitude: payload.latitude,
         longitude: payload.longitude,
+        accuracy: payload.accuracy,
+        heading: payload.heading,
+        speed: payload.speed,
+        timestamp: payload.timestamp,
+        updatedAt: payload.updatedAt || new Date().toISOString(),
       },
     } : current);
   }), [orderId]);
@@ -67,6 +103,7 @@ export default function OrderTrackingPage() {
   const riderLoc = useMemo(() => hasCoords(tracking?.rider) ? tracking.rider : null, [tracking]);
   const restaurantLoc = useMemo(() => hasCoords(tracking?.restaurant) ? tracking.restaurant : null, [tracking]);
   const destinationLoc = useMemo(() => hasCoords(tracking?.destination) ? tracking.destination : null, [tracking]);
+  const locationFreshness = useMemo(() => getLocationFreshness(tracking?.rider?.updatedAt, now), [tracking?.rider?.updatedAt, now]);
 
   const openGoogleNavigation = () => {
     const target = riderLoc || destinationLoc || restaurantLoc;
@@ -155,7 +192,10 @@ export default function OrderTrackingPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="font-black text-slate-950">{tracking?.rider?.name || "Rider being assigned"}</p>
-                <p className="mt-1 text-sm text-slate-500">Live location updates automatically.</p>
+                <p className={`mt-1 text-sm font-semibold ${locationFreshness.status === "live" ? "text-emerald-600" : locationFreshness.status === "delayed" ? "text-amber-600" : "text-rose-600"}`}>
+                  {locationFreshness.label}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">{locationFreshness.detail}</p>
               </div>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">

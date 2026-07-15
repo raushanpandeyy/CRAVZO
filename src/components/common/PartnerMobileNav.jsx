@@ -3,6 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3,
   Headphones,
+  ChefHat,
   Home,
   LogOut,
   MessageCircle,
@@ -37,6 +38,8 @@ const roleConfig = {
       { label: "Home", to: "/vendor-dashboard", icon: Store },
       { label: "Orders", to: "/vendor-dashboard/orders", icon: ReceiptText },
       { label: "Menu", to: "/vendor-dashboard/menu", icon: Utensils },
+      { label: "KDS", to: "/vendor-dashboard/kitchen", icon: ChefHat },
+      { label: "Reports", to: "/vendor-dashboard/reports", icon: BarChart3 },
       { label: "Profile", to: "/vendor-dashboard/profile", icon: PackageCheck },
       { label: "Chat", to: "/vendor-dashboard/chat", icon: MessageCircle },
     ],
@@ -201,3 +204,4 @@ const PartnerMobileNav = ({ role }) => (
 );
 
 export default PartnerMobileNav;
+

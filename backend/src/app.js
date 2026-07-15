@@ -4,7 +4,7 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 
-import { env } from "./config/env.js";
+import { getHealth, getMetrics, getReadiness } from "./controllers/healthController.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFoundHandler } from "./middleware/notFoundHandler.js";
 import { requestLogger } from "./middleware/requestLogger.js";
@@ -77,13 +77,9 @@ app.use(express.json({ limit: "100kb" }));
 app.use(express.urlencoded({ extended: true, limit: "100kb" }));
 app.use(cookieParser());
 
-app.get("/health", (_req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "DODAGO backend is healthy",
-    environment: env.NODE_ENV,
-  });
-});
+app.get("/health", getHealth);
+app.get("/ready", getReadiness);
+app.get("/metrics", getMetrics);
 
 // Fix 6: HTTP Cache-Control headers for public endpoints
 // Browser CDN caches for 5min fresh + 30min stale-while-revalidate â€” zero round-trips on revisit

@@ -1,10 +1,15 @@
-import 'dotenv/config';
+import "dotenv/config";
 import http from "http";
 
 import { env } from "./config/env.js";
-import { connectRedis } from "./config/redis.js";
+import { prisma } from "./config/database.js";
+import { connectRedis, redisClient } from "./config/redis.js";
 import { attachChatSocket } from "./socket/chatSocket.js";
 import { ensureIndexes } from "./scripts/ensureIndexes.js";
+import { getNotificationQueue } from "./services/notificationQueue.js";
+import { getOrderQueue } from "./services/orderQueue.js";
+import { markShuttingDown } from "./utils/runtimeState.js";
+import { logger } from "./utils/logger.js";
 
 const PORT = env.PORT || process.env.PORT || 8080;
 
@@ -13,41 +18,67 @@ ensureIndexes();
 
 const { app } = await import("./app.js");
 const server = http.createServer(app);
+server.keepAliveTimeout = env.HTTP_KEEP_ALIVE_TIMEOUT_MS;
+server.headersTimeout = env.HTTP_HEADERS_TIMEOUT_MS;
+server.requestTimeout = env.HTTP_REQUEST_TIMEOUT_MS;
 
-// Fix #5: attachChatSocket is now async (sets up Redis pub/sub adapter)
 await attachChatSocket(server);
 
-// Start background notification worker (Fix 1: Bull queue)
 const { startNotificationWorker } = await import("./services/notificationWorker.js");
 startNotificationWorker().catch((error) => {
-  console.error("Failed to start notification worker:", error.message);
+  logger.error("Failed to start notification worker", { error });
 });
 
-// Wire Socket.IO instance to order socket service for real-time order push
 const { setOrderSocketInstance } = await import("./services/orderSocketService.js");
 const { ioInstance } = await import("./socket/chatSocket.js");
 if (ioInstance) {
   setOrderSocketInstance(ioInstance);
 }
 
-// Start background order worker (Bull queue for order creation)
 const { startOrderWorker } = await import("./services/orderWorker.js");
 startOrderWorker().catch((error) => {
-  console.error("Failed to start order worker:", error.message);
+  logger.error("Failed to start order worker", { error });
 });
 
 server.listen(PORT, () => {
-  console.log(`DODAGO backend running on port ${PORT}`);
+  logger.info("DODAGO backend running", { port: PORT });
 });
 
-// Keep-alive ping for Render free tier
-// Render spins down after 15min inactivity — self-ping every 14 min prevents cold starts
+const shutdown = async (signal) => {
+  logger.warn("Shutdown signal received", { signal });
+  markShuttingDown();
+
+  const forceExit = setTimeout(() => {
+    logger.error("Graceful shutdown timed out; forcing exit", { signal });
+    process.exit(1);
+  }, env.SERVER_SHUTDOWN_GRACE_MS);
+  forceExit.unref?.();
+
+  await new Promise((resolve) => server.close(resolve));
+
+  const closeTasks = [
+    ioInstance ? new Promise((resolve) => ioInstance.close(resolve)) : Promise.resolve(),
+    getOrderQueue().close().catch((error) => logger.warn("Order queue close failed", { error })),
+    getNotificationQueue().close().catch((error) => logger.warn("Notification queue close failed", { error })),
+    redisClient?.isOpen ? redisClient.quit().catch((error) => logger.warn("Redis quit failed", { error })) : Promise.resolve(),
+    prisma.$disconnect().catch((error) => logger.warn("Prisma disconnect failed", { error })),
+  ];
+
+  await Promise.allSettled(closeTasks);
+  clearTimeout(forceExit);
+  logger.info("Graceful shutdown complete", { signal });
+  process.exit(0);
+};
+
+process.once("SIGTERM", () => shutdown("SIGTERM"));
+process.once("SIGINT", () => shutdown("SIGINT"));
+
 if (env.NODE_ENV === "production" && env.RENDER_EXTERNAL_URL) {
-  const PING_INTERVAL_MS = 14 * 60 * 1000; // 14 minutes
+  const PING_INTERVAL_MS = 14 * 60 * 1000;
   setInterval(async () => {
     try {
       await fetch(`${env.RENDER_EXTERNAL_URL}/health`);
-      console.log("Keep-alive ping sent");
+      logger.info("Keep-alive ping sent");
     } catch {
       // Ignore ping errors
     }

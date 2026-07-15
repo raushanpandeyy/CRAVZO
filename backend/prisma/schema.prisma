@@ -158,6 +158,8 @@ model Restaurant {
   bankDetails  Json?
   deliveryTime String?
   minimumOrder Decimal?         @db.Decimal(10, 2)
+  averageRating Float           @default(0)
+  reviewCount   Int             @default(0)
   closureDates Json?
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
@@ -171,6 +173,7 @@ model Restaurant {
 
   @@index([vendorId, createdAt])
   @@index([status, isOpen, createdAt])
+  @@index([status, isOpen, averageRating])
   @@index([status, isOpen, city])
   @@index([city])
   @@index([city, status, isOpen])

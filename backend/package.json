@@ -14,7 +14,9 @@
     "prisma:studio": "prisma studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "health:check": "node src/scripts/smokeCheck.js",
+    "load:test": "node src/scripts/loadTest.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

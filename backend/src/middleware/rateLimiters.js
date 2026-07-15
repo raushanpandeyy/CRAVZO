@@ -1,7 +1,8 @@
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 
-import { connectRedis, redisClient } from "../config/redis.js";
+import { connectRedis, redisClient, sendRedisCommand } from "../config/redis.js";
+import { env } from "../config/env.js";
 
 const createRateLimitMessage = (message) => ({
   success: false,
@@ -11,30 +12,30 @@ const createRateLimitMessage = (message) => ({
 let redisConnected = false;
 
 const ensureRedisConnected = async () => {
-  if (redisConnected && redisClient?.isOpen) return;
+  if (redisConnected && redisClient?.isReady) return;
   try {
     await connectRedis();
-    redisConnected = true;
+    redisConnected = Boolean(redisClient?.isReady);
   } catch {
     redisConnected = false;
   }
 };
 
 const createStore = (prefix) => {
-  if (!redisClient) {
+  if (!redisClient || env.NODE_ENV === "test") {
     return undefined;
   }
 
   return new RedisStore({
     prefix,
     sendCommand: async (...args) => {
-      if (!redisConnected || !redisClient.isOpen) {
+      if (!redisConnected || !redisClient.isReady) {
         await ensureRedisConnected();
-        if (!redisClient?.isOpen) {
+        if (!redisClient?.isReady) {
           throw new Error("Redis unavailable");
         }
       }
-      return redisClient.sendCommand(args);
+      return sendRedisCommand(args);
     },
   });
 };
@@ -44,6 +45,7 @@ const loginLimiter = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  passOnStoreError: true,
   store: createStore("rl:login:"),
   message: createRateLimitMessage("Too many login attempts. Please try again after 15 minutes."),
 });
@@ -53,6 +55,7 @@ const otpLimiter = rateLimit({
   limit: 4,
   standardHeaders: true,
   legacyHeaders: false,
+  passOnStoreError: true,
   keyGenerator: (req) => {
     const email = req.body?.email?.toLowerCase?.();
     return email ? `email:${email}` : ipKeyGenerator(req);
@@ -66,6 +69,7 @@ const otpVerifyLimiter = rateLimit({
   limit: 8,
   standardHeaders: true,
   legacyHeaders: false,
+  passOnStoreError: true,
   keyGenerator: (req) => {
     const email = req.body?.email?.toLowerCase?.();
     return email ? `email:${email}` : ipKeyGenerator(req);
@@ -79,6 +83,7 @@ const passwordResetLimiter = rateLimit({
   limit: 3,
   standardHeaders: true,
   legacyHeaders: false,
+  passOnStoreError: true,
   store: createStore("rl:password-reset:"),
   message: createRateLimitMessage("Too many password reset attempts. Please try again after 15 minutes."),
 });
@@ -88,6 +93,7 @@ const paymentLimiter = rateLimit({
   limit: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  passOnStoreError: true,
   store: createStore("rl:payment:"),
   message: createRateLimitMessage("Too many payment requests. Please try again later."),
 });
@@ -97,6 +103,7 @@ const orderLimiter = rateLimit({
   limit: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  passOnStoreError: true,
   keyGenerator: (req) => req.user?.sub,
   store: createStore("rl:order:"),
   message: createRateLimitMessage("Too many orders placed. Please wait a minute before trying again."),
@@ -107,6 +114,7 @@ const publicLimiter = rateLimit({
   limit: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  passOnStoreError: true,
   store: createStore("rl:public:"),
   message: createRateLimitMessage("Too many requests. Please slow down."),
 });
@@ -116,6 +124,7 @@ const firebaseAuthLimiter = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  passOnStoreError: true,
   store: createStore("rl:firebase-auth:"),
   message: createRateLimitMessage("Too many authentication attempts. Please try again after 15 minutes."),
 });

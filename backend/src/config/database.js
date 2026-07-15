@@ -15,10 +15,10 @@ const getDatabaseUrl = () => {
   try {
     const url = new URL(base);
     if (!url.searchParams.has("connection_limit")) {
-      url.searchParams.set("connection_limit", "20");
+      url.searchParams.set("connection_limit", String(env.DATABASE_CONNECTION_LIMIT));
     }
     if (!url.searchParams.has("pool_timeout")) {
-      url.searchParams.set("pool_timeout", "8");
+      url.searchParams.set("pool_timeout", String(env.DATABASE_POOL_TIMEOUT_SECONDS));
     }
     return url.toString();
   } catch {
@@ -51,8 +51,8 @@ const prisma =
     },
     transactionOptions: {
       isolationLevel: "RepeatableRead",
-      maxWait: 5000,
-      timeout: 10000,
+      maxWait: env.DATABASE_TRANSACTION_MAX_WAIT_MS,
+      timeout: env.DATABASE_TRANSACTION_TIMEOUT_MS,
     },
   });
 

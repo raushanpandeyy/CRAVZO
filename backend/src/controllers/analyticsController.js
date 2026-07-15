@@ -15,7 +15,6 @@ const getVendorAnalytics = async (req, res) => {
 
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
 
   const [deliveredOrders, allOrders, orderItems, hourlyOrders, statusCounts, revenueAgg] = await Promise.all([
     prisma.order.findMany({
@@ -164,4 +163,230 @@ const getVendorAnalytics = async (req, res) => {
   );
 };
 
-export { getVendorAnalytics };
+const startOfDay = (date) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
+
+const addDays = (date, days) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const resolveReportWindow = (range = "daily") => {
+  const now = new Date();
+  const endDate = addDays(startOfDay(now), 1);
+
+  if (range === "monthly") {
+    const startDate = new Date(endDate);
+    startDate.setMonth(startDate.getMonth() - 12);
+    return { startDate, endDate, bucket: "month" };
+  }
+
+  if (range === "weekly") {
+    return { startDate: addDays(endDate, -84), endDate, bucket: "week" };
+  }
+
+  return { startDate: addDays(endDate, -30), endDate, bucket: "day" };
+};
+
+const bucketKeyForDate = (date, bucket) => {
+  const value = new Date(date);
+
+  if (bucket === "month") {
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  if (bucket === "week") {
+    const day = value.getDay();
+    const weekStart = startOfDay(value);
+    weekStart.setDate(value.getDate() - day);
+    return weekStart.toISOString().slice(0, 10);
+  }
+
+  return value.toISOString().slice(0, 10);
+};
+
+const buildEmptyBuckets = (startDate, endDate, bucket) => {
+  const buckets = [];
+  const cursor = new Date(startDate);
+
+  while (cursor < endDate) {
+    const key = bucketKeyForDate(cursor, bucket);
+    if (!buckets.some((entry) => entry.key === key)) {
+      buckets.push({ key, label: key, sales: 0, orders: 0, cancelled: 0, rejected: 0 });
+    }
+
+    if (bucket === "month") cursor.setMonth(cursor.getMonth() + 1);
+    else if (bucket === "week") cursor.setDate(cursor.getDate() + 7);
+    else cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return buckets;
+};
+
+const getVendorReports = async (req, res) => {
+  const restaurant = await prisma.restaurant.findFirst({
+    where: { vendorId: req.user.sub },
+    select: { id: true, name: true },
+  });
+
+  if (!restaurant) {
+    throw new ApiError(404, "No restaurant found for this vendor");
+  }
+
+  const range = ["daily", "weekly", "monthly"].includes(req.query.range)
+    ? req.query.range
+    : "daily";
+  const { startDate, endDate, bucket } = resolveReportWindow(range);
+
+  const where = {
+    restaurantId: restaurant.id,
+    createdAt: { gte: startDate, lt: endDate },
+  };
+  const deliveredWhere = { ...where, status: "DELIVERED" };
+
+  const [orders, summary, statusCounts, itemRows] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      select: {
+        id: true,
+        status: true,
+        subtotal: true,
+        packagingFee: true,
+        deliveryFee: true,
+        platformFee: true,
+        gatewayFee: true,
+        codCharge: true,
+        discount: true,
+        totalTax: true,
+        tipAmount: true,
+        totalAmount: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.order.aggregate({
+      where: deliveredWhere,
+      _sum: {
+        subtotal: true,
+        packagingFee: true,
+        deliveryFee: true,
+        platformFee: true,
+        gatewayFee: true,
+        codCharge: true,
+        discount: true,
+        totalTax: true,
+        tipAmount: true,
+        totalAmount: true,
+      },
+      _count: { id: true },
+    }),
+    prisma.order.groupBy({
+      by: ["status"],
+      where,
+      _count: { id: true },
+    }),
+    prisma.orderItem.findMany({
+      where: { order: deliveredWhere },
+      select: {
+        menuItemId: true,
+        quantity: true,
+        totalPrice: true,
+        menuItem: {
+          select: { id: true, name: true, category: true, imageUrl: true },
+        },
+      },
+    }),
+  ]);
+
+  const bucketMap = new Map(
+    buildEmptyBuckets(startDate, endDate, bucket).map((entry) => [entry.key, entry]),
+  );
+
+  for (const order of orders) {
+    const key = bucketKeyForDate(order.createdAt, bucket);
+    const entry = bucketMap.get(key);
+    if (!entry) continue;
+
+    if (order.status === "DELIVERED") {
+      entry.sales += Number(order.totalAmount || 0);
+      entry.orders += 1;
+    } else if (order.status === "CANCELLED") {
+      entry.cancelled += 1;
+    } else if (order.status === "REJECTED") {
+      entry.rejected += 1;
+    }
+  }
+
+  const popularityMap = new Map();
+  for (const row of itemRows) {
+    const key = row.menuItemId;
+    const current = popularityMap.get(key) || {
+      menuItemId: key,
+      name: row.menuItem?.name || "Menu item",
+      category: row.menuItem?.category || "Uncategorized",
+      imageUrl: row.menuItem?.imageUrl || null,
+      unitsSold: 0,
+      revenue: 0,
+      orderLines: 0,
+    };
+    current.unitsSold += Number(row.quantity || 0);
+    current.revenue += Number(row.totalPrice || 0);
+    current.orderLines += 1;
+    popularityMap.set(key, current);
+  }
+
+  const menuPopularity = [...popularityMap.values()]
+    .map((item) => ({ ...item, revenue: Math.round(item.revenue * 100) / 100 }))
+    .sort((a, b) => b.unitsSold - a.unitsSold || b.revenue - a.revenue);
+
+  const statusBreakdown = Object.fromEntries(
+    statusCounts.map((entry) => [entry.status, entry._count.id]),
+  );
+  const deliveredCount = summary._count.id;
+  const totalSales = Number(summary._sum.totalAmount || 0);
+
+  res.status(200).json(
+    apiResponse({
+      message: "Vendor reports fetched successfully",
+      data: {
+        restaurant,
+        range,
+        bucket,
+        period: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+        summary: {
+          totalSales: Math.round(totalSales * 100) / 100,
+          deliveredOrders: deliveredCount,
+          totalOrders: orders.length,
+          averageOrderValue: deliveredCount ? Math.round((totalSales / deliveredCount) * 100) / 100 : 0,
+          subtotal: Number(summary._sum.subtotal || 0),
+          packagingFee: Number(summary._sum.packagingFee || 0),
+          deliveryFee: Number(summary._sum.deliveryFee || 0),
+          platformFee: Number(summary._sum.platformFee || 0),
+          gatewayFee: Number(summary._sum.gatewayFee || 0),
+          codCharge: Number(summary._sum.codCharge || 0),
+          discount: Number(summary._sum.discount || 0),
+          tax: Number(summary._sum.totalTax || 0),
+          tips: Number(summary._sum.tipAmount || 0),
+        },
+        salesTrend: [...bucketMap.values()].map((entry) => ({
+          ...entry,
+          sales: Math.round(entry.sales * 100) / 100,
+        })),
+        statusBreakdown,
+        menuPopularity,
+      },
+    }),
+  );
+};
+
+export { getVendorAnalytics, getVendorReports };
+
+
+

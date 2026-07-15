@@ -22,6 +22,14 @@ const ManageMenu = lazy(() =>
   import('../pages/vendors/ManageMenu.jsx')
 );
 
+const KitchenDisplay = lazy(() =>
+  import('../pages/vendors/KitchenDisplay.jsx')
+);
+
+const VendorReports = lazy(() =>
+  import('../pages/vendors/VendorReports.jsx')
+);
+
 const VendorProfile = lazy(() =>
   import('../pages/vendors/VendorProfile.jsx')
 );
@@ -69,6 +77,16 @@ const VendorRoutes = () => {
                 />
 
                 <Route
+                  path="kitchen"
+                  element={<KitchenDisplay />}
+                />
+
+                <Route
+                  path="reports"
+                  element={<VendorReports />}
+                />
+
+                <Route
                   path="profile"
                   element={<VendorProfile />}
                 />
@@ -87,3 +105,4 @@ const VendorRoutes = () => {
 };
 
 export default VendorRoutes;
+

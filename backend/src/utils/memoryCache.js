@@ -1,4 +1,6 @@
-const MAX_ENTRIES = 1000;
+import { env } from "../config/env.js";
+
+const MAX_ENTRIES = env.MEMORY_CACHE_MAX_ENTRIES;
 const DEFAULT_TTL_MS = 300000;
 
 const cache = new Map();

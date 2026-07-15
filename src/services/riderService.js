@@ -9,10 +9,17 @@ export const updateRiderStatus = async (isOnline) => {
   return response.data;
 };
 
-export const updateRiderLocation = async (latitude, longitude) => {
+export const updateRiderLocation = async (latitude, longitude, metadata = {}) => {
   const response = await apiRequest("/api/rider/location", {
     method: "PATCH",
-    body: JSON.stringify({ latitude, longitude }),
+    body: JSON.stringify({
+      latitude,
+      longitude,
+      accuracy: metadata.accuracy,
+      heading: metadata.heading,
+      speed: metadata.speed,
+      timestamp: metadata.timestamp,
+    }),
   });
 
   return response.data;

@@ -9,12 +9,18 @@ const RIDER_GEO_KEY = "rider:geo";
 const updateRiderGeo = async (riderId, lat, lng) => {
   try {
     const client = await connectRedis();
-    if (client?.isOpen) {
+    if (client?.isOpen || client?.isReady) {
       await client.geoAdd(RIDER_GEO_KEY, { longitude: lng, latitude: lat, member: riderId });
     }
   } catch {
     // non-critical
   }
+};
+
+const toOptionalNumber = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 };
 
 export const updateRiderStatus = async (req, res) => {
@@ -37,7 +43,9 @@ export const updateRiderStatus = async (req, res) => {
             if (client?.isOpen) {
               await client.zRem(RIDER_GEO_KEY, req.user.sub);
             }
-          } catch {}
+          } catch {
+            // non-critical
+          }
         })(),
   ]);
 
@@ -53,11 +61,22 @@ export const updateRiderStatus = async (req, res) => {
 };
 
 export const updateRiderLocation = async (req, res) => {
-  const { latitude, longitude } = req.body;
+  const latitude = Number(req.body.latitude);
+  const longitude = Number(req.body.longitude);
+  const accuracy = toOptionalNumber(req.body.accuracy);
+  const heading = toOptionalNumber(req.body.heading);
+  const speed = toOptionalNumber(req.body.speed);
+  const timestamp = toOptionalNumber(req.body.timestamp);
 
-  if (typeof latitude !== "number" || typeof longitude !== "number") {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     throw new ApiError(400, "latitude and longitude are required");
   }
+
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    throw new ApiError(400, "latitude or longitude is outside the valid range");
+  }
+
+  const updatedAt = new Date();
 
   const [rider, activeOrder] = await Promise.all([
     prisma.user.update({
@@ -76,7 +95,7 @@ export const updateRiderLocation = async (req, res) => {
   ]);
 
   if (activeOrder) {
-    emitRiderLocationUpdate(activeOrder, { latitude, longitude });
+    emitRiderLocationUpdate(activeOrder, { latitude, longitude, accuracy, heading, speed, timestamp, updatedAt });
   }
 
   res.status(200).json(
@@ -86,11 +105,15 @@ export const updateRiderLocation = async (req, res) => {
         id: rider.id,
         latitude: rider.latitude,
         longitude: rider.longitude,
+        accuracy,
+        heading,
+        speed,
+        timestamp,
+        updatedAt: rider.updatedAt,
       },
     }),
   );
 };
-
 export const getRiderEarnings = async (req, res) => {
   const riderId = req.user.sub;
 

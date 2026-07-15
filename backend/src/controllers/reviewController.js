@@ -6,12 +6,29 @@ import { upsertReviewSchema } from "../validators/reviewValidators.js";
 
 // Fix #8: Cache restaurant reviews.
 // listRestaurantReviews is called on every restaurant page load with no cache.
-// Reviews don't change often â€” 2-minute TTL is a good tradeoff.
-import { REVIEWS_CACHE_TTL_SECONDS } from "../utils/publicCache.js";
+// Reviews don't change often Ã¢â‚¬â€ 2-minute TTL is a good tradeoff.
+import { REVIEWS_CACHE_TTL_SECONDS, invalidatePublicRestaurantCache } from "../utils/publicCache.js";
 
 const REVIEW_CACHE_TTL = REVIEWS_CACHE_TTL_SECONDS;
 const reviewCacheKey = (restaurantId) => `reviews:restaurant:${restaurantId}`;
 
+const refreshRestaurantRating = async (restaurantId) => {
+  const aggregate = await prisma.review.aggregate({
+    where: { restaurantId },
+    _avg: { rating: true },
+    _count: { rating: true },
+  });
+
+  const reviewCount = aggregate._count.rating || 0;
+  const averageRating = reviewCount > 0
+    ? Number(Number(aggregate._avg.rating || 0).toFixed(1))
+    : 0;
+
+  await prisma.restaurant.update({
+    where: { id: restaurantId },
+    data: { averageRating, reviewCount },
+  });
+};
 const serializeReview = (review) => ({
   id: review.id,
   rating: review.rating,
@@ -154,7 +171,11 @@ const upsertReview = async (req, res) => {
       });
 
   // Fix #8: Invalidate the reviews cache for this restaurant on write
-  await deleteCache(reviewCacheKey(restaurantId));
+  await refreshRestaurantRating(restaurantId);
+  await Promise.all([
+    deleteCache(reviewCacheKey(restaurantId)),
+    invalidatePublicRestaurantCache(restaurantId),
+  ]);
 
   res.status(200).json(
     apiResponse({
@@ -176,7 +197,11 @@ const deleteReview = async (req, res) => {
   await prisma.review.delete({ where: { id: req.params.reviewId } });
 
   // Fix #8: Invalidate cache on delete
-  await deleteCache(reviewCacheKey(review.restaurantId));
+  await refreshRestaurantRating(review.restaurantId);
+  await Promise.all([
+    deleteCache(reviewCacheKey(review.restaurantId)),
+    invalidatePublicRestaurantCache(review.restaurantId),
+  ]);
 
   res.status(200).json(
     apiResponse({
@@ -219,7 +244,10 @@ const replyToReview = async (req, res) => {
     },
   });
 
-  await deleteCache(reviewCacheKey(review.restaurantId));
+  await Promise.all([
+    deleteCache(reviewCacheKey(review.restaurantId)),
+    invalidatePublicRestaurantCache(review.restaurantId),
+  ]);
 
   res.status(200).json(
     apiResponse({

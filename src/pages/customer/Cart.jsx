@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Minus, Plus, Trash2, Receipt, ChevronLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { getRestaurantById } from "../../services/foodService.js";
+import { getAddresses } from "../../services/addressService.js";
+import { getOrderQuote } from "../../services/orderService.js";
 import { getSafeImageUrl } from "../../utils/imageUrl.js";
 import { Skeleton, SkeletonRow } from "../../components/Skeleton.jsx";
 
@@ -10,12 +12,6 @@ const DELIVERY_GST_RATE = 0.18;
 const PLATFORM_FEE = 0;
 const PACKAGING_PERCENT = 0.01;
 
-const DELIVERY_SLABS = [
-  { maxKm: 1, fee: 17 },
-  { maxKm: 2, fee: 23 },
-  { maxKm: 3, fee: 30 },
-  { maxKm: 4, fee: 35 },
-];
 
 const formatCurrency = (amount) => `₹${Math.floor(amount)}`;
 
@@ -24,14 +20,6 @@ const getPrice = (price) => {
   return parseInt(price.toString().replace(/[^0-9]/g, ""), 10) || 0;
 };
 
-const calculateDeliveryBase = (distanceKm) => {
-  const distance = distanceKm || 1;
-  for (const slab of DELIVERY_SLABS) {
-    if (distance <= slab.maxKm) return slab.fee;
-  }
-  const lastSlab = DELIVERY_SLABS[DELIVERY_SLABS.length - 1];
-  return lastSlab.fee + Math.ceil(distance - lastSlab.maxKm) * 10;
-};
 
 const InvoiceDownload = ({ cart, itemTotal, packagingFeeBase, foodGst, packagingTax, deliveryBase, deliveryGst, platformFee, platformBase, platformTax, totalTax, grandTotal, distanceKm }) => {
   const handleDownload = () => {
@@ -99,7 +87,7 @@ ${itemsHtml}
   );
 };
 
-const TaxBreakdown = ({ pricing, distanceKm, isOpen, onToggle }) => (
+const TaxBreakdown = ({ pricing, distanceKm, hasDeliveryQuote, isQuoteLoading, quoteError, isOpen, onToggle }) => (
   <div className="rounded-2xl bg-slate-50">
     <button
       type="button"
@@ -115,17 +103,25 @@ const TaxBreakdown = ({ pricing, distanceKm, isOpen, onToggle }) => (
     {isOpen && (
       <div className="px-4 pb-4 space-y-1.5 text-xs text-slate-500 border-t border-slate-200 pt-3">
         <div className="flex justify-between">
-          <span>Delivery ({distanceKm.toFixed(1)} km)</span>
-          <span>{formatCurrency(pricing.deliveryBase)}</span>
+          <span>{hasDeliveryQuote && distanceKm ? `Delivery (${distanceKm.toFixed(1)} km)` : "Delivery"}</span>
+          <span>{hasDeliveryQuote ? formatCurrency(pricing.deliveryBase) : "Select address"}</span>
         </div>
+        {isQuoteLoading && <p className="text-xs font-medium text-indigo-500">Refreshing delivery charges...</p>}
+        {!hasDeliveryQuote && !isQuoteLoading && (
+          <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+            {quoteError || "Select or save a delivery address to calculate exact delivery charges."}
+          </p>
+        )}
         <div className="flex justify-between">
           <span>Food GST (5%)</span>
           <span>{formatCurrency(pricing.foodGst + pricing.packagingTax)}</span>
         </div>
-        <div className="flex justify-between">
-          <span>Delivery GST (18%)</span>
-          <span>{formatCurrency(pricing.deliveryGst)}</span>
-        </div>
+        {hasDeliveryQuote && (
+          <div className="flex justify-between">
+            <span>Delivery GST (18%)</span>
+            <span>{formatCurrency(pricing.deliveryGst)}</span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span>Platform Fee (incl. GST)</span>
           <span>{formatCurrency(pricing.platformFee)}</span>
@@ -149,26 +145,39 @@ const Cart = () => {
   const [restaurant, setRestaurant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showTaxBreakup, setShowTaxBreakup] = useState(false);
+  const [defaultAddressId, setDefaultAddressId] = useState("");
+  const [orderQuote, setOrderQuote] = useState(null);
+  const [isQuoteLoading, setIsQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState("");
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem("dodagoCart"));
-    if (stored && stored.length > 0) {
+    const hydrateCart = async () => {
+      const stored = JSON.parse(localStorage.getItem("dodagoCart") || "[]");
+      if (!stored.length) {
+        setLoading(false);
+        return;
+      }
+
       setCart(stored);
       const restaurantId = stored[0]?.restaurantId;
-      if (restaurantId) {
-        getRestaurantById(restaurantId)
-          .then(setRestaurant)
-          .catch(() => setRestaurant(null))
-          .finally(() => setLoading(false));
-      } else {
-        setLoading(false);
-      }
-    } else {
-      setLoading(false);
-    }
-  }, []);
 
-  const distanceKm = 3;
+      await Promise.allSettled([
+        restaurantId
+          ? getRestaurantById(restaurantId).then(setRestaurant).catch(() => setRestaurant(null))
+          : Promise.resolve(),
+        getAddresses()
+          .then((addresses) => {
+            const defaultAddress = addresses.find((entry) => entry.isDefault) || addresses[0];
+            setDefaultAddressId(defaultAddress?.id || "");
+          })
+          .catch(() => setDefaultAddressId("")),
+      ]);
+
+      setLoading(false);
+    };
+
+    hydrateCart();
+  }, []);
 
   const updateCart = (newCart) => {
     setCart(newCart);
@@ -192,33 +201,108 @@ const Cart = () => {
     updateCart(cart.filter((item) => item.id !== id));
   };
 
+  const itemTotal = useMemo(() => cart.reduce((acc, item) => {
+    const baseTotal = getPrice(item.price) * item.quantity;
+    const sideTotal = (item.selectedSideDishes || []).reduce((sum, sd) => sum + Number(sd.price), 0) * item.quantity;
+    return acc + baseTotal + sideTotal;
+  }, 0), [cart]);
+
+  useEffect(() => {
+    if (!cart.length || !cart[0]?.restaurantId || !defaultAddressId) {
+      setOrderQuote(null);
+      setQuoteError(defaultAddressId ? "" : "Select or save a delivery address to calculate exact delivery charges.");
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      setIsQuoteLoading(true);
+      try {
+        const quote = await getOrderQuote({
+          restaurantId: cart[0]?.restaurantId,
+          items: cart.map((item) => ({
+            menuItemId: item.id,
+            quantity: item.quantity,
+            size: item.size || null,
+            notes: item.notes || null,
+            selectedSideDishes: item.selectedSideDishes && item.selectedSideDishes.length > 0 ? item.selectedSideDishes : undefined,
+          })),
+          addressId: defaultAddressId,
+          address: null,
+          paymentMethod: "UPI",
+          restaurantInstructions: null,
+          deliveryInstructions: null,
+          tipAmount: 0,
+          couponCode: null,
+          referralVoucherCode: null,
+        });
+        setOrderQuote(quote);
+        setQuoteError("");
+      } catch (requestError) {
+        setOrderQuote(null);
+        setQuoteError(requestError.message || "Could not calculate delivery charges");
+      } finally {
+        setIsQuoteLoading(false);
+      }
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [cart, defaultAddressId]);
+
   const pricing = useMemo(() => {
-    const itemTotal = cart.reduce((acc, item) => {
-      const baseTotal = getPrice(item.price) * item.quantity;
-      const sideTotal = (item.selectedSideDishes || []).reduce((sum, sd) => sum + Number(sd.price), 0) * item.quantity;
-      return acc + baseTotal + sideTotal;
-    }, 0);
-    const deliveryBase = calculateDeliveryBase(distanceKm);
-    const deliveryGst = deliveryBase * DELIVERY_GST_RATE;
-    const deliveryTotal = deliveryBase + deliveryGst;
+    if (orderQuote) {
+      const totalTax = Number(orderQuote.totalTax || 0);
+      const deliveryGst = Number(orderQuote.deliveryTax || 0);
+      const packagingTax = Number(orderQuote.packagingTax || 0);
+      const platformTax = Number(orderQuote.platformTax || 0);
+      const grandTotal = Number(orderQuote.totalAmount || 0) - Number(orderQuote.gatewayFee || 0) - Number(orderQuote.codCharge || 0);
+
+      return {
+        itemTotal,
+        deliveryBase: Number(orderQuote.deliveryFeeBase || 0),
+        deliveryGst,
+        deliveryTotal: Number(orderQuote.deliveryFee || 0),
+        packagingFeeBase: Number(orderQuote.packagingFeeBase || 0),
+        packagingTax,
+        foodGst: Math.max(0, totalTax - deliveryGst - packagingTax - platformTax),
+        platformFee: Number(orderQuote.platformFee || 0),
+        platformBase: Number(orderQuote.platformFeeBase || 0),
+        platformTax,
+        totalTax,
+        grandTotal,
+        cgst: totalTax / 2,
+        sgst: totalTax / 2,
+      };
+    }
+
     const packagingFeeBase = Math.floor(itemTotal * PACKAGING_PERCENT);
     const foodGst = itemTotal * FOOD_GST_RATE;
     const packagingTax = packagingFeeBase * FOOD_GST_RATE;
     const platformFee = PLATFORM_FEE;
     const platformBase = PLATFORM_FEE / (1 + DELIVERY_GST_RATE);
     const platformTax = PLATFORM_FEE - platformBase;
-    const totalTax = foodGst + packagingTax + deliveryGst + platformTax;
-    const grandTotal = itemTotal + foodGst + packagingFeeBase + packagingTax + deliveryTotal + PLATFORM_FEE;
-    const cgst = totalTax / 2;
-    const sgst = totalTax / 2;
+    const totalTax = foodGst + packagingTax + platformTax;
+    const grandTotal = itemTotal + foodGst + packagingFeeBase + packagingTax + PLATFORM_FEE;
 
     return {
-      itemTotal, deliveryBase, deliveryGst, deliveryTotal,
-      packagingFeeBase, packagingTax, foodGst,
-      platformFee, platformBase, platformTax,
-      totalTax, grandTotal, cgst, sgst,
+      itemTotal,
+      deliveryBase: 0,
+      deliveryGst: 0,
+      deliveryTotal: 0,
+      packagingFeeBase,
+      packagingTax,
+      foodGst,
+      platformFee,
+      platformBase,
+      platformTax,
+      totalTax,
+      grandTotal,
+      cgst: totalTax / 2,
+      sgst: totalTax / 2,
     };
-  }, [cart, distanceKm]);
+  }, [itemTotal, orderQuote]);
+
+  const distanceKm = orderQuote?.deliveryDistance ? Number(orderQuote.deliveryDistance) : null;
+  const hasDeliveryQuote = Boolean(orderQuote?.deliveryDistance);
 
   if (loading) {
     return (
@@ -356,6 +440,9 @@ const Cart = () => {
             <TaxBreakdown
               pricing={pricing}
               distanceKm={distanceKm}
+              hasDeliveryQuote={hasDeliveryQuote}
+              isQuoteLoading={isQuoteLoading}
+              quoteError={quoteError}
               isOpen={showTaxBreakup}
               onToggle={() => setShowTaxBreakup(!showTaxBreakup)}
             />

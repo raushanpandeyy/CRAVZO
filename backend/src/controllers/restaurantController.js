@@ -12,7 +12,6 @@ import {
   invalidatePublicRestaurantCache,
 } from "../utils/publicCache.js";
 import { createRestaurantSchema, updateRestaurantSchema } from "../validators/restaurantValidators.js";
-import { getNearbyRestaurantsService } from "../services/locationService.js";
 
 const DEFAULT_RESTAURANT_PAGE = 1;
 const DEFAULT_RESTAURANT_LIMIT = 12;
@@ -60,7 +59,7 @@ const serializeRestaurant = (restaurant) => ({
   longitude: restaurant.longitude,
   deliveryTime: restaurant.deliveryTime,
   minimumOrder: restaurant.minimumOrder ? Number(restaurant.minimumOrder) : null,
-  averageRating: restaurant.averageRating ?? null,
+  averageRating: Number(restaurant.reviewCount || 0) > 0 ? Number(Number(restaurant.averageRating || 0).toFixed(1)) : null,
   reviewCount: restaurant.reviewCount ?? 0,
   createdAt: restaurant.createdAt,
   updatedAt: restaurant.updatedAt,
@@ -73,28 +72,11 @@ const serializeRestaurant = (restaurant) => ({
   })),
 });
 
-const enrichRestaurantsWithRatings = async (restaurants) => {
-  if (!restaurants.length) return restaurants;
-  const ids = restaurants.map((r) => r.id);
-  const ratings = await prisma.review.groupBy({
-    by: ["restaurantId"],
-    where: { restaurantId: { in: ids } },
-    _avg: { rating: true },
-    _count: { rating: true },
-  });
-  const ratingMap = {};
-  for (const r of ratings) {
-    ratingMap[r.restaurantId] = {
-      averageRating: Number(Number(r._avg.rating).toFixed(1)),
-      reviewCount: r._count.rating,
-    };
-  }
-  return restaurants.map((r) => ({
-    ...r,
-    averageRating: ratingMap[r.id]?.averageRating ?? null,
-    reviewCount: ratingMap[r.id]?.reviewCount ?? 0,
-  }));
-};
+const enrichRestaurantsWithRatings = async (restaurants) => restaurants.map((restaurant) => ({
+  ...restaurant,
+  averageRating: Number(restaurant.reviewCount || 0) > 0 ? Number(Number(restaurant.averageRating || 0).toFixed(1)) : null,
+  reviewCount: restaurant.reviewCount ?? 0,
+}));
 
 // ================= LIST =================
 const listRestaurants = async (req, res) => {
@@ -183,27 +165,8 @@ const listRestaurants = async (req, res) => {
     andConditions.push({ menuItems: { some: priceFilter } });
   }
 
-  let qualifyingIds = null;
   if (minRating) {
-    const rows = await prisma.$queryRaw`
-      SELECT "restaurantId", AVG(rating)::float AS avg_rating
-      FROM "Review"
-      GROUP BY "restaurantId"
-      HAVING AVG(rating) >= ${minRating}
-    `;
-    qualifyingIds = rows.map((r) => r.restaurantId);
-    andConditions.push({ id: { in: qualifyingIds } });
-  }
-
-  let ratingSortedIds = null;
-  if (sort === "rating") {
-    const rows = await prisma.$queryRaw`
-      SELECT "restaurantId", AVG(rating)::float AS avg_rating
-      FROM "Review"
-      GROUP BY "restaurantId"
-      ORDER BY avg_rating DESC
-    `;
-    ratingSortedIds = rows.map((r) => r.restaurantId);
+    andConditions.push({ reviewCount: { gt: 0 }, averageRating: { gte: minRating } });
   }
 
   const where = { AND: andConditions };
@@ -214,7 +177,7 @@ const listRestaurants = async (req, res) => {
       : sort === "minOrder"
         ? { minimumOrder: { sort: "asc", nulls: "last" } }
         : sort === "rating"
-          ? undefined
+          ? [{ averageRating: "desc" }, { reviewCount: "desc" }, { createdAt: "desc" }]
           : { createdAt: "desc" };
 
   const [restaurants, total] = await Promise.all([
@@ -243,6 +206,8 @@ const listRestaurants = async (req, res) => {
         longitude: true,
         deliveryTime: true,
         minimumOrder: true,
+        averageRating: true,
+        reviewCount: true,
         createdAt: true,
         updatedAt: true,
         menuItems: {
@@ -267,12 +232,6 @@ const listRestaurants = async (req, res) => {
     prisma.restaurant.count({ where }),
   ]);
 
-  if (sort === "rating" && ratingSortedIds) {
-    const idOrder = new Map(ratingSortedIds.map((id, i) => [id, i]));
-    restaurants.sort(
-      (a, b) => (idOrder.get(a.id) ?? Infinity) - (idOrder.get(b.id) ?? Infinity),
-    );
-  }
 
   const enriched = await enrichRestaurantsWithRatings(restaurants);
 
@@ -329,6 +288,8 @@ const getRestaurantById = async (req, res) => {
       longitude: true,
       deliveryTime: true,
       minimumOrder: true,
+      averageRating: true,
+      reviewCount: true,
       createdAt: true,
       updatedAt: true,
       menuItems: {
@@ -435,6 +396,12 @@ const getNearbyRestaurants = async (req, res) => {
   const userLat = parseFloat(lat);
   const userLng = parseFloat(lng);
   const radiusKm = Math.min(parseFloat(radius) || 3, 10);
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.max(Math.cos(userLat * Math.PI / 180), 0.1));
+  const minLat = userLat - latDelta;
+  const maxLat = userLat + latDelta;
+  const minLng = userLng - lngDelta;
+  const maxLng = userLng + lngDelta;
 
   const cacheKey = buildNearbyCacheKey(lat, lng, radiusKm);
   const cachedResponse = await getCache(cacheKey);
@@ -457,6 +424,8 @@ const getNearbyRestaurants = async (req, res) => {
       AND "isOpen" = true
       AND "latitude" IS NOT NULL
       AND "longitude" IS NOT NULL
+      AND "latitude" BETWEEN ${minLat} AND ${maxLat}
+      AND "longitude" BETWEEN ${minLng} AND ${maxLng}
       AND (
         6371 * acos(
           LEAST(1, GREATEST(-1,
@@ -507,6 +476,8 @@ const getNearbyRestaurants = async (req, res) => {
       longitude: true,
       deliveryTime: true,
       minimumOrder: true,
+      averageRating: true,
+      reviewCount: true,
       createdAt: true,
       updatedAt: true,
       menuItems: {
@@ -596,67 +567,97 @@ const searchRestaurantsAndDishes = async (req, res) => {
     if (cached) return res.status(200).json(cached);
   }
 
-  const restaurantWhere = {
-    status: "ACTIVE",
-    isOpen: true,
-    OR: [
-      { name: { contains: query, mode: "insensitive" } },
-      { cuisine: { contains: query, mode: "insensitive" } },
-      { city: { contains: query, mode: "insensitive" } },
-      { addressLine1: { contains: query, mode: "insensitive" } },
-    ],
-  };
-
-  const dishWhere = {
-    status: "ACTIVE",
-    restaurant: { status: "ACTIVE", isOpen: true },
-    OR: [
-      { name: { contains: query, mode: "insensitive" } },
-      { category: { contains: query, mode: "insensitive" } },
-      { description: { contains: query, mode: "insensitive" } },
-    ],
-  };
-
-  const [restaurants, dishes] = await Promise.all([
-    prisma.restaurant.findMany({
-      where: restaurantWhere,
-      take: 25,
-      select: {
-        id: true,
-        name: true,
-        cuisine: true,
-        city: true,
-        addressLine1: true,
-        imageUrl: true,
-        latitude: true,
-        longitude: true,
-      },
-    }),
-    prisma.menuItem.findMany({
-      where: dishWhere,
-      take: 25,
-      select: {
-        id: true,
-        name: true,
-        category: true,
-        price: true,
-        imageUrl: true,
-        restaurant: {
-          select: {
-            id: true,
-            name: true,
-            cuisine: true,
-            city: true,
-            addressLine1: true,
-            imageUrl: true,
-            latitude: true,
-            longitude: true,
-          },
-        },
-      },
-    }),
+  const [restaurantRows, dishRows] = await Promise.all([
+    prisma.$queryRaw`
+      SELECT
+        id,
+        name,
+        cuisine,
+        city,
+        "addressLine1",
+        "imageUrl",
+        latitude,
+        longitude,
+        ts_rank(
+          to_tsvector('english', coalesce(name, '') || ' ' || coalesce(cuisine, '') || ' ' || coalesce(city, '')),
+          plainto_tsquery('english', ${query})
+        ) + GREATEST(similarity(coalesce(name, ''), ${query}), similarity(coalesce(cuisine, ''), ${query})) AS rank
+      FROM "Restaurant"
+      WHERE "status" = 'ACTIVE'::"RestaurantStatus"
+        AND "isOpen" = true
+        AND (
+          to_tsvector('english', coalesce(name, '') || ' ' || coalesce(cuisine, '') || ' ' || coalesce(city, '')) @@ plainto_tsquery('english', ${query})
+          OR name % ${query}
+          OR cuisine % ${query}
+          OR city % ${query}
+          OR "addressLine1" % ${query}
+        )
+      ORDER BY rank DESC, "createdAt" DESC
+      LIMIT 25
+    `,
+    prisma.$queryRaw`
+      SELECT
+        mi.id,
+        mi.name,
+        mi.category,
+        mi.price,
+        mi."imageUrl",
+        r.id AS "restaurantId",
+        r.name AS "restaurantName",
+        r.cuisine AS "restaurantCuisine",
+        r.city AS "restaurantCity",
+        r."addressLine1" AS "restaurantAddressLine1",
+        r."imageUrl" AS "restaurantImageUrl",
+        r.latitude AS "restaurantLatitude",
+        r.longitude AS "restaurantLongitude",
+        ts_rank(
+          to_tsvector('english', coalesce(mi.name, '') || ' ' || coalesce(mi.category, '') || ' ' || coalesce(mi.description, '')),
+          plainto_tsquery('english', ${query})
+        ) + GREATEST(similarity(coalesce(mi.name, ''), ${query}), similarity(coalesce(mi.category, ''), ${query})) AS rank
+      FROM "MenuItem" mi
+      JOIN "Restaurant" r ON r.id = mi."restaurantId"
+      WHERE mi.status = 'ACTIVE'::"MenuItemStatus"
+        AND r.status = 'ACTIVE'::"RestaurantStatus"
+        AND r."isOpen" = true
+        AND (
+          to_tsvector('english', coalesce(mi.name, '') || ' ' || coalesce(mi.category, '') || ' ' || coalesce(mi.description, '')) @@ plainto_tsquery('english', ${query})
+          OR mi.name % ${query}
+          OR mi.category % ${query}
+          OR mi.description % ${query}
+        )
+      ORDER BY rank DESC, mi."createdAt" DESC
+      LIMIT 25
+    `,
   ]);
 
+  const restaurants = restaurantRows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    cuisine: row.cuisine,
+    city: row.city,
+    addressLine1: row.addressLine1,
+    imageUrl: row.imageUrl,
+    latitude: row.latitude,
+    longitude: row.longitude,
+  }));
+
+  const dishes = dishRows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    price: row.price,
+    imageUrl: row.imageUrl,
+    restaurant: {
+      id: row.restaurantId,
+      name: row.restaurantName,
+      cuisine: row.restaurantCuisine,
+      city: row.restaurantCity,
+      addressLine1: row.restaurantAddressLine1,
+      imageUrl: row.restaurantImageUrl,
+      latitude: row.restaurantLatitude,
+      longitude: row.restaurantLongitude,
+    },
+  }));
   const restaurantMap = new Map();
 
   const addRestaurant = (restaurant, matchingDish = null) => {

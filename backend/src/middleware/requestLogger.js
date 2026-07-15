@@ -1,8 +1,10 @@
 import { randomUUID } from "crypto";
 
+import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
 
-const SLOW_REQUEST_THRESHOLD_MS = 500;
+const shouldLogSuccessfulRequest = () =>
+  env.NODE_ENV !== "production" || Math.random() < env.REQUEST_LOG_SAMPLE_RATE;
 
 const requestLogger = (req, res, next) => {
   const startedAt = process.hrtime.bigint();
@@ -23,12 +25,19 @@ const requestLogger = (req, res, next) => {
       userId: req.user?.sub || null,
     };
 
-    if (durationMs > SLOW_REQUEST_THRESHOLD_MS) {
+    if (durationMs > env.SLOW_REQUEST_THRESHOLD_MS) {
       logger.warn("Slow request", logData);
       return;
     }
 
-    logger.info("Request completed", logData);
+    if (res.statusCode >= 400) {
+      logger.warn("Request failed", logData);
+      return;
+    }
+
+    if (shouldLogSuccessfulRequest()) {
+      logger.info("Request completed", logData);
+    }
   });
 
   next();

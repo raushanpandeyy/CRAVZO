@@ -98,12 +98,12 @@ const createOrder = async (req, res) => {
     referralVoucherCode,
   });
 
-  // Queue notifications after order is persisted ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â background worker handles FCM
+  // Queue notifications after order is persisted; background worker handles FCM.
   // This removes ~500ms of FCM send time from the request lifecycle
   queueNotification("vendor-new-order", { order });
   queueNotification("rider-new-order", { order });
 
-  // Real-time socket push ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â replaces frontend polling for new orders
+  // Real-time socket push replaces frontend polling for new orders.
   emitNewOrderToVendor(order);
 
   res.status(201).json(
@@ -175,7 +175,7 @@ const quoteOrder = async (req, res) => {
   );
 };
 const getMyOrders = async (req, res) => {
-  // Fix #7: No pagination on getMyOrders ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â previously returned ALL orders ever.
+  // Fix #7: No pagination on getMyOrders; previously returned ALL orders ever.
   // A user with 200 orders = 200 restaurants + 600 items + 200 riders fetched
   // in one shot. 100 such users simultaneously = 100K+ DB rows per second.
   //
@@ -252,7 +252,7 @@ const getMyOrders = async (req, res) => {
 };
 
 const getVendorOrders = async (req, res) => {
-  // Fix 7: Pagination added ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â a vendor with 1000+ orders was fetching everything
+  // Fix 7: Pagination added; a vendor with 1000+ orders was fetching everything.
   // in one shot. Using cursor-based pagination (same pattern as getMyOrders).
   // Default page size = 50 for vendor dashboard (vendors need more context than customers).
   const VENDOR_PAGE_SIZE = 50;
@@ -327,9 +327,9 @@ const getVendorOrders = async (req, res) => {
 };
 
 const getRiderOrders = async (req, res) => {
-  // Fix #2: Previously fired 4 sequential DB queries + O(orders ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â riders)
+  // Fix #2: Previously fired 4 sequential DB queries plus O(orders x riders)
   // haversine loop synchronously in Node's event loop.
-  // With 50 riders ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 200 active orders = 10,000 distance calculations per request,
+  // With 50 riders x 200 active orders = 10,000 distance calculations per request,
   // and 100 concurrent riders = 1,000,000 CPU ops blocking the event loop.
   //
   // New approach:
@@ -337,7 +337,7 @@ const getRiderOrders = async (req, res) => {
   //   2. The expensive nearest-rider calculation is moved to a separate
   //      dedicated endpoint (GET /api/orders/rider/suggestions) that is
   //      called far less frequently than the main polling loop.
-  //   3. `isAvailable` is computed with a simple Set lookup ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â O(1) per order.
+  //   3. `isAvailable` is computed with a simple Set lookup: O(1) per order.
   const rider = await prisma.user.findUnique({
     where: { id: req.user.sub },
     select: {
@@ -353,7 +353,7 @@ const getRiderOrders = async (req, res) => {
 
   const riderCity = rider.riderOnboarding?.city?.trim();
 
-  // Run both queries in parallel ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â saves ~50% of latency vs sequential
+  // Run both queries in parallel; saves ~50% of latency vs sequential.
   const [orders, engagedRiderRows] = await Promise.all([
     prisma.order.findMany({
       where: {
@@ -395,7 +395,7 @@ const getRiderOrders = async (req, res) => {
       },
       orderBy: { createdAt: "desc" },
     }),
-    // Only fetch the IDs we need ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â no heavy includes
+    // Only fetch the IDs we need; no heavy includes.
     prisma.order.findMany({
       where: {
         riderId: { not: null },
@@ -405,7 +405,7 @@ const getRiderOrders = async (req, res) => {
     }),
   ]);
 
-  // Build engaged-rider set in O(n) ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â used for O(1) lookup below
+  // Build engaged-rider set in O(n); used for O(1) lookup below.
   const engagedRiderIds = new Set(
     engagedRiderRows.map((row) => row.riderId).filter(Boolean),
   );
@@ -422,14 +422,14 @@ const getRiderOrders = async (req, res) => {
           : order.customer
             ? { id: order.customer.id, name: order.customer.name }
             : null,
-        // isAvailable: O(1) Set lookup ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â no haversine here
+        // isAvailable: O(1) Set lookup; no haversine here.
         isAvailable:
           rider.isOnline &&
           !order.riderId &&
           ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP"].includes(order.status) &&
           !(order.rejectedRiderIds || []).includes(rider.id) &&
           !engagedRiderIds.has(rider.id),
-        // suggestedRiderId removed from hot path ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â use /rider/suggestions endpoint
+        // suggestedRiderId removed from hot path; use /rider/suggestions endpoint.
         suggestedRiderId: null,
       })),
     }),
@@ -437,7 +437,7 @@ const getRiderOrders = async (req, res) => {
 };
 
 // Fix #2 (cont.): Nearest-rider suggestions moved to a dedicated endpoint.
-// This is called by the vendor/admin dashboard ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â far less frequently than
+// This is called by the vendor/admin dashboard far less frequently than
 // the per-rider polling loop. Keeps the main getRiderOrders fast.
 const getRiderOrderSuggestions = async (req, res) => {
   const rider = await prisma.user.findUnique({
@@ -731,7 +731,7 @@ const updateOrderStatus = async (req, res) => {
         throw new ApiError(409, "This order was just claimed by another rider. Please try a different order.");
       }
 
-      // Fix 5: Avoid duplicate full fetch ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â the initial fetch already has
+      // Fix 5: Avoid duplicate full fetch; the initial fetch already has
       // restaurant, address, customer, items. Just fetch rider data.
       const riderData = await prisma.order.findUnique({
         where: { id: req.params.orderId },
@@ -847,22 +847,22 @@ const updateOrderStatus = async (req, res) => {
     },
   });
   });
-  // Real-time socket push ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â eliminates frontend polling for this update
+  // Real-time socket push eliminates frontend polling for this update.
   emitOrderStatusUpdate(updatedOrder, req.user.role);
 
-  // Queue notification ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â background worker handles FCM send
+  // Queue notification; background worker handles FCM send.
   queueNotification("order-status-changed", { order: updatedOrder, actorRole: req.user.role });
 
   // NOTE: notifyRiderNewOrder is NOT called here.
   // New order alerts to riders are sent only when an order is first created
   // (createOrder) or when a rider claims an order (the canClaimOrder block above).
-  // Calling it here on every status update was a bug ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â it was blasting all
+  // Calling it here on every status update was a bug; it was blasting all
   // online riders with notifications for every DELIVERED / CANCELLED etc.
 
   res.status(200).json(
     apiResponse({
       message: status === "CANCELLED" && cancelFee > 0
-        ? `Order cancelled. ${cancelFeePercent}% fee deducted (ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¹${cancelFee}).`
+        ? `Order cancelled. ${cancelFeePercent}% fee deducted (Rs ${cancelFee}).`
         : "Order status updated successfully",
       data: {
         ...serializeOrder(updatedOrder),
@@ -883,7 +883,7 @@ const getOrderTracking = async (req, res) => {
     include: {
       address: true,
       restaurant: true,
-      rider: { select: { id: true, name: true, phone: true, avatarUrl: true, latitude: true, longitude: true } },
+      rider: { select: { id: true, name: true, phone: true, avatarUrl: true, latitude: true, longitude: true, updatedAt: true } },
     },
   });
   if (!order) throw new ApiError(404, "Order not found");
