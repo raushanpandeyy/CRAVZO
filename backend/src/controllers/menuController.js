@@ -5,6 +5,7 @@ import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { getCache, setCache } from "../utils/cache.js";
 import { MENU_ITEMS_CACHE_TTL_SECONDS, invalidatePublicRestaurantCache } from "../utils/publicCache.js";
+import { assertVendorCanManageRestaurant, buildVendorRestaurantAccessWhere } from "../utils/restaurantAccess.js";
 import { createMenuItemSchema, updateMenuItemSchema } from "../validators/menuValidators.js";
 
 const serializeMenuItem = (item) => ({
@@ -74,16 +75,12 @@ const listMenuItems = async (req, res) => {
 const createMenuItem = async (req, res) => {
   const payload = createMenuItemSchema.parse(req.body);
 
-  const restaurant = await prisma.restaurant.findUnique({
-    where: { id: payload.restaurantId },
-  });
+  const restaurant = req.user.role === "VENDOR"
+    ? await assertVendorCanManageRestaurant(payload.restaurantId, req.user.sub)
+    : await prisma.restaurant.findUnique({ where: { id: payload.restaurantId } });
 
   if (!restaurant) {
     throw new ApiError(404, "Restaurant not found");
-  }
-
-  if (req.user.role === "VENDOR" && restaurant.vendorId !== req.user.sub) {
-    throw new ApiError(403, "You do not have permission to manage this restaurant menu");
   }
 
   const item = await prisma.menuItem.create({
@@ -126,7 +123,7 @@ const updateMenuItem = async (req, res) => {
     throw new ApiError(404, "Menu item not found");
   }
 
-  if (req.user.role === "VENDOR" && existingItem.restaurant.vendorId !== req.user.sub) {
+  if (req.user.role === "VENDOR" && !(await assertVendorCanManageRestaurant(existingItem.restaurantId, req.user.sub))) {
     throw new ApiError(403, "You do not have permission to update this menu item");
   }
 
@@ -168,7 +165,7 @@ const deleteMenuItem = async (req, res) => {
     throw new ApiError(404, "Menu item not found");
   }
 
-  if (req.user.role === "VENDOR" && existingItem.restaurant.vendorId !== req.user.sub) {
+  if (req.user.role === "VENDOR" && !(await assertVendorCanManageRestaurant(existingItem.restaurantId, req.user.sub))) {
     throw new ApiError(403, "You do not have permission to delete this menu item");
   }
 
@@ -194,7 +191,7 @@ const bulkImportMenuItems = async (req, res) => {
   }
 
   const restaurant = await prisma.restaurant.findFirst({
-    where: { vendorId: req.user.sub },
+    where: buildVendorRestaurantAccessWhere(req.user.sub),
   });
   if (!restaurant) {
     throw new ApiError(404, "No restaurant found for this vendor");
@@ -276,7 +273,7 @@ const getLowStockItems = async (req, res) => {
   const threshold = Math.max(1, Number.parseInt(req.query.threshold, 10) || 10);
 
   const restaurant = await prisma.restaurant.findFirst({
-    where: { vendorId: req.user.sub },
+    where: buildVendorRestaurantAccessWhere(req.user.sub),
   });
   if (!restaurant) {
     throw new ApiError(404, "No restaurant found for this vendor");
@@ -311,3 +308,4 @@ export {
   listMenuItems,
   updateMenuItem,
 };
+

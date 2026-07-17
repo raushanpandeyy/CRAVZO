@@ -29,6 +29,11 @@ const adminMenuItemSchema = z.object({
   status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
 });
 
+
+const restaurantOperatorAccessSchema = z.object({
+  vendorId: z.string().trim().min(1),
+  restaurantId: z.string().trim().min(1),
+});
 const adminCreateRestaurantSchema = z.object({
   owner: z.object({
     name: z.string().trim().min(2).max(120),
@@ -270,8 +275,106 @@ const updateRestaurantStatus = async (req, res) => {
   );
 };
 
+
+const listRestaurantOperatorAccesses = async (req, res) => {
+  const restaurantId = req.query.restaurantId?.trim();
+  const vendorId = req.query.vendorId?.trim();
+
+  const accesses = await prisma.restaurantOperatorAccess.findMany({
+    where: {
+      ...(restaurantId ? { restaurantId } : {}),
+      ...(vendorId ? { vendorId } : {}),
+    },
+    include: {
+      vendor: { select: { id: true, name: true, email: true, phone: true, status: true } },
+      restaurant: { select: { id: true, name: true, vendorId: true, city: true, status: true } },
+      grantedBy: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+
+  res.status(200).json(
+    apiResponse({
+      message: "Restaurant operator accesses fetched successfully",
+      data: accesses,
+    }),
+  );
+};
+
+const grantRestaurantOperatorAccess = async (req, res) => {
+  const payload = restaurantOperatorAccessSchema.parse(req.body);
+
+  const [vendor, restaurant] = await Promise.all([
+    prisma.user.findUnique({ where: { id: payload.vendorId } }),
+    prisma.restaurant.findUnique({ where: { id: payload.restaurantId } }),
+  ]);
+
+  if (!vendor || vendor.role !== ROLES.VENDOR) {
+    throw new ApiError(404, "Vendor user not found");
+  }
+
+  if (!restaurant) {
+    throw new ApiError(404, "Restaurant not found");
+  }
+
+  if (restaurant.vendorId === vendor.id) {
+    throw new ApiError(400, "Vendor already owns this restaurant");
+  }
+
+  const access = await prisma.restaurantOperatorAccess.upsert({
+    where: {
+      vendorId_restaurantId: {
+        vendorId: vendor.id,
+        restaurantId: restaurant.id,
+      },
+    },
+    create: {
+      vendorId: vendor.id,
+      restaurantId: restaurant.id,
+      grantedById: req.user.sub,
+    },
+    update: {
+      grantedById: req.user.sub,
+    },
+    include: {
+      vendor: { select: { id: true, name: true, email: true, phone: true, status: true } },
+      restaurant: { select: { id: true, name: true, vendorId: true, city: true, status: true } },
+      grantedBy: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  res.status(200).json(
+    apiResponse({
+      message: "Restaurant operator access granted successfully",
+      data: access,
+    }),
+  );
+};
+
+const revokeRestaurantOperatorAccess = async (req, res) => {
+  const payload = restaurantOperatorAccessSchema.parse(req.body);
+
+  const result = await prisma.restaurantOperatorAccess.deleteMany({
+    where: {
+      vendorId: payload.vendorId,
+      restaurantId: payload.restaurantId,
+    },
+  });
+
+  res.status(200).json(
+    apiResponse({
+      message: "Restaurant operator access revoked successfully",
+      data: { removed: result.count },
+    }),
+  );
+};
 export {
   createRestaurantForVendor,
+  grantRestaurantOperatorAccess,
+  listRestaurantOperatorAccesses,
+  revokeRestaurantOperatorAccess,
   listRestaurants,
   updateRestaurantStatus,
 };
+

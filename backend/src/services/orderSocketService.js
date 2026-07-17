@@ -1,3 +1,5 @@
+import { getRestaurantNotificationVendorIds } from "../utils/restaurantAccess.js";
+
 let ioInstance = null;
 
 export const setOrderSocketInstance = (io) => {
@@ -15,12 +17,12 @@ const emitToUsers = (userIds, event, data) => {
   }
 };
 
-export const emitOrderStatusUpdate = (order, actorRole) => {
+export const emitOrderStatusUpdate = async (order, actorRole) => {
   if (!ioInstance) return;
 
   const recipientIds = [order.customerId];
   if (order.riderId) recipientIds.push(order.riderId);
-  if (order.restaurant?.vendorId) recipientIds.push(order.restaurant.vendorId);
+  recipientIds.push(...(await getRestaurantNotificationVendorIds(order.restaurant)));
 
   emitToUsers(recipientIds, "order:status-updated", {
     orderId: order.id,
@@ -30,11 +32,12 @@ export const emitOrderStatusUpdate = (order, actorRole) => {
   });
 };
 
-export const emitNewOrderToVendor = (order) => {
+export const emitNewOrderToVendor = async (order) => {
   if (!ioInstance) return;
 
-  if (order.restaurant?.vendorId) {
-    emitToUsers([order.restaurant.vendorId], "order:new", {
+  const vendorIds = await getRestaurantNotificationVendorIds(order.restaurant);
+  if (vendorIds.length) {
+    emitToUsers(vendorIds, "order:new", {
       orderId: order.id,
       status: order.status,
       customerName: order.customer?.name,
@@ -56,11 +59,11 @@ export const emitNewOrderToRiders = (order, onlineRiderIds) => {
     createdAt: new Date().toISOString(),
   });
 };
-export const emitRiderLocationUpdate = (order, location) => {
+export const emitRiderLocationUpdate = async (order, location) => {
   if (!ioInstance || !order?.customerId) return;
 
   const recipientIds = [order.customerId];
-  if (order.restaurant?.vendorId) recipientIds.push(order.restaurant.vendorId);
+  recipientIds.push(...(await getRestaurantNotificationVendorIds(order.restaurant)));
 
   emitToUsers(recipientIds, "order:rider-location", {
     orderId: order.id,
@@ -74,3 +77,4 @@ export const emitRiderLocationUpdate = (order, location) => {
     updatedAt: location.updatedAt ? new Date(location.updatedAt).toISOString() : new Date().toISOString(),
   });
 };
+

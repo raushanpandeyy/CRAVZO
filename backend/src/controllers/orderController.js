@@ -11,6 +11,7 @@ import { emitOrderStatusUpdate, emitNewOrderToVendor } from "../services/orderSo
 import { initiateRazorpayRefund } from "../services/razorpayRefundService.js";
 import { createOrderSchema, quoteOrderSchema } from "../validators/orderValidators.js";
 import { getGoogleRouteSummary } from "../utils/googleMaps.js";
+import { buildVendorOrderAccessWhere, canVendorManageRestaurant } from "../utils/restaurantAccess.js";
 
 const RIDER_GEO_KEY = "rider:geo";
 
@@ -263,7 +264,7 @@ const getVendorOrders = async (req, res) => {
     ? { take: VENDOR_PAGE_SIZE, skip: 1, cursor: { id: cursor } }
     : { take: VENDOR_PAGE_SIZE, skip: (page - 1) * VENDOR_PAGE_SIZE };
 
-  const where = { restaurant: { vendorId: req.user.sub } };
+  const where = buildVendorOrderAccessWhere(req.user.sub);
 
   if (req.query.restaurantId) {
     where.restaurantId = req.query.restaurantId;
@@ -561,7 +562,7 @@ const updateOrderStatus = async (req, res) => {
   const order = await prisma.order.findUnique({
     where: { id: req.params.orderId },
     include: {
-      restaurant: true,
+      restaurant: { include: { operatorAccesses: { where: { vendorId: req.user.sub }, select: { vendorId: true } } } },
       address: true,
       customer: {
         select: {
@@ -583,7 +584,7 @@ const updateOrderStatus = async (req, res) => {
     throw new ApiError(404, "Order not found");
   }
 
-  if (req.user.role === "VENDOR" && order.restaurant.vendorId !== req.user.sub) {
+  if (req.user.role === "VENDOR" && !canVendorManageRestaurant(order.restaurant, req.user.sub)) {
     throw new ApiError(403, "You do not have permission to update this order");
   }
 
@@ -882,7 +883,7 @@ const getOrderTracking = async (req, res) => {
     where: { id: req.params.orderId },
     include: {
       address: true,
-      restaurant: true,
+      restaurant: { include: { operatorAccesses: { where: { vendorId: req.user.sub }, select: { vendorId: true } } } },
       rider: { select: { id: true, name: true, phone: true, avatarUrl: true, latitude: true, longitude: true, updatedAt: true } },
     },
   });
@@ -890,7 +891,7 @@ const getOrderTracking = async (req, res) => {
   const allowed = req.user.role === "ADMIN" ||
     (req.user.role === "CUSTOMER" && order.customerId === req.user.sub) ||
     (req.user.role === "RIDER" && order.riderId === req.user.sub) ||
-    (req.user.role === "VENDOR" && order.restaurant.vendorId === req.user.sub);
+    (req.user.role === "VENDOR" && canVendorManageRestaurant(order.restaurant, req.user.sub));
   if (!allowed) throw new ApiError(403, "You do not have permission to track this order");
 
   const riderLocation = Number.isFinite(order.rider?.latitude) && Number.isFinite(order.rider?.longitude)
@@ -1043,3 +1044,4 @@ const reorderOrder = async (req, res) => {
 };
 
 export { assertVendorStatusTransition, createDeliveryOtp, createOrder, getMyOrders, getOrderTracking, getRiderOrderSuggestions, getRiderOrders, getVendorOrders, getVendorPayouts, quoteOrder, reorderOrder, requestVendorPayout, updateOrderStatus, verifyDeliveryOtp };
+

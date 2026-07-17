@@ -16,12 +16,13 @@ import {
   Edit,
   ImagePlus,
   Loader2,
+  Plus,
   MapPin,
   Store,
 } from "lucide-react";
 
 import {
-  getMyRestaurant,
+  getMyRestaurants,
   saveVendorRestaurant,
 } from "../../services/vendorService.js";
 
@@ -88,13 +89,53 @@ const emptyProfile = {
   },
 };
 
+const createFormFromRestaurant = (restaurant) => restaurant
+  ? {
+    name: restaurant.name || "",
+    description: restaurant.description || "",
+    cuisine: restaurant.cuisine || "",
+    phone: restaurant.phone || "",
+    imageUrl: restaurant.imageUrl || "",
+    addressLine1: restaurant.addressLine1 || "",
+    addressLine2: restaurant.addressLine2 || "",
+    city: restaurant.city || "",
+    state: restaurant.state || "",
+    postalCode: restaurant.postalCode || "",
+    latitude: restaurant.latitude ?? null,
+    longitude: restaurant.longitude ?? null,
+    fssaiNumber: restaurant.fssaiNumber || "",
+    isOpen: restaurant.isOpen ?? true,
+    openingTime: restaurant.openingTime || "09:00",
+    closingTime: restaurant.closingTime || "22:00",
+    openDays: restaurant.openDays?.length ? restaurant.openDays : [...DAYS_OF_WEEK],
+    bankDetails: {
+      accountHolderName: restaurant.bankDetails?.accountHolderName || "",
+      bankName: restaurant.bankDetails?.bankName || "",
+      accountNumber: restaurant.bankDetails?.accountNumber || "",
+      ifsc: restaurant.bankDetails?.ifsc || "",
+    },
+  }
+  : {
+    ...emptyProfile,
+    openDays: [...DAYS_OF_WEEK],
+    bankDetails: { ...emptyProfile.bankDetails },
+  };
 // ======================
 // MAIN COMPONENT
 // ======================
 
 const VendorProfile = () => {
+  const [restaurants, setRestaurants] =
+    useState([]);
+
   const [restaurant, setRestaurant] =
     useState(null);
+
+  const [selectedRestaurantId, setSelectedRestaurantId] =
+    useState("");
+
+  const [isCreatingNew, setIsCreatingNew] =
+    useState(false);
 
   const [form, setForm] =
     useState(emptyProfile);
@@ -119,101 +160,22 @@ const VendorProfile = () => {
   // ======================
 
   const loadRestaurant =
-    useCallback(async () => {
+    useCallback(async (preferredRestaurantId = null) => {
       setLoading(true);
       setError("");
 
       try {
-        const data =
-          await getMyRestaurant();
+        const data = await getMyRestaurants();
+        const nextRestaurants = Array.isArray(data) ? data : [];
+        const nextRestaurant = preferredRestaurantId
+          ? nextRestaurants.find((entry) => entry.id === preferredRestaurantId) || nextRestaurants[0] || null
+          : nextRestaurants[0] || null;
 
-        setRestaurant(data);
-
-        setForm(
-          data
-            ? {
-              name:
-                data.name || "",
-              description:
-                data.description ||
-                "",
-
-              cuisine:
-                data.cuisine ||
-                "",
-
-              phone:
-                data.phone || "",
-
-              imageUrl:
-                data.imageUrl ||
-                "",
-
-              addressLine1:
-                data.addressLine1 ||
-                "",
-
-              addressLine2:
-                data.addressLine2 ||
-                "",
-
-              city:
-                data.city || "",
-
-              state:
-                data.state || "",
-
-              postalCode:
-                data.postalCode ||
-                "",
-
-              fssaiNumber:
-                data.fssaiNumber ||
-                "",
-
-              isOpen:
-                data.isOpen ??
-                true,
-
-              openingTime:
-                data.openingTime ||
-                "09:00",
-
-              closingTime:
-                data.closingTime ||
-                "22:00",
-
-              openDays:
-                data.openDays
-                  ?.length
-                  ? data.openDays
-                  : [
-                    ...DAYS_OF_WEEK,
-                  ],
-
-              bankDetails: {
-                accountHolderName:
-                  data.bankDetails
-                    ?.accountHolderName ||
-                  "",
-
-                bankName:
-                  data.bankDetails
-                    ?.bankName ||
-                  "",
-
-                accountNumber:
-                  data.bankDetails
-                    ?.accountNumber ||
-                  "",
-
-                ifsc:
-                  data.bankDetails
-                    ?.ifsc || "",
-              },
-            }
-            : emptyProfile
-        );
+        setRestaurants(nextRestaurants);
+        setRestaurant(nextRestaurant);
+        setSelectedRestaurantId(nextRestaurant?.id || "");
+        setIsCreatingNew(!nextRestaurant && nextRestaurants.length === 0);
+        setForm(createFormFromRestaurant(nextRestaurant));
       } catch (requestError) {
         setError(
           requestError.message ||
@@ -227,6 +189,24 @@ const VendorProfile = () => {
   useEffect(() => {
     loadRestaurant();
   }, [loadRestaurant]);
+  const handleSelectRestaurant = useCallback((restaurantId) => {
+    const nextRestaurant = restaurants.find((entry) => entry.id === restaurantId) || null;
+    setSelectedRestaurantId(nextRestaurant?.id || "");
+    setRestaurant(nextRestaurant);
+    setIsCreatingNew(false);
+    setForm(createFormFromRestaurant(nextRestaurant));
+    setMessage("");
+    setError("");
+  }, [restaurants]);
+
+  const handleAddRestaurant = useCallback(() => {
+    setSelectedRestaurantId("new");
+    setRestaurant(null);
+    setIsCreatingNew(true);
+    setForm(createFormFromRestaurant(null));
+    setMessage("");
+    setError("");
+  }, []);
 
   // ======================
   // MEMOIZED ADDRESS
@@ -410,23 +390,15 @@ const VendorProfile = () => {
                 ? form.bankDetails
                 : null,
           },
-          restaurant?.id
+          isCreatingNew ? null : restaurant?.id
         );
 
-      // OPTIMISTIC UPDATE
-      setRestaurant(
-        savedRestaurant
-      );
-
-      setForm((prev) => ({
-        ...prev,
-        ...savedRestaurant,
-      }));
+      await loadRestaurant(savedRestaurant?.id);
 
       setMessage(
-        restaurant
-          ? "Restaurant updated successfully!"
-          : "Restaurant created successfully!"
+        isCreatingNew
+          ? "Restaurant created successfully!"
+          : "Restaurant updated successfully!"
       );
     } catch (requestError) {
       setError(
@@ -492,6 +464,55 @@ const VendorProfile = () => {
           </div>
         </div>
 
+
+        {/* RESTAURANT SWITCHER */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+            <div className="flex-1">
+              <label className="text-sm font-semibold text-slate-700">
+                Select Restaurant
+              </label>
+              <select
+                value={isCreatingNew ? "new" : selectedRestaurantId}
+                onChange={(event) => {
+                  if (event.target.value === "new") {
+                    handleAddRestaurant();
+                    return;
+                  }
+                  handleSelectRestaurant(event.target.value);
+                }}
+                className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {restaurants.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name || "Unnamed Restaurant"}{entry.city ? ` - ${entry.city}` : ""}
+                  </option>
+                ))}
+                <option value="new">+ Add another restaurant</option>
+              </select>
+              <p className="mt-2 text-xs text-slate-500">
+                {restaurants.length
+                  ? `${restaurants.length} restaurant${restaurants.length > 1 ? "s" : ""} connected to this profile.`
+                  : "No restaurant created yet."}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddRestaurant}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700"
+            >
+              <Plus size={16} />
+              Add Another Restaurant
+            </button>
+          </div>
+
+          {isCreatingNew ? (
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              You are creating a new restaurant under this same vendor profile. Existing restaurants will stay unchanged.
+            </div>
+          ) : null}
+        </div>
         {/* ALERTS */}
 
         {message && (
@@ -949,4 +970,5 @@ const VendorProfile = () => {
     </div>
   );
 };
-  export default VendorProfile;
+export default VendorProfile;
+

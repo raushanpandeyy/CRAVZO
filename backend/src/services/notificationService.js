@@ -3,6 +3,7 @@ import { connectRedis } from "../config/redis.js";
 import { admin, isFirebaseAdminReady } from "../config/firebaseAdmin.js";
 import { fcmTokenBloomFilter } from "../utils/bloomFilter.js";
 import { logger } from "../utils/logger.js";
+import { getRestaurantNotificationVendorIds } from "../utils/restaurantAccess.js";
 
 const INVALID_FCM_ERROR_CODES = new Set([
   "messaging/invalid-registration-token",
@@ -159,7 +160,7 @@ const notifyOrderCreated = async (order) => {
   });
 
   await sendNotificationToUsers({
-    userIds: [order.restaurant?.vendorId],
+    userIds: await getRestaurantNotificationVendorIds(order.restaurant),
     title,
     body,
     data: {
@@ -184,9 +185,10 @@ const notifyOrderStatusChanged = async ({ order, actorRole }) => {
     recipients.push({ userId: order.customerId, role: "CUSTOMER" });
   }
 
-  // VENDOR gets notified when status changes (they are the actor or order involves their restaurant)
-  if (actorRole !== "VENDOR" && order.restaurant?.vendorId) {
-    recipients.push({ userId: order.restaurant.vendorId, role: "VENDOR" });
+  // VENDOR gets notified when status changes for owned or linked restaurants.
+  if (actorRole !== "VENDOR") {
+    const vendorIds = await getRestaurantNotificationVendorIds(order.restaurant);
+    recipients.push(...vendorIds.map((userId) => ({ userId, role: "VENDOR" })));
   }
 
   // RIDER only gets notified if they are assigned to this specific order
@@ -235,7 +237,7 @@ const notifyChatMessage = async ({ room, sender, messageText, imageUrl }) => {
   } else if (room?.type === "ORDER_VENDOR") {
     recipientIds = [
       room.order?.customerId,
-      room.order?.restaurant?.vendorId,
+      ...(room.order?.restaurant ? await getRestaurantNotificationVendorIds(room.order.restaurant) : []),
     ].filter(Boolean);
     if (room.orderId) {
       clickUrl = `/account/orders?orderId=${room.orderId}`;
@@ -338,9 +340,10 @@ const notifyVendorNewOrder = async (order) => {
   const title = "New Order Received!";
   const body = `Order #${order.id?.slice(-6)} from ${customerName} - ₹${Math.floor(order.totalAmount || 0)}`;
 
-  if (order.restaurant?.vendorId) {
+  const vendorIds = await getRestaurantNotificationVendorIds(order.restaurant);
+  if (vendorIds.length) {
     await sendNotificationToUsers({
-      userIds: [order.restaurant.vendorId],
+      userIds: vendorIds,
       title,
       body,
       data: {
@@ -356,3 +359,4 @@ const notifyVendorNewOrder = async (order) => {
 };
 
 export { notifyChatMessage, notifyOrderCreated, notifyOrderStatusChanged, notifyRiderNewOrder, notifyVendorNewOrder, removeFcmToken, sendNotificationToUsers, upsertFcmToken };
+

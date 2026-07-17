@@ -3,6 +3,7 @@ import { connectRedis } from "../config/redis.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { uploadImageToCloudinary } from "../utils/cloudinary.js";
+import { canVendorManageRestaurant } from "../utils/restaurantAccess.js";
 
 const CLOSED_ORDER_STATUSES = ["DELIVERED", "CANCELLED", "REJECTED"];
 const MESSAGE_LIMIT_MAX = 50;
@@ -54,6 +55,7 @@ const assertCanUseOrderChat = async (req, orderId, { forWrite = false, roomType 
           id: true,
           vendorId: true,
           name: true,
+          operatorAccesses: { where: { vendorId: req.user.sub }, select: { vendorId: true } },
         },
       },
       customer: {
@@ -79,7 +81,7 @@ const assertCanUseOrderChat = async (req, orderId, { forWrite = false, roomType 
 
   const isAdmin = req.user.role === "ADMIN";
   const isCustomer = req.user.role === "CUSTOMER" && order.customerId === req.user.sub;
-  const isVendor = req.user.role === "VENDOR" && order.restaurant?.vendorId === req.user.sub;
+  const isVendor = req.user.role === "VENDOR" && canVendorManageRestaurant(order.restaurant, req.user.sub);
   const isRider = req.user.role === "RIDER" && order.riderId === req.user.sub;
 
   if (!isAdmin && !isCustomer && !isVendor && !isRider) {
@@ -507,3 +509,5 @@ export {
   sanitizeRoom,
   uploadChatImage,
 };
+
+

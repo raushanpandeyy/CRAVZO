@@ -15,7 +15,10 @@ import {
 } from "../controllers/adminUserController.js";
 import {
   createRestaurantForVendor,
+  grantRestaurantOperatorAccess,
+  listRestaurantOperatorAccesses,
   listRestaurants,
+  revokeRestaurantOperatorAccess,
   updateRestaurantStatus,
 } from "../controllers/adminRestaurantController.js";
 import { getAdminPricingSettings, updateAdminPricingSettings } from "../controllers/adminPricingController.js";
@@ -37,6 +40,9 @@ adminRouter.get("/users/:userId", asyncHandler(getUserDetails));
 adminRouter.get("/users/:userId/orders", asyncHandler(getUserOrders));
 adminRouter.get("/restaurants", asyncHandler(listRestaurants));
 adminRouter.post("/restaurants", asyncHandler(createRestaurantForVendor));
+adminRouter.get("/restaurant-operator-accesses", asyncHandler(listRestaurantOperatorAccesses));
+adminRouter.post("/restaurant-operator-accesses", asyncHandler(grantRestaurantOperatorAccess));
+adminRouter.delete("/restaurant-operator-accesses", asyncHandler(revokeRestaurantOperatorAccess));
 adminRouter.patch("/users/:userId/status", asyncHandler(updateUserStatus));
 adminRouter.patch("/restaurants/:restaurantId/status", asyncHandler(updateRestaurantStatus));
 adminRouter.get("/vendors/pending", asyncHandler(getPendingVendors));
@@ -45,3 +51,4 @@ adminRouter.get("/riders/pending", asyncHandler(getPendingRiders));
 adminRouter.patch("/riders/:riderId/approve", asyncHandler(approveRider));
 
 export { adminRouter };
+

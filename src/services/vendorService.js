@@ -2,13 +2,15 @@ import { apiRequest, invalidateCache } from "./api";
 
 const BASE = "/api";
 
-const getMyRestaurant = async (index = 0) => {
-  const response = await apiRequest(`${BASE}/restaurants/mine`);
+const getMyRestaurants = async () => {
+  const response = await apiRequest(`${BASE}/restaurants/mine`, { skipCache: true });
   const data = response.data;
-  if (Array.isArray(data)) {
-    return data[index] || data[0] || null;
-  }
-  return data;
+  return Array.isArray(data) ? data : data ? [data] : [];
+};
+
+const getMyRestaurant = async (index = 0) => {
+  const restaurants = await getMyRestaurants();
+  return restaurants[index] || restaurants[0] || null;
 };
 
 const saveVendorRestaurant = async (payload, restaurantId = null) => {
@@ -70,7 +72,9 @@ export {
   createVendorMenuItem,
   deleteVendorMenuItem,
   getMyRestaurant,
+  getMyRestaurants,
   saveVendorRestaurant,
   updateRestaurantAvailability,
   updateVendorMenuItem,
 };
+

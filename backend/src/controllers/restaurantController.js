@@ -12,6 +12,7 @@ import {
   invalidatePublicRestaurantCache,
 } from "../utils/publicCache.js";
 import { createRestaurantSchema, updateRestaurantSchema } from "../validators/restaurantValidators.js";
+import { buildVendorRestaurantAccessWhere, canVendorManageRestaurant } from "../utils/restaurantAccess.js";
 
 const DEFAULT_RESTAURANT_PAGE = 1;
 const DEFAULT_RESTAURANT_LIMIT = 12;
@@ -348,10 +349,9 @@ const getRestaurantById = async (req, res) => {
 // ================= MY RESTAURANT =================
 const getMyRestaurant = async (req, res) => {
   const restaurants = await prisma.restaurant.findMany({
-    where: {
-      vendorId: req.user.sub,
-    },
+    where: buildVendorRestaurantAccessWhere(req.user.sub),
     include: {
+      operatorAccesses: { where: { vendorId: req.user.sub }, select: { vendorId: true } },
       menuItems: {
         orderBy: { createdAt: "asc" },
       },
@@ -368,6 +368,7 @@ const getMyRestaurant = async (req, res) => {
       message: "Vendor restaurants fetched successfully",
       data: enriched.map((r) => ({
         ...serializeRestaurant(r),
+        isLinkedOperator: r.vendorId !== req.user.sub,
         menuItems: r.menuItems.map((item) => ({
           id: item.id,
           restaurantId: item.restaurantId,
@@ -779,13 +780,14 @@ const updateRestaurant = async (req, res) => {
 
   const existingRestaurant = await prisma.restaurant.findUnique({
     where: { id: req.params.restaurantId },
+    include: { operatorAccesses: { where: { vendorId: req.user.sub }, select: { vendorId: true } } },
   });
 
   if (!existingRestaurant) {
     throw new ApiError(404, "Restaurant not found");
   }
 
-  if (req.user.role === "VENDOR" && existingRestaurant.vendorId !== req.user.sub) {
+  if (req.user.role === "VENDOR" && !canVendorManageRestaurant(existingRestaurant, req.user.sub)) {
     throw new ApiError(403, "You do not have permission to update this restaurant");
   }
 
@@ -856,13 +858,14 @@ const updateRestaurant = async (req, res) => {
 const deleteRestaurant = async (req, res) => {
   const existingRestaurant = await prisma.restaurant.findUnique({
     where: { id: req.params.restaurantId },
+    include: { operatorAccesses: { where: { vendorId: req.user.sub }, select: { vendorId: true } } },
   });
 
   if (!existingRestaurant) {
     throw new ApiError(404, "Restaurant not found");
   }
 
-  if (req.user.role === "VENDOR" && existingRestaurant.vendorId !== req.user.sub) {
+  if (req.user.role === "VENDOR" && !canVendorManageRestaurant(existingRestaurant, req.user.sub)) {
     throw new ApiError(403, "You do not have permission to delete this restaurant");
   }
 
@@ -890,3 +893,4 @@ export {
   getNearbyRestaurants,
   searchRestaurantsAndDishes,
 };
+

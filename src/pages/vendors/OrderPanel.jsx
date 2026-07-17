@@ -171,6 +171,11 @@ const OrderPanel = () => {
                   <div>
                     <h3 className="font-semibold text-lg">Order #{order.id.slice(-6)}</h3>
                     <p className="text-gray-600 text-sm">{order.customer?.name || "Customer"}</p>
+                    {order.restaurant?.name ? (
+                      <p className="mt-1 inline-flex rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                        {order.restaurant.name}
+                      </p>
+                    ) : null}
                     <p className="text-gray-500 text-xs">{formatOrderTime(order.createdAt)}</p>
                   </div>
                   <div className="text-right">
@@ -267,6 +272,7 @@ const OrderPanel = () => {
             <h3 className="text-xl font-bold mb-4">Order Details #{selectedOrder.id.slice(-6)}</h3>
 
             <div className="space-y-3 mb-4">
+              <p><strong>Restaurant:</strong> {selectedOrder.restaurant?.name || "NA"}</p>
               <p><strong>Customer:</strong> {selectedOrder.customer?.name}</p>
               <p><strong>Phone:</strong> {selectedOrder.customer?.phone || "NA"}</p>
               <p><strong>Address:</strong> {selectedOrder.address?.line1 || "NA"}</p>
@@ -349,6 +355,4 @@ const OrderPanel = () => {
 };
 
 export default OrderPanel;
-
-
 
