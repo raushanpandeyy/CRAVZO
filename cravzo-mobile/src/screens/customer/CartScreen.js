@@ -11,7 +11,7 @@ import {
 import { useSelector, useDispatch } from "react-redux";
 import {
   Minus, Plus, Trash2, ChevronLeft,
-  ChevronDown, ChevronUp, Tag,
+  ChevronDown, ChevronUp, ShoppingCart,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { updateQuantity, removeItem, updateItemNotes, clearCart } from "../../store/slices/cartSlice";
@@ -158,7 +158,7 @@ export default function CartScreen({ navigation }) {
   if (cart.length === 0) {
     return (
       <View className="flex-1 bg-slate-50 items-center justify-center p-4">
-        <Text className="text-5xl mb-6">ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂºÃ¢â‚¬â„¢</Text>
+        <View className="mb-6 h-20 w-20 items-center justify-center rounded-full bg-indigo-100"><ShoppingCart size={38} color={colors.brand[600]} /></View>
         <Text className="text-2xl font-bold text-slate-900">Your cart is empty</Text>
         <Text className="mt-2 text-slate-500">Add some delicious items to get started!</Text>
         <TouchableOpacity onPress={() => navigation.goBack()}
@@ -181,7 +181,7 @@ export default function CartScreen({ navigation }) {
             <Text className="text-sm text-slate-500">{cart.length} items</Text>
           </View>
           <TouchableOpacity onPress={() => dispatch(clearCart())} className="ml-auto h-10 w-10 items-center justify-center rounded-full bg-rose-50">
-            <Trash2 size={18} color={colors.red[500]} />
+            <Trash2 size={18} color={colors.red[600]} />
           </TouchableOpacity>
         </View>
       </View>
@@ -209,7 +209,7 @@ export default function CartScreen({ navigation }) {
                 <View className="flex-row items-center gap-2">
                   <TouchableOpacity onPress={() => decrease(item)}
                     className="h-8 w-8 items-center justify-center rounded-full bg-slate-100">
-                    <Minus size={16} color={colors.slate[600]} />
+                    <Minus size={16} color={colors.slate[500]} />
                   </TouchableOpacity>
                   <Text className="w-8 text-center font-bold text-slate-900">{item.quantity}</Text>
                   <TouchableOpacity onPress={() => increase(item)}
@@ -220,13 +220,13 @@ export default function CartScreen({ navigation }) {
                 <View className="items-end">
                   <Text className="font-bold text-slate-900">{formatCurrency((getPrice(item.price) + sideTotal) * item.quantity)}</Text>
                   <TouchableOpacity onPress={() => handleRemoveItem(item)} className="mt-2">
-                    <Trash2 size={14} color={colors.red[400]} />
+                    <Trash2 size={14} color={colors.red[600]} />
                   </TouchableOpacity>
                 </View>
               </View>
               <TextInput
                 placeholder="Add note for restaurant (extra spicy, no onion, etc.)"
-                placeholderTextColor={colors.slate[400]}
+                placeholderTextColor="#94a3b8"
                 value={item.notes || ""}
                 onChangeText={(text) => dispatch(updateItemNotes({ itemKey: item.itemKey, notes: text }))}
                 className="mt-3 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-900"
@@ -254,7 +254,7 @@ export default function CartScreen({ navigation }) {
                 <Text className="text-sm font-bold text-slate-800">Delivery & Tax</Text>
                 <View className="flex-row items-center gap-1.5">
                   <Text className="text-sm">{formatCurrency(pricing.deliveryTotal + pricing.foodGst + pricing.packagingTax)}</Text>
-                  {showTax ? <ChevronUp size={16} color={colors.slate[800]} /> : <ChevronDown size={16} color={colors.slate[800]} />}
+                  {showTax ? <ChevronUp size={16} color={colors.slate[900]} /> : <ChevronDown size={16} color={colors.slate[900]} />}
                 </View>
               </TouchableOpacity>
               {showTax ? (
@@ -320,10 +320,12 @@ export default function CartScreen({ navigation }) {
           className="rounded-2xl bg-indigo-600 py-4 shadow-lg shadow-indigo-200"
         >
           <Text className="text-base font-extrabold text-white text-center">
-            Proceed to Checkout ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â {formatCurrency(pricing.finalTotal)}
+            Proceed to Checkout - {formatCurrency(pricing.finalTotal)}
           </Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
+
+

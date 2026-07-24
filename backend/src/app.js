@@ -69,7 +69,7 @@ app.use(requestLogger);
 // Larger body limit for image upload endpoints â€” must come BEFORE the global
 // limit so requests to /api/users/uploads/* and /api/chat/rooms/* don't get
 // rejected by the 100kb default
-app.use("/api/users/uploads", express.json({ limit: "10mb" }));
+app.use(["/api/users/uploads", "/api/v1/users/uploads"], express.json({ limit: "10mb" }));
 app.use(["/api/chats/rooms", "/api/v1/chats/rooms"], express.json({ limit: "10mb" }));
 
 // Max order payload is ~2KB â€” keep a tight global limit for everything else

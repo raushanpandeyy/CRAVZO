@@ -259,6 +259,7 @@ export default function CheckoutScreen({ navigation, route }) {
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(true);
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponCode, setCouponCode] = useState("");
+  const [referralVoucherCode, setReferralVoucherCode] = useState("");
   const [distanceKm, setDistanceKm] = useState(3);
   const [pricingConfig, setPricingConfig] = useState(null);
   const paymentMethods = [
@@ -554,6 +555,7 @@ const {
         address,
         paymentMethod: selectedPayment,
         couponCode: couponCode || null,
+        referralVoucherCode: referralVoucherCode.trim().toUpperCase() || null,
         restaurantInstructions: restaurantInstructions.trim() || null,
         deliveryInstructions: [...deliveryOptions, customDeliveryInstruction.trim()].filter(Boolean).join("; ") || null,
         tipAmount,
@@ -878,6 +880,25 @@ const {
         </View>
 
         <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+          <View className="flex-row items-center gap-3 mb-4">
+            <View className="h-8 w-8 items-center justify-center rounded-xl bg-indigo-100">
+              <Gift size={16} color={colors.brand[600]} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-lg font-bold text-slate-900">Referral voucher</Text>
+              <Text className="text-xs text-slate-500">Paste a voucher from Refer & Earn</Text>
+            </View>
+          </View>
+          <TextInput
+            value={referralVoucherCode}
+            onChangeText={(value) => setReferralVoucherCode(value.toUpperCase())}
+            autoCapitalize="characters"
+            placeholder="Voucher code"
+            placeholderTextColor={colors.slate[400]}
+            className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900"
+          />
+        </View>
+        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
           <View className="flex-row items-center justify-between mb-4">
             <Text className="text-lg font-bold text-slate-900">Order Summary</Text>
             <View className="rounded-full bg-slate-100 px-3 py-1">
@@ -926,3 +947,5 @@ const {
     </KeyboardAvoidingView>
   );
 }
+
+

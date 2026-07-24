@@ -26,10 +26,11 @@ api.interceptors.response.use(
       storage.delete("user");
       unauthorizedHandler?.();
     }
+    const serverMessage = error.response?.data?.message || error.response?.data?.error || error.response?.data?.details?.message;
+    if (serverMessage) error.message = serverMessage;
     return Promise.reject(error);
   }
 );
-
 export const apiRequest = async (path, options = {}) => {
   const { method = "GET", data, params, skipAuth } = options;
 
@@ -49,5 +50,8 @@ export const getStoredToken = () => storage.getString("authToken") || null;
 export const setUnauthorizedHandler = (handler) => {
   unauthorizedHandler = handler;
 };
+
+
+
 
 

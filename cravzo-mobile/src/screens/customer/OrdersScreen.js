@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   TextInput,
   Alert,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import OptimizedImage from "../../components/OptimizedImage";
 import {
   Clock3,
@@ -24,6 +25,7 @@ import {
   Bike,
   UtensilsCrossed,
   CheckCircle2,
+  Search,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { useDispatch } from "react-redux";
@@ -32,6 +34,7 @@ import { addItem } from "../../store/slices/cartSlice";
 import { saveReview } from "../../services/reviewService";
 import { saveRiderRating } from "../../services/riderRatingService";
 import OrderProgressBar from "../../components/OrderProgressBar";
+import { connectSocket, onNewOrder, onOrderStatusUpdate } from "../../services/chatSocket";
 
 const statusColors = {
   DELIVERED: "text-emerald-600 bg-emerald-50",
@@ -93,6 +96,7 @@ const SkeletonOrder = () => (
 export default function OrdersScreen({ navigation }) {
   const dispatch = useDispatch();
   const [orders, setOrders] = useState([]);
+  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [failedImages, setFailedImages] = useState({});
@@ -108,34 +112,77 @@ export default function OrdersScreen({ navigation }) {
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
 
+
+  const maybePromptForFeedback = useCallback(async (items = []) => {
+    const delivered = items.find((order) => order.status === "DELIVERED");
+    if (!delivered) return;
+    const submitted = await AsyncStorage.getItem(`dodago_feedback_submitted_${delivered.id}`);
+    const dismissed = await AsyncStorage.getItem(`dodago_feedback_dismissed_${delivered.id}`);
+    if (!submitted && !dismissed) setFeedbackOrder(delivered);
+  }, []);
   const loadOrders = useCallback(async () => {
     try {
       const { orders: data } = await getMyOrders();
-      setOrders(data || []);
+      const nextOrders = data || [];
+      setOrders(nextOrders);
+      await maybePromptForFeedback(nextOrders);
       setError("");
     } catch {
       setError("Failed to load orders. Pull down to retry.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [maybePromptForFeedback]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
       const { orders: data } = await getMyOrders();
-      setOrders(data || []);
+      const nextOrders = data || [];
+      setOrders(nextOrders);
+      await maybePromptForFeedback(nextOrders);
       setError("");
     } catch {
       setError("Failed to load orders. Pull down to retry.");
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [maybePromptForFeedback]);
 
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  useEffect(() => {
+    connectSocket();
+    const offStatus = onOrderStatusUpdate((payload = {}) => {
+      const updatedOrder = payload.order || payload.data || payload;
+      const orderId = updatedOrder.id || payload.orderId;
+      if (!orderId) return loadOrders();
+      setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, ...updatedOrder } : order)));
+      setSelectedOrder((current) => current?.id === orderId ? { ...current, ...updatedOrder } : current);
+    });
+    const offNew = onNewOrder(loadOrders);
+    return () => {
+      offStatus?.();
+      offNew?.();
+    };
+  }, [loadOrders]);
+
+  const filteredOrders = useMemo(() => {
+    const value = query.trim().toLowerCase();
+    if (!value) return orders;
+    return orders.filter((order) => {
+      const haystack = [
+        order.id,
+        order.status,
+        order.restaurantName,
+        order.restaurant?.name,
+        ...(order.items || []).map((item) => item.name || item.menuItem?.name),
+      ].filter(Boolean).join(" ").toLowerCase();
+      return haystack.includes(value);
+    });
+  }, [orders, query]);
 
   const handleChat = () => {
     if (!selectedOrder) return;
@@ -225,6 +272,7 @@ export default function OrdersScreen({ navigation }) {
             ]
           : []),
       ]);
+      await AsyncStorage.setItem(`dodago_feedback_submitted_${feedbackOrder.id}`, "1");
       setFeedbackDone(true);
       setTimeout(() => {
         setFeedbackOrder(null);
@@ -252,6 +300,18 @@ export default function OrdersScreen({ navigation }) {
           Your Orders
         </Text>
 
+        <View className="mb-4 flex-row items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+          <Search size={18} color={colors.slate[400]} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search order, restaurant or item"
+            placeholderTextColor={colors.slate[400]}
+            className="flex-1 text-sm font-semibold text-slate-900"
+            autoCapitalize="none"
+          />
+        </View>
+
         {msg ? (
           <View className="mb-3 rounded-2xl bg-emerald-50 px-4 py-3">
             <Text className="text-sm font-medium text-emerald-700">{msg}</Text>
@@ -269,7 +329,7 @@ export default function OrdersScreen({ navigation }) {
             <SkeletonOrder />
             <SkeletonOrder />
           </View>
-        ) : orders.length === 0 ? (
+        ) : filteredOrders.length === 0 ? (
           <View className="items-center justify-center py-20">
             <Text className="text-5xl mb-4">📋</Text>
             <Text className="text-lg font-bold text-slate-900">No orders yet</Text>
@@ -277,7 +337,7 @@ export default function OrdersScreen({ navigation }) {
           </View>
         ) : (
           <View className="space-y-4">
-            {orders.map((order) => (
+            {filteredOrders.map((order) => (
               <TouchableOpacity
                 key={order.id}
                 onPress={() => setSelectedOrder(order)}
@@ -598,7 +658,10 @@ export default function OrdersScreen({ navigation }) {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    onPress={() => setFeedbackOrder(null)}
+                    onPress={async () => {
+                      if (feedbackOrder?.id) await AsyncStorage.setItem(`dodago_feedback_dismissed_${feedbackOrder.id}`, "1");
+                      setFeedbackOrder(null);
+                    }}
                     className="w-full items-center mt-3"
                   >
                     <Text className="text-xs text-slate-400">Skip for now — remind me later</Text>
@@ -612,3 +675,9 @@ export default function OrdersScreen({ navigation }) {
     </View>
   );
 }
+
+
+
+
+
+

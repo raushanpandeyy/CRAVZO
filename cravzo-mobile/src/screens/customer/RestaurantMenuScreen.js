@@ -220,10 +220,9 @@ export default function RestaurantMenuScreen({ route, navigation }) {
   const foodTax = cartTotal * Number(pricing?.foodGstRate || 0);
   const packagingFeeBase = cartTotal * Number(pricing?.packagingPercent || 0);
   const packagingTax = packagingFeeBase * Number(pricing?.foodGstRate || 0);
-  const deliveryFee = Number(pricing?.deliveryBaseFee || 0) * (1 + Number(pricing?.deliveryGstRate || 0));
   const platformFee = Number(pricing?.platformFee || 0);
   const taxes = foodTax + packagingTax;
-  const grandTotal = cartTotal + deliveryFee + packagingFeeBase + packagingTax + platformFee + foodTax;
+  const cartPreviewTotal = cartTotal + packagingFeeBase + packagingTax + platformFee + foodTax;
   const restaurantOpen = restaurant?.isOpen !== false;
 
   const averageRating = useMemo(() => {
@@ -575,8 +574,8 @@ export default function RestaurantMenuScreen({ route, navigation }) {
         <View className="absolute bottom-0 left-0 right-0 mx-4 mb-4 rounded-t-3xl rounded-b-2xl bg-white p-4 shadow-xl">
           <View className="mb-3 flex-row items-center justify-between">
             <View>
-              <Text className="text-xs font-bold text-slate-500">Cart total</Text>
-              <Text className="text-xl font-black text-slate-950">{formatCurrency(grandTotal)}</Text>
+              <Text className="text-xs font-bold text-slate-500">Subtotal before delivery</Text>
+              <Text className="text-xl font-black text-slate-950">{formatCurrency(cartPreviewTotal)}</Text>
             </View>
             <Text className="text-sm font-bold text-slate-500">{cartItemCount} items</Text>
           </View>
@@ -585,7 +584,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
               Items {formatCurrency(cartTotal)}
             </Text>
             <Text className="text-[11px] font-bold text-slate-500 flex-1">
-              Delivery {deliveryFee === 0 ? "FREE" : formatCurrency(deliveryFee)}
+              Delivery at checkout
             </Text>
             <Text className="text-[11px] font-bold text-slate-500 flex-1">
               Taxes {formatCurrency(taxes)}
@@ -609,3 +608,5 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.38)",
   },
 });
+
+

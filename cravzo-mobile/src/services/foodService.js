@@ -1,7 +1,10 @@
 import { apiRequest } from "./api";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
 
-const getPayload = (response) => response?.data ?? response;
+const getPayload = (response) => {
+  const payload = response?.data ?? response;
+  return payload?.data ?? payload;
+};
 
 const getList = (response, keys = []) => {
   const payload = getPayload(response);
@@ -43,7 +46,7 @@ export const listRestaurants = async (params = {}) => {
 export const getRestaurantById = async (id) => {
   const response = await apiRequest(API_ENDPOINTS.restaurant.byId(id));
   const payload = getPayload(response);
-  return normalizeRestaurant(payload?.restaurant || payload);
+  return normalizeRestaurant(payload?.restaurant || payload?.item || payload);
 };
 
 export const getNearbyRestaurants = async (lat, lng, radiusKm = 5) => {
@@ -68,3 +71,5 @@ export const searchRestaurantsAndDishes = async (query, options = {}) => {
     dishes: getList({ data: payload }, ["dishes", "items"]).map(normalizeMenuItem),
   };
 };
+
+

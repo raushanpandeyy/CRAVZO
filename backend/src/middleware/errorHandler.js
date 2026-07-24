@@ -44,8 +44,9 @@ const errorHandler = (error, req, res, _next) => {
     });
   }
 
-  const statusCode = error.statusCode || 500;
+  const statusCode = error.statusCode || error.status || 500;
   const isServerError = statusCode >= 500;
+  const exposeMessage = !isServerError || error.expose === true;
 
   logger[isServerError ? "error" : "warn"]("Request failed", {
     requestId: req.requestId,
@@ -58,7 +59,7 @@ const errorHandler = (error, req, res, _next) => {
 
   return res.status(statusCode).json({
     success: false,
-    message: isServerError ? "Internal server error" : error.message || "Request failed",
+    message: exposeMessage ? error.message || "Request failed" : "Internal server error",
     code: error.code || getErrorCode(statusCode),
     details: isServerError ? null : error.details || null,
     requestId: req.requestId,

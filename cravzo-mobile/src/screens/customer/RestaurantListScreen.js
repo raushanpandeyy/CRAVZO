@@ -6,7 +6,7 @@ import * as Location from "expo-location";
 import OptimizedImage from "../../components/OptimizedImage";
 import { Search, Star, Clock3, X, MapPin, Utensils, Navigation } from "lucide-react-native";
 import { colors } from "../../constants/colors";
-import { searchRestaurantsAndDishes } from "../../services/foodService";
+import { searchRestaurantsAndDishes, listRestaurants, getNearbyRestaurants } from "../../services/foodService";
 import useDebounce from "../../hooks/useDebounce";
 
 const SUGGESTED_DISHES = [
@@ -65,14 +65,22 @@ export default function RestaurantListScreen({ navigation, route }) {
   const inputRef = useRef(null);
 
   const fetchResults = useCallback(async (searchQuery, nearby = nearbyMode, location = userLocation) => {
-    if (!searchQuery || searchQuery.length < 2) { setResults({ restaurants: [], dishes: [] }); return; }
+    const trimmed = (searchQuery || "").trim();
     setLoading(true); setError("");
     try {
-      const options = nearby && location ? { lat: location.latitude, lng: location.longitude, radius: 5 } : {};
-      setResults(await searchRestaurantsAndDishes(searchQuery, options));
+      if (trimmed.length >= 2) {
+        const options = nearby && location ? { lat: location.latitude, lng: location.longitude, radius: 5 } : {};
+        setResults(await searchRestaurantsAndDishes(trimmed, options));
+        return;
+      }
+
+      const restaurants = nearby && location
+        ? await getNearbyRestaurants(location.latitude, location.longitude, 5)
+        : await listRestaurants({ page: 1, limit: 20 });
+      setResults({ restaurants, dishes: [] });
     } catch (err) {
       setResults({ restaurants: [], dishes: [] });
-      setError(err.message || "Could not load search results. Please try again.");
+      setError(err.message || "Could not load restaurants. Please try again.");
     } finally { setLoading(false); }
   }, [nearbyMode, userLocation]);
 
@@ -114,7 +122,7 @@ export default function RestaurantListScreen({ navigation, route }) {
         <View className="flex-row items-center bg-white rounded-xl border-2 border-[#ff6b5f] px-4 h-12 shadow-sm">
           {loading ? <ActivityIndicator size="small" color="#ff6b5f" /> : <Search size={18} color="#ff6b5f" />}
           <TextInput ref={inputRef} className="flex-1 ml-3 text-sm font-semibold text-slate-900" placeholder="Search for dishes or restaurants..." placeholderTextColor="#94a3b8" value={query} onChangeText={setQuery} returnKeyType="search" autoCapitalize="none" autoCorrect={false} />
-          {query ? <TouchableOpacity onPress={() => { setQuery(""); setResults({ restaurants: [], dishes: [] }); inputRef.current?.focus(); }} className="p-1"><X size={16} color="#94a3b8" /></TouchableOpacity> : null}
+          {query ? <TouchableOpacity onPress={() => { setQuery(""); inputRef.current?.focus(); }} className="p-1"><X size={16} color="#94a3b8" /></TouchableOpacity> : null}
         </View>
         <View className="flex-row items-center justify-between mt-2">
           <FlatList horizontal data={SUGGESTED_DISHES} keyExtractor={(item) => item} showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} renderItem={({ item }) => (
@@ -130,7 +138,7 @@ export default function RestaurantListScreen({ navigation, route }) {
         keyExtractor={({ type, item }) => `${type}-${item.id}`}
         contentContainerStyle={{ padding: 16, paddingBottom: 32, flexGrow: 1 }}
         ListHeaderComponent={header}
-        ListEmptyComponent={!loading ? <View className="flex-1 items-center justify-center py-20"><Search size={40} color="#94a3b8" /><Text className="mt-3 text-sm font-semibold text-slate-500">{query ? "No results found" : "Search for restaurants and dishes"}</Text></View> : null}
+        ListEmptyComponent={!loading ? <View className="flex-1 items-center justify-center py-20"><Search size={40} color="#94a3b8" /><Text className="mt-3 text-sm font-semibold text-slate-500">{query ? "No results found" : "Restaurants near you"}</Text></View> : null}
         renderItem={({ item: row, index }) => {
           const previousType = data[index - 1]?.type;
           return <View>{previousType !== row.type ? <View className="flex-row items-center gap-2 mb-2 mt-2">{row.type === "dish" ? <Utensils size={14} color={colors.brand[700]} /> : <MapPin size={14} color="#d97706" />}<Text className="text-xs font-black uppercase tracking-wider text-slate-700">{row.type === "dish" ? "Dishes" : "Restaurants"}</Text></View> : null}{row.type === "dish" ? <DishCard dish={row.item} onPress={() => navigation.navigate("DishScreen", { dishId: row.item.id, dishName: row.item.name, restaurantId: row.item.restaurantId })} /> : <RestaurantCard restaurant={row.item} onPress={() => navigation.navigate("RestaurantMenu", { restaurantId: row.item.id, restaurantName: row.item.name })} />}</View>;
@@ -139,3 +147,4 @@ export default function RestaurantListScreen({ navigation, route }) {
     </View>
   );
 }
+

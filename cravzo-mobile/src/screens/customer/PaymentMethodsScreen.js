@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView } from "react-native";
-import { ChevronLeft, Wallet, CreditCard, Smartphone, Building2, CheckCircle } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from "react-native";
+import { ChevronLeft, Wallet, CreditCard, Smartphone, Building2, CheckCircle, Plus, X } from "lucide-react-native";
 import { colors } from "../../constants/colors";
+import { getProfile, updateProfile } from "../../services/userService";
 
 const paymentOptions = [
   { id: "cod", name: "Cash on Delivery", description: "Pay when your order arrives", icon: Wallet, color: "#059669", bg: "bg-emerald-50" },
@@ -10,47 +11,111 @@ const paymentOptions = [
   { id: "razorpay_netbanking", name: "Net Banking", description: "All major banks supported", icon: Building2, color: "#f59e0b", bg: "bg-amber-50" },
 ];
 
+const normalizeUpi = (value) => String(value || "").trim().toLowerCase();
+const getUpiIds = (profile) => Array.isArray(profile?.paymentMethods?.upiIds) ? profile.paymentMethods.upiIds : [];
+
 export default function PaymentMethodsScreen({ navigation }) {
   const [selected, setSelected] = useState("cod");
+  const [upiIds, setUpiIds] = useState([]);
+  const [newUpi, setNewUpi] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const profile = await getProfile();
+        setUpiIds(getUpiIds(profile));
+      } catch (err) {
+        setError(err.message || "Could not load payment methods");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const saveUpiIds = async (nextUpiIds) => {
+    setSaving(true);
+    setError("");
+    setMessage("");
+    try {
+      const updated = await updateProfile({ paymentMethods: { upiIds: nextUpiIds } });
+      setUpiIds(getUpiIds(updated).length ? getUpiIds(updated) : nextUpiIds);
+      setMessage("UPI details saved");
+    } catch (err) {
+      setError(err.message || "Failed to save UPI details");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addUpi = async () => {
+    const value = normalizeUpi(newUpi);
+    if (!value || !value.includes("@")) {
+      setError("Enter a valid UPI ID");
+      return;
+    }
+    if (upiIds.includes(value)) {
+      setNewUpi("");
+      return;
+    }
+    await saveUpiIds([value, ...upiIds]);
+    setNewUpi("");
+  };
+
+  const removeUpi = async (value) => {
+    await saveUpiIds(upiIds.filter((id) => id !== value));
+  };
 
   return (
     <View className="flex-1 bg-[#F5F5F5]">
       <View className="bg-white shadow-sm pt-14 pb-4 px-4">
         <View className="flex-row items-center gap-4">
-          <TouchableOpacity onPress={() => navigation.goBack()}
-            className="h-10 w-10 items-center justify-center rounded-full bg-slate-100">
-            <ChevronLeft size={20} color="#020617" />
-          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.goBack()} className="h-10 w-10 items-center justify-center rounded-full bg-slate-100"><ChevronLeft size={20} color="#020617" /></TouchableOpacity>
           <Text className="text-xl font-extrabold text-slate-900">Payment Methods</Text>
         </View>
       </View>
-      <ScrollView className="flex-1 px-4 pt-6">
+      <ScrollView className="flex-1 px-4 pt-6" contentContainerStyle={{ paddingBottom: 32 }}>
+        {message ? <View className="mb-3 rounded-2xl bg-emerald-50 px-4 py-3"><Text className="text-sm text-emerald-700">{message}</Text></View> : null}
+        {error ? <View className="mb-3 rounded-2xl bg-rose-50 px-4 py-3"><Text className="text-sm text-rose-700">{error}</Text></View> : null}
+
         <Text className="text-sm font-bold text-slate-700 mb-3">Choose your preferred payment method</Text>
         <View className="space-y-3">
           {paymentOptions.map((opt) => {
             const isSelected = selected === opt.id;
+            const Icon = opt.icon;
             return (
-              <TouchableOpacity key={opt.id} onPress={() => setSelected(opt.id)}
-                className={`flex-row items-center gap-4 rounded-3xl bg-white p-5 shadow-sm border-2 ${isSelected ? "border-indigo-500" : "border-transparent"}`}>
-                <View className={`h-14 w-14 items-center justify-center rounded-2xl ${opt.bg}`}>
-                  <opt.icon size={26} color={opt.color} />
-                </View>
-                <View className="flex-1">
-                  <Text className="font-extrabold text-slate-900">{opt.name}</Text>
-                  <Text className="text-sm text-slate-500 mt-0.5">{opt.description}</Text>
-                </View>
+              <TouchableOpacity key={opt.id} onPress={() => setSelected(opt.id)} className={`flex-row items-center gap-4 rounded-3xl bg-white p-5 shadow-sm border-2 ${isSelected ? "border-indigo-500" : "border-transparent"}`}>
+                <View className={`h-14 w-14 items-center justify-center rounded-2xl ${opt.bg}`}><Icon size={26} color={opt.color} /></View>
+                <View className="flex-1"><Text className="font-extrabold text-slate-900">{opt.name}</Text><Text className="text-sm text-slate-500 mt-0.5">{opt.description}</Text></View>
                 {isSelected ? <CheckCircle size={22} color="#6366f1" /> : null}
               </TouchableOpacity>
             );
           })}
         </View>
-        <View className="mt-6 rounded-3xl bg-indigo-50 p-5">
-          <Text className="text-sm font-bold text-indigo-900">Secure Payments</Text>
-          <Text className="text-xs text-indigo-700 mt-1 leading-5">
-            Your payment information is encrypted and secure. We use Razorpay for card, UPI, and net banking transactions.
-          </Text>
+
+        <View className="mt-6 rounded-3xl bg-white p-5 shadow-sm">
+          <View className="flex-row items-center gap-2 mb-3"><Smartphone size={18} color={colors.brand[700]} /><Text className="text-base font-extrabold text-slate-900">Saved UPI IDs</Text></View>
+          {loading ? <ActivityIndicator color={colors.brand[600]} /> : (
+            <>
+              {upiIds.length ? upiIds.map((upi, index) => (
+                <View key={upi} className="mb-2 flex-row items-center gap-3 rounded-2xl bg-indigo-50 px-4 py-3">
+                  <View className="flex-1"><Text className="font-black text-indigo-950">{upi}</Text>{index === 0 ? <Text className="text-xs text-indigo-700">Preferred UPI</Text> : null}</View>
+                  <TouchableOpacity onPress={() => removeUpi(upi)} disabled={saving} className="h-8 w-8 items-center justify-center rounded-full bg-white"><X size={16} color={colors.slate[500]} /></TouchableOpacity>
+                </View>
+              )) : <Text className="mb-3 text-sm text-slate-500">No UPI IDs saved yet.</Text>}
+              <View className="mt-2 flex-row gap-2">
+                <TextInput value={newUpi} onChangeText={setNewUpi} autoCapitalize="none" placeholder="name@upi" placeholderTextColor="#94a3b8" className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900" />
+                <TouchableOpacity onPress={addUpi} disabled={saving || !newUpi.trim()} className="items-center justify-center rounded-2xl bg-indigo-600 px-4 disabled:opacity-50">{saving ? <ActivityIndicator color="#fff" size="small" /> : <Plus size={20} color="#fff" />}</TouchableOpacity>
+              </View>
+            </>
+          )}
         </View>
       </ScrollView>
     </View>
   );
 }
+
+

@@ -19,37 +19,41 @@ const razorpayBaseUrl = "https://api.razorpay.com/v1";
 
 const assertRazorpayConfig = () => {
   if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) {
-    throw new ApiError(500, "Razorpay keys are not configured");
+    throw new ApiError(400, "Online payments are not configured. Add Razorpay keys or use Cash on Delivery.");
   }
 };
 
 const createRazorpayOrder = async ({ amount, receipt, notes }) => {
   assertRazorpayConfig();
 
-  const response = await fetch(`${razorpayBaseUrl}/orders`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`).toString("base64")}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      amount,
-      currency: "INR",
-      receipt,
-      notes,
-    }),
-    signal: AbortSignal.timeout(5000),
-  });
+  let response;
+  try {
+    response = await fetch(`${razorpayBaseUrl}/orders`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`).toString("base64")}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        amount,
+        currency: "INR",
+        receipt,
+        notes,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    throw new ApiError(400, "Could not connect to Razorpay. Check internet/server access and try again.");
+  }
 
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new ApiError(502, data?.error?.description || "Failed to create Razorpay order");
+    throw new ApiError(400, data?.error?.description || "Failed to create Razorpay order");
   }
 
   return data;
 };
-
 const getRazorpayConfig = async (_req, res) => {
   assertRazorpayConfig();
 
@@ -167,20 +171,24 @@ const verifyAndCreatePaidOrder = async (req, res) => {
     throw new ApiError(400, "Invalid Razorpay payment signature");
   }
 
-  const razorpayOrderRes = await fetch(`${razorpayBaseUrl}/orders/${razorpayOrderId}`, {
-    method: "GET",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`).toString("base64")}`,
-    },
-    signal: AbortSignal.timeout(5000),
-  });
-
-  if (!razorpayOrderRes.ok) {
-    throw new ApiError(502, "Failed to verify Razorpay order");
+  let razorpayOrderRes;
+  try {
+    razorpayOrderRes = await fetch(`${razorpayBaseUrl}/orders/${razorpayOrderId}`, {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${env.RAZORPAY_KEY_ID}:${env.RAZORPAY_KEY_SECRET}`).toString("base64")}`,
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    throw new ApiError(400, "Could not verify payment with Razorpay. Check internet/server access and try again.");
   }
 
-  const razorpayOrder = await razorpayOrderRes.json();
+  const razorpayOrder = await razorpayOrderRes.json().catch(() => null);
 
+  if (!razorpayOrderRes.ok) {
+    throw new ApiError(400, razorpayOrder?.error?.description || "Failed to verify Razorpay order");
+  }
   const draft = await prepareOrderDraft({
     customerId: req.user.sub,
     restaurantId,
@@ -239,3 +247,6 @@ const verifyAndCreatePaidOrder = async (req, res) => {
 };
 
 export { createCheckoutOrder, getRazorpayConfig, verifyAndCreatePaidOrder,createCODOrder };
+
+
+

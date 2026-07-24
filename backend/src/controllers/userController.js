@@ -1,7 +1,7 @@
 import { prisma } from "../config/database.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
-import { uploadImageToCloudinary } from "../utils/cloudinary.js";
+import { hasCloudinaryConfig, uploadImageToCloudinary } from "../utils/cloudinary.js";
 import { sanitizeUser } from "../utils/userResponse.js";
 import { updateProfileSchema } from "../validators/userValidators.js";
 import { deleteCache } from "../utils/cache.js";
@@ -165,7 +165,16 @@ const uploadImage = async (req, res) => {
     throw new ApiError(413, "Image is too large. Please upload an image under 5MB.");
   }
 
-  const uploadedAsset = await uploadImageToCloudinary({ dataUrl, folder });
+  if (!hasCloudinaryConfig()) {
+    throw new ApiError(503, "Image uploads are not configured. Please set Cloudinary credentials.", null, { expose: true });
+  }
+
+  let uploadedAsset;
+  try {
+    uploadedAsset = await uploadImageToCloudinary({ dataUrl, folder });
+  } catch (error) {
+    throw new ApiError(502, error.message || "Image upload service failed", null, { expose: true });
+  }
 
   res.status(200).json(
     apiResponse({
@@ -176,4 +185,3 @@ const uploadImage = async (req, res) => {
 };
 
 export { deleteAccount, getProfile, updateProfile, uploadImage };
-

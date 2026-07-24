@@ -4,7 +4,7 @@ import { Menu, Plus, Edit, Trash2, Save, X, ImagePlus } from "lucide-react";
 import {
   createVendorMenuItem,
   deleteVendorMenuItem,
-  getMyRestaurant,
+  getMyRestaurants,
   updateVendorMenuItem,
 } from "../../services/vendorService.js";
 import { uploadImage } from "../../services/userService.js";
@@ -23,8 +23,8 @@ const optimizeImageUrl = (url, width = 400) => {
 };
 
 const ManageMenu = () => {
-  const [restaurant, setRestaurant] = useState(null);
-  const [menuItems, setMenuItems] = useState([]);
+  const [restaurants, setRestaurants] = useState([]);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState("");
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -43,14 +43,24 @@ const ManageMenu = () => {
     status: "ACTIVE",
   });
 
-  const loadRestaurant = useCallback(async () => {
+  const selectedRestaurant = useMemo(
+    () => restaurants.find((entry) => entry.id === selectedRestaurantId) || restaurants[0] || null,
+    [restaurants, selectedRestaurantId],
+  );
+
+  const menuItems = useMemo(() => selectedRestaurant?.menuItems || [], [selectedRestaurant]);
+
+  const loadRestaurants = useCallback(async (preferredRestaurantId = "") => {
     setLoading(true);
     setError("");
 
     try {
-      const data = await getMyRestaurant();
-      setRestaurant(data);
-      setMenuItems(data?.menuItems || []);
+      const data = await getMyRestaurants();
+      setRestaurants(data);
+      const nextSelectedId = data.some((entry) => entry.id === preferredRestaurantId)
+        ? preferredRestaurantId
+        : data[0]?.id || "";
+      setSelectedRestaurantId(nextSelectedId);
     } catch (requestError) {
       setError(requestError.message || "Failed to load menu");
     } finally {
@@ -59,8 +69,8 @@ const ManageMenu = () => {
   }, []);
 
   useEffect(() => {
-    loadRestaurant();
-  }, [loadRestaurant]);
+    loadRestaurants();
+  }, [loadRestaurants]);
 
   const stats = useMemo(
     () => ({
@@ -93,6 +103,15 @@ const ManageMenu = () => {
     });
   }, []);
 
+  const handleRestaurantChange = useCallback((event) => {
+    setSelectedRestaurantId(event.target.value);
+    setIsAddingItem(false);
+    setEditingItem(null);
+    resetForm();
+    setMessage("");
+    setError("");
+  }, [resetForm]);
+
   const handleImageUpload = useCallback(async (event) => {
     const file = event.target.files?.[0];
 
@@ -120,7 +139,7 @@ const ManageMenu = () => {
   }, []);
 
   const handleAddItem = useCallback(async () => {
-    if (!restaurant) {
+    if (!selectedRestaurant) {
       setError("Create your restaurant profile first.");
       return;
     }
@@ -135,7 +154,7 @@ const ManageMenu = () => {
 
     try {
       await createVendorMenuItem({
-        restaurantId: restaurant.id,
+        restaurantId: selectedRestaurant.id,
         name: formData.name,
         description: formData.description,
         price: Number(formData.price),
@@ -149,11 +168,11 @@ const ManageMenu = () => {
       setMessage("Menu item added successfully.");
       setIsAddingItem(false);
       resetForm();
-      await loadRestaurant();
+      await loadRestaurants(selectedRestaurant.id);
     } catch (requestError) {
       setError(requestError.message || "Failed to add item");
     }
-  }, [restaurant, formData, loadRestaurant]);
+  }, [selectedRestaurant, formData, loadRestaurants, resetForm]);
 
   const handleEditItem = useCallback((item) => {
     setEditingItem(item.id);
@@ -198,11 +217,11 @@ const ManageMenu = () => {
       setMessage("Menu item updated successfully.");
       setEditingItem(null);
       resetForm();
-      await loadRestaurant();
+      await loadRestaurants(selectedRestaurant?.id);
     } catch (requestError) {
       setError(requestError.message || "Failed to update item");
     }
-  }, [editingItem, formData, loadRestaurant]);
+  }, [editingItem, formData, loadRestaurants, resetForm, selectedRestaurant]);
 
   const handleDeleteItem = useCallback(async (id) => {
     if (!window.confirm("Are you sure you want to delete this item?")) {
@@ -212,22 +231,22 @@ const ManageMenu = () => {
     try {
       await deleteVendorMenuItem(id);
       setMessage("Menu item deleted successfully.");
-      await loadRestaurant();
+      await loadRestaurants(selectedRestaurant?.id);
     } catch (requestError) {
       setError(requestError.message || "Failed to delete item");
     }
-  }, [loadRestaurant]);
+  }, [loadRestaurants, selectedRestaurant]);
 
   const toggleAvailability = useCallback(async (item) => {
     try {
       await updateVendorMenuItem(item.id, {
         status: item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
       });
-      await loadRestaurant();
+      await loadRestaurants(selectedRestaurant?.id);
     } catch (requestError) {
       setError(requestError.message || "Failed to update item availability");
     }
-  }, [loadRestaurant]);
+  }, [loadRestaurants, selectedRestaurant]);
 
   return (
     <div className="px-4 py-4 md:px-6 md:py-6 bg-[#F4F7FB] min-h-screen">
@@ -240,6 +259,41 @@ const ManageMenu = () => {
 
       {message ? <div className="mb-6 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700 shadow-sm">{message}</div> : null}
       {error ? <div className="mb-6 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">{error}</div> : null}
+
+      <div className="mb-6 rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:p-5">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">Restaurant</label>
+            <select
+              value={selectedRestaurant?.id || ""}
+              onChange={handleRestaurantChange}
+              disabled={loading || restaurants.length === 0}
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 md:max-w-md"
+            >
+              {restaurants.length === 0 ? (
+                <option value="">No restaurant found</option>
+              ) : (
+                restaurants.map((entry) => (
+                  <option key={entry.id} value={entry.id}>
+                    {entry.name || "Unnamed restaurant"}{entry.city ? ` - ${entry.city}` : ""}
+                  </option>
+                ))
+              )}
+            </select>
+            <p className="mt-2 text-xs text-gray-500">
+              {selectedRestaurant
+                ? `Editing menu for ${selectedRestaurant.name || "selected restaurant"}. Items added here will show only on this restaurant.`
+                : "Create a restaurant profile before adding menu items."}
+            </p>
+          </div>
+          {selectedRestaurant ? (
+            <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600 md:text-right">
+              <p className="font-semibold text-slate-800">{selectedRestaurant.name}</p>
+              <p>{[selectedRestaurant.addressLine1, selectedRestaurant.city].filter(Boolean).join(", ") || "Address not added"}</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
 
       {/* Stats Section: Stacked on mobile, 3-columns on desktop */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
@@ -285,7 +339,8 @@ const ManageMenu = () => {
           <h2 className="text-xl md:text-2xl font-bold text-gray-900">Menu Items</h2>
           <button
             onClick={() => setIsAddingItem(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 text-sm font-medium md:px-4 md:py-2 rounded-lg flex items-center gap-1.5 transition-colors"
+            disabled={!selectedRestaurant}
+            className="bg-indigo-600 hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-gray-300 text-white px-3 py-2 text-sm font-medium md:px-4 md:py-2 rounded-lg flex items-center gap-1.5 transition-colors"
           >
             <Plus className="w-4 h-4" />
             Add Item
@@ -546,7 +601,7 @@ const ManageMenu = () => {
           <div className="text-center py-12 text-gray-400">
             <Menu className="w-12 h-12 mx-auto mb-3 text-gray-300" />
             <p className="font-medium text-gray-600">No menu items yet</p>
-            <p className="text-xs mt-1 text-gray-400">Click "Add Item" to create your first menu item</p>
+            <p className="text-xs mt-1 text-gray-400">{selectedRestaurant ? "Click Add Item to create this restaurant menu." : "Create a restaurant profile before adding menu items."}</p>
           </div>
         )}
       </div>
