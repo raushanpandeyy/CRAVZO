@@ -22,6 +22,17 @@ const saveReview = async (payload) => {
   return response.data;
 };
 
+const replyToReview = async (reviewId, reply, restaurantId) => {
+  const response = await apiRequest(API_ENDPOINTS.reviews.reply(reviewId), {
+    method: "POST",
+    body: JSON.stringify({ reply }),
+  });
+
+  invalidateCache("/api/reviews");
+  if (restaurantId) invalidateCache(`/api/reviews/restaurant/${restaurantId}`);
+  return response.data;
+};
+
 const deleteReview = async (reviewId, restaurantId) => {
   const response = await apiRequest(API_ENDPOINTS.reviews.remove(reviewId), {
     method: "DELETE",
@@ -32,4 +43,6 @@ const deleteReview = async (reviewId, restaurantId) => {
   return response.data;
 };
 
-export { deleteReview, getMyReviews, getRestaurantReviews, saveReview };
+export { deleteReview, getMyReviews, getRestaurantReviews, replyToReview, saveReview };
+
+

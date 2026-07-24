@@ -81,7 +81,6 @@ export default function RestaurantMenuScreen({ route, navigation }) {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isFavorited, setIsFavorited] = useState(false);
-  const [favoriteId, setFavoriteId] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
   const [savingReview, setSavingReview] = useState(false);
@@ -136,7 +135,6 @@ export default function RestaurantMenuScreen({ route, navigation }) {
       try {
         const data = await checkIsFavorite(restaurantId);
         setIsFavorited(!!data.isFavorite);
-        if (data.id) setFavoriteId(data.id);
       } catch (err) {
         setError(err.message || "Could not load favorite status");
       }
@@ -147,13 +145,11 @@ export default function RestaurantMenuScreen({ route, navigation }) {
     setError("");
     try {
       if (isFavorited) {
-        if (favoriteId) await removeFavorite(favoriteId);
+        await removeFavorite(restaurantId);
         setIsFavorited(false);
-        setFavoriteId(null);
       } else {
         const result = await addFavorite(restaurantId);
         setIsFavorited(true);
-        if (result?.id) setFavoriteId(result.id);
       }
     } catch (err) {
       setError(err.message || "Could not update favorite. Please try again.");

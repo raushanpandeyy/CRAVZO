@@ -43,6 +43,7 @@ import {
   validateCoupon,
 } from "../../services/paymentService";
 import { getAppConfig } from "../../services/configService";
+import { quoteOrder } from "../../services/orderService";
 
 const emptyAddress = {
   fullName: "",
@@ -276,6 +277,8 @@ export default function CheckoutScreen({ navigation, route }) {
   const [deliveryOptions, setDeliveryOptions] = useState([]);
   const [customDeliveryInstruction, setCustomDeliveryInstruction] = useState("");
   const [tipAmount, setTipAmount] = useState(0);
+  const [orderQuote, setOrderQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
 
   const restaurantId = cartItems[0]?.restaurantId;
 
@@ -303,6 +306,9 @@ export default function CheckoutScreen({ navigation, route }) {
         const [addresses, user] = await Promise.all([getAddresses(), getProfile()]);
         setSavedAddresses(addresses);
         setProfile(user);
+        if (user?.paymentMethods?.preferredMethod) {
+          setSelectedPayment(user.paymentMethods.preferredMethod);
+        }
 
         const defaultAddr = addresses.find((a) => a.isDefault) || addresses[0];
         if (defaultAddr) {
@@ -467,6 +473,14 @@ const {
     [grandTotal, couponDiscount, tipAmount, computedGatewayFee, pricingConfig, selectedPayment]
   );
 
+  const quotedDiscount = Number(orderQuote?.discount || 0) + Number(orderQuote?.referralVoucherDiscount || 0);
+  const displayFinalTotal = orderQuote?.totalAmount ?? finalTotal;
+  const displayGatewayFee = orderQuote?.gatewayFee ?? computedGatewayFee;
+  const displayCodCharge = orderQuote?.codCharge ?? (selectedPayment === "COD" ? Number(pricingConfig?.codCharge || 0) : 0);
+  const displayDiscount = orderQuote ? quotedDiscount : couponDiscount;
+  const displayDistanceKm = orderQuote?.deliveryDistance ?? distanceKm;
+  const savedUpiIds = Array.isArray(profile?.paymentMethods?.upiIds) ? profile.paymentMethods.upiIds : [];
+
   const ensureAddressSavedIfNeeded = async () => {
     if (selectedAddressId) return selectedAddressId;
     if (!saveForLater) return null;
@@ -485,6 +499,76 @@ const {
     });
     return saved.id;
   };
+  const buildOrderPayload = useCallback((addressIdOverride = selectedAddressId || null) => ({
+    restaurantId: cartItems[0]?.restaurantId,
+    items: cartItems.map((item) => ({
+      menuItemId: item.menuItemId || item.id,
+      quantity: item.quantity,
+      size: item.size || null,
+      notes: item.notes || null,
+      selectedSideDishes:
+        item.selectedSideDishes?.length ? item.selectedSideDishes : undefined,
+    })),
+    addressId: addressIdOverride,
+    address,
+    paymentMethod: selectedPayment,
+    couponCode: couponCode || null,
+    referralVoucherCode: referralVoucherCode.trim().toUpperCase() || null,
+    restaurantInstructions: restaurantInstructions.trim() || null,
+    deliveryInstructions: [...deliveryOptions, customDeliveryInstruction.trim()].filter(Boolean).join("; ") || null,
+    tipAmount,
+    pricing: {
+      itemTotal,
+      deliveryFee: deliveryTotal,
+      platformFee: Number(pricingConfig?.platformFee || 0),
+      packagingFee: packagingFeeBase,
+      codCharge: selectedPayment === "COD" ? Number(pricingConfig?.codCharge || 0) : 0,
+      couponDiscount,
+      finalTotal,
+    },
+  }), [
+    address,
+    cartItems,
+    couponCode,
+    couponDiscount,
+    customDeliveryInstruction,
+    deliveryOptions,
+    deliveryTotal,
+    finalTotal,
+    itemTotal,
+    packagingFeeBase,
+    pricingConfig,
+    referralVoucherCode,
+    restaurantInstructions,
+    selectedAddressId,
+    selectedPayment,
+    tipAmount,
+  ]);
+
+  useEffect(() => {
+    const hasAddress = Boolean(selectedAddressId || address.line1);
+    if (!cartItems.length || !restaurantId || !hasAddress) {
+      setOrderQuote(null);
+      return;
+    }
+
+    let isActive = true;
+    setQuoteLoading(true);
+    quoteOrder(buildOrderPayload(selectedAddressId || null))
+      .then((quote) => {
+        if (isActive) setOrderQuote(quote);
+      })
+      .catch(() => {
+        if (isActive) setOrderQuote(null);
+      })
+      .finally(() => {
+        if (isActive) setQuoteLoading(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [address.line1, buildOrderPayload, cartItems.length, restaurantId, selectedAddressId]);
 
   const handleRazorpayPayment = async (orderPayload, addressId) => {
     const RazorpayCheckout = await loadRazorpayCheckout();
@@ -541,34 +625,7 @@ const {
 
     try {
       const resolvedAddressId = await ensureAddressSavedIfNeeded();
-      const orderPayload = {
-        restaurantId: cartItems[0]?.restaurantId,
-        items: cartItems.map((item) => ({
-          menuItemId: item.menuItemId || item.id,
-          quantity: item.quantity,
-          size: item.size || null,
-          notes: item.notes || null,
-          selectedSideDishes:
-            item.selectedSideDishes?.length ? item.selectedSideDishes : undefined,
-        })),
-        addressId: resolvedAddressId,
-        address,
-        paymentMethod: selectedPayment,
-        couponCode: couponCode || null,
-        referralVoucherCode: referralVoucherCode.trim().toUpperCase() || null,
-        restaurantInstructions: restaurantInstructions.trim() || null,
-        deliveryInstructions: [...deliveryOptions, customDeliveryInstruction.trim()].filter(Boolean).join("; ") || null,
-        tipAmount,
-        pricing: {
-          itemTotal,
-          deliveryFee: deliveryTotal,
-          platformFee: Number(pricingConfig?.platformFee || 0),
-          packagingFee: packagingFeeBase,
-          codCharge: selectedPayment === "COD" ? Number(pricingConfig?.codCharge || 0) : 0,
-          couponDiscount,
-          finalTotal,
-        },
-      };
+      const orderPayload = buildOrderPayload(resolvedAddressId);
 
       if (selectedPayment === "COD") {
         await createCODOrder(orderPayload);
@@ -829,6 +886,11 @@ const {
             </View>
             <Text className="text-lg font-bold text-slate-900">Payment Method</Text>
           </View>
+          {selectedPayment === "UPI" && savedUpiIds.length > 0 ? (
+            <View className="mb-3 rounded-2xl bg-violet-50 px-4 py-3">
+              <Text className="text-xs font-bold text-violet-700">Preferred UPI: {savedUpiIds[0]}</Text>
+            </View>
+          ) : null}
           <View className="space-y-3">
             {paymentMethods.map((pm) => {
               const Icon = pm.icon;
@@ -909,17 +971,17 @@ const {
             itemTotal={itemTotal}
             packagingFeeBase={packagingFeeBase}
             deliveryAndTax={deliveryAndTax}
-            codCharge={Number(pricingConfig?.codCharge || 0)}
-            discount={couponDiscount}
+            codCharge={displayCodCharge}
+            discount={displayDiscount}
             tipAmount={tipAmount}
-            finalTotal={finalTotal}
-            distanceKm={distanceKm}
+            finalTotal={displayFinalTotal}
+            distanceKm={displayDistanceKm}
             deliveryBase={deliveryBase}
             deliveryGst={deliveryGst}
             foodGst={foodGst}
             packagingTax={packagingTax}
             platformFee={Number(pricingConfig?.platformFee || 0)}
-            gatewayFee={computedGatewayFee}
+            gatewayFee={displayGatewayFee}
             cgst={cgst}
             sgst={sgst}
           />
@@ -939,7 +1001,7 @@ const {
             </View>
           ) : (
             <Text className="text-base font-extrabold text-white">
-              {`Place Order - ${formatCurrency(finalTotal)}`}
+              {`Place Order - ${formatCurrency(displayFinalTotal)}${quoteLoading ? " (checking)" : ""}`}
             </Text>
           )}
         </TouchableOpacity>

@@ -6,7 +6,8 @@ import {
   Store,
   MessageCircle,
   ChefHat,
-  BarChart3
+  BarChart3,
+  Star
 } from "lucide-react";
 import { NavLink } from 'react-router-dom';
 
@@ -16,6 +17,7 @@ const navItems = [
   { to: 'menu', label: 'Menu', Icon: Menu },
   { to: 'kitchen', label: 'Kitchen Display', Icon: ChefHat },
   { to: 'reports', label: 'Reports', Icon: BarChart3 },
+  { to: 'reviews', label: 'Reviews', Icon: Star },
   { to: 'profile', label: 'Profile', Icon: Store },
   { to: 'chat', label: 'Support Chat', Icon: MessageCircle },
 ];
@@ -61,4 +63,6 @@ const VendorSidebar = ({ sidebar = false, setSidebar = () => {} }) => {
 };
 
 export default VendorSidebar;
+
+
 

@@ -30,6 +30,10 @@ const VendorReports = lazy(() =>
   import('../pages/vendors/VendorReports.jsx')
 );
 
+const VendorReviews = lazy(() =>
+  import('../pages/vendors/VendorReviews.jsx')
+);
+
 const VendorProfile = lazy(() =>
   import('../pages/vendors/VendorProfile.jsx')
 );
@@ -87,6 +91,11 @@ const VendorRoutes = () => {
                 />
 
                 <Route
+                  path="reviews"
+                  element={<VendorReviews />}
+                />
+
+                <Route
                   path="profile"
                   element={<VendorProfile />}
                 />
@@ -105,4 +114,5 @@ const VendorRoutes = () => {
 };
 
 export default VendorRoutes;
+
 

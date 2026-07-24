@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from "react-native";
-import { ChevronLeft, Wallet, CreditCard, Smartphone, Building2, CheckCircle, Plus, X } from "lucide-react-native";
+import { ChevronLeft, Wallet, CreditCard, Smartphone, CheckCircle, Plus, X } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { getProfile, updateProfile } from "../../services/userService";
 
 const paymentOptions = [
-  { id: "cod", name: "Cash on Delivery", description: "Pay when your order arrives", icon: Wallet, color: "#059669", bg: "bg-emerald-50" },
-  { id: "razorpay", name: "Credit / Debit Card", description: "Visa, Mastercard, Rupay", icon: CreditCard, color: "#6366f1", bg: "bg-indigo-50" },
-  { id: "razorpay_upi", name: "UPI", description: "Google Pay, PhonePe, Paytm", icon: Smartphone, color: "#8b5cf6", bg: "bg-violet-50" },
-  { id: "razorpay_netbanking", name: "Net Banking", description: "All major banks supported", icon: Building2, color: "#f59e0b", bg: "bg-amber-50" },
+  { id: "COD", name: "Cash on Delivery", description: "Pay when your order arrives", icon: Wallet, color: "#059669", bg: "bg-emerald-50" },
+  { id: "UPI", name: "UPI", description: "Google Pay, PhonePe, Paytm", icon: Smartphone, color: "#8b5cf6", bg: "bg-violet-50" },
+  { id: "CARD", name: "Credit / Debit Card", description: "Visa, Mastercard, Rupay", icon: CreditCard, color: "#6366f1", bg: "bg-indigo-50" },
 ];
 
 const normalizeUpi = (value) => String(value || "").trim().toLowerCase();
+const getPaymentMethods = (profile) => profile?.paymentMethods || {};
 const getUpiIds = (profile) => Array.isArray(profile?.paymentMethods?.upiIds) ? profile.paymentMethods.upiIds : [];
 
 export default function PaymentMethodsScreen({ navigation }) {
-  const [selected, setSelected] = useState("cod");
+  const [selected, setSelected] = useState("COD");
   const [upiIds, setUpiIds] = useState([]);
   const [newUpi, setNewUpi] = useState("");
   const [loading, setLoading] = useState(true);
@@ -27,7 +27,9 @@ export default function PaymentMethodsScreen({ navigation }) {
     (async () => {
       try {
         const profile = await getProfile();
+        const paymentMethods = getPaymentMethods(profile);
         setUpiIds(getUpiIds(profile));
+        setSelected(paymentMethods.preferredMethod || "COD");
       } catch (err) {
         setError(err.message || "Could not load payment methods");
       } finally {
@@ -36,19 +38,30 @@ export default function PaymentMethodsScreen({ navigation }) {
     })();
   }, []);
 
-  const saveUpiIds = async (nextUpiIds) => {
+  const savePaymentMethods = async (nextPaymentMethods, successMessage = "Payment preferences saved") => {
     setSaving(true);
     setError("");
     setMessage("");
     try {
-      const updated = await updateProfile({ paymentMethods: { upiIds: nextUpiIds } });
-      setUpiIds(getUpiIds(updated).length ? getUpiIds(updated) : nextUpiIds);
-      setMessage("UPI details saved");
+      const updated = await updateProfile({ paymentMethods: nextPaymentMethods });
+      const savedMethods = getPaymentMethods(updated);
+      setUpiIds(getUpiIds(updated).length ? getUpiIds(updated) : nextPaymentMethods.upiIds || []);
+      setSelected(savedMethods.preferredMethod || nextPaymentMethods.preferredMethod || "COD");
+      setMessage(successMessage);
     } catch (err) {
-      setError(err.message || "Failed to save UPI details");
+      setError(err.message || "Failed to save payment preferences");
     } finally {
       setSaving(false);
     }
+  };
+
+  const savePreferredMethod = async (method) => {
+    setSelected(method);
+    await savePaymentMethods({ upiIds, preferredMethod: method });
+  };
+
+  const saveUpiIds = async (nextUpiIds) => {
+    await savePaymentMethods({ upiIds: nextUpiIds, preferredMethod: selected }, "UPI details saved");
   };
 
   const addUpi = async () => {
@@ -87,7 +100,7 @@ export default function PaymentMethodsScreen({ navigation }) {
             const isSelected = selected === opt.id;
             const Icon = opt.icon;
             return (
-              <TouchableOpacity key={opt.id} onPress={() => setSelected(opt.id)} className={`flex-row items-center gap-4 rounded-3xl bg-white p-5 shadow-sm border-2 ${isSelected ? "border-indigo-500" : "border-transparent"}`}>
+              <TouchableOpacity key={opt.id} onPress={() => savePreferredMethod(opt.id)} disabled={saving} className={`flex-row items-center gap-4 rounded-3xl bg-white p-5 shadow-sm border-2 ${isSelected ? "border-indigo-500" : "border-transparent"}`}>
                 <View className={`h-14 w-14 items-center justify-center rounded-2xl ${opt.bg}`}><Icon size={26} color={opt.color} /></View>
                 <View className="flex-1"><Text className="font-extrabold text-slate-900">{opt.name}</Text><Text className="text-sm text-slate-500 mt-0.5">{opt.description}</Text></View>
                 {isSelected ? <CheckCircle size={22} color="#6366f1" /> : null}
@@ -117,5 +130,3 @@ export default function PaymentMethodsScreen({ navigation }) {
     </View>
   );
 }
-
-

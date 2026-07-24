@@ -29,7 +29,7 @@ import {
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { useDispatch } from "react-redux";
-import { getMyOrders, cancelOrder } from "../../services/orderService";
+import { getMyOrders, cancelOrder, getReorderData } from "../../services/orderService";
 import { addItem } from "../../store/slices/cartSlice";
 import { saveReview } from "../../services/reviewService";
 import { saveRiderRating } from "../../services/riderRatingService";
@@ -204,24 +204,31 @@ export default function OrdersScreen({ navigation }) {
     }
   };
 
-  const handleReorder = (order) => {
-    if (!order.items?.length) return;
-    order.items.forEach((item) => {
-      dispatch(addItem({
-        menuItemId: item.menuItemId || item.id,
-        restaurantId: order.restaurantId || order.restaurant?.id,
-        restaurantName: order.restaurantName || order.restaurant?.name,
-        name: item.name || item.menuItem?.name,
-        price: Number(item.unitPrice || item.price || 0) - ((item.selectedSideDishes || []).reduce((s, sd) => s + Number(sd.price), 0)),
-        quantity: item.quantity || 1,
-        imageUrl: item.imageUrl || item.menuItem?.imageUrl,
-        size: item.size || null,
-        selectedSideDishes: item.selectedSideDishes || [],
-        notes: item.notes || "",
-      }));
-    });
-    setSelectedOrder(null);
-    navigation.navigate("Cart");
+  const handleReorder = async (order) => {
+    setError("");
+    try {
+      const reorderData = await getReorderData(order.id);
+      const items = reorderData?.items || order.items || [];
+      if (!items.length) return;
+      items.forEach((item) => {
+        dispatch(addItem({
+          menuItemId: item.menuItemId || item.id,
+          restaurantId: order.restaurantId || order.restaurant?.id,
+          restaurantName: order.restaurantName || order.restaurant?.name,
+          name: item.name || item.menuItem?.name,
+          price: Number(item.price || item.unitPrice || 0),
+          quantity: item.quantity || 1,
+          imageUrl: item.imageUrl || item.menuItem?.imageUrl,
+          size: item.size || null,
+          selectedSideDishes: item.selectedSideDishes || [],
+          notes: item.notes || "",
+        }));
+      });
+      setSelectedOrder(null);
+      navigation.navigate("Cart");
+    } catch (err) {
+      setError(err.message || "Could not prepare reorder");
+    }
   };
 
   const handleCancelRequest = (order) => {

@@ -14,6 +14,7 @@ const vehicleDetailsSchema = z.object({
 
 const paymentMethodsSchema = z.object({
   upiIds: z.array(z.string().trim().min(3)).default([]),
+  preferredMethod: z.enum(["COD", "UPI", "CARD"]).optional(),
 }).nullable();
 
 const updateProfileSchema = z

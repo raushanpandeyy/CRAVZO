@@ -40,6 +40,7 @@ const roleConfig = {
       { label: "Menu", to: "/vendor-dashboard/menu", icon: Utensils },
       { label: "KDS", to: "/vendor-dashboard/kitchen", icon: ChefHat },
       { label: "Reports", to: "/vendor-dashboard/reports", icon: BarChart3 },
+      { label: "Reviews", to: "/vendor-dashboard/reviews", icon: Star },
       { label: "Profile", to: "/vendor-dashboard/profile", icon: PackageCheck },
       { label: "Chat", to: "/vendor-dashboard/chat", icon: MessageCircle },
     ],
@@ -204,4 +205,6 @@ const PartnerMobileNav = ({ role }) => (
 );
 
 export default PartnerMobileNav;
+
+
 

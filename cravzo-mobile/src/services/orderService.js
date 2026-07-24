@@ -46,3 +46,10 @@ export const getReorderData = async (orderId) => {
   const response = await apiRequest(`/api/orders/${orderId}/reorder`);
   return response.data;
 };
+export const quoteOrder = async (payload) => {
+  const response = await apiRequest("/api/orders/quote", {
+    method: "POST",
+    data: payload,
+  });
+  return response.data || response;
+};

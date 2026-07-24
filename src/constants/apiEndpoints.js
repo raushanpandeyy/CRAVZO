@@ -64,6 +64,7 @@ export const API_ENDPOINTS = {
     mine: `${BASE}/reviews/my`,
     byRestaurant: (id) => `${BASE}/reviews/restaurant/${id}`,
     save: `${BASE}/reviews`,
+    reply: (id) => `${BASE}/reviews/${id}/reply`,
     remove: (id) => `${BASE}/reviews/${id}`,
   },
 
@@ -101,3 +102,4 @@ restaurant: {
   },
 
 };
+

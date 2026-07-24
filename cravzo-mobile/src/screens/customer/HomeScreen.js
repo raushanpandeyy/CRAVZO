@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useSelector } from "react-redux";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Star, Clock3, Search, MapPin, ShoppingCart, User, MessageCircle, Utensils, X, Leaf } from "lucide-react-native";
+import { Star, Clock3, Search, MapPin, ShoppingCart, User, MessageCircle, Utensils, X } from "lucide-react-native";
 import DishPromoCarousel from "../../components/DishPromoCarousel";
 import OptimizedImage from "../../components/OptimizedImage";
 import { colors } from "../../constants/colors";
@@ -157,8 +157,6 @@ export default function HomeScreen({ navigation }) {
   const [searchResults, setSearchResults] = useState({ restaurants: [], dishes: [] });
   const [searchLoading, setSearchLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [vegOnly, setVegOnly] = useState(false);
-  const [dietaryFilter, setDietaryFilter] = useState(null);
   const cartCount = useSelector(selectCartItemCount);
   const { data: user } = useSelector(selectUserState);
   const debouncedQuery = useDebounce(query, 400);
@@ -181,17 +179,14 @@ export default function HomeScreen({ navigation }) {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const params = { limit: 10 };
-      if (vegOnly) params.vegOnly = "true";
-      if (dietaryFilter) params.dietary = dietaryFilter;
-      const data = await listRestaurants(params);
+      const data = await listRestaurants({ limit: 10 });
       setRestaurants(data);
     } catch {
       // silent on refresh
     } finally {
       setRefreshing(false);
     }
-  }, [vegOnly, dietaryFilter]);
+  }, []);
 
 
   useEffect(() => {
@@ -404,42 +399,6 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       {restaurants.length > 0 && <PopularDishesSection restaurants={restaurants} navigation={navigation} />}
-
-      {/* Dietary Filters */}
-      <View className="flex-row items-center gap-2 px-4 py-3 border-b border-indigo-100">
-        <TouchableOpacity
-          onPress={() => {
-            setVegOnly(!vegOnly);
-            loadRestaurants({ limit: 10, vegOnly: !vegOnly ? "true" : undefined, dietary: !vegOnly ? dietaryFilter : undefined });
-          }}
-          className={`flex-row items-center gap-1.5 rounded-full px-3 py-1.5 border-2 ${
-            vegOnly ? "border-emerald-600 bg-emerald-50" : "border-slate-200 bg-white"
-          }`}
-        >
-          {vegOnly ? <Leaf size={14} color="#059669" /> : <Leaf size={14} color={colors.slate[400]} />}
-          <Text className={`text-xs font-bold ${vegOnly ? "text-emerald-700" : "text-slate-500"}`}>
-            Veg Only
-          </Text>
-        </TouchableOpacity>
-
-        {["Vegetarian", "Vegan", "Gluten-Free"].map((d) => (
-          <TouchableOpacity
-            key={d}
-            onPress={() => {
-              const next = dietaryFilter === d ? null : d;
-              setDietaryFilter(next);
-              loadRestaurants({ limit: 10, vegOnly: vegOnly ? "true" : undefined, dietary: next || undefined });
-            }}
-            className={`rounded-full px-3 py-1.5 border-2 ${
-              dietaryFilter === d ? "border-indigo-600 bg-indigo-50" : "border-slate-200 bg-white"
-            }`}
-          >
-            <Text className={`text-xs font-bold ${dietaryFilter === d ? "text-indigo-700" : "text-slate-500"}`}>
-              {d}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
 
       <View className="py-4">
         <View className="px-4 mb-3">
