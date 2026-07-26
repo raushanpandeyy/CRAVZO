@@ -20,7 +20,7 @@ const listMenuItems = async (restaurantId) => {
   return response.data?.items || [];
 };
 
-const getNearbyRestaurants = async (lat, lng, radiusKm = 3) => {
+const getNearbyRestaurants = async (lat, lng, radiusKm = 8) => {
   const response = await apiRequest(
     `${API_ENDPOINTS.restaurant.nearby(lat, lng)}&radius=${radiusKm}`
   );
@@ -29,7 +29,7 @@ const getNearbyRestaurants = async (lat, lng, radiusKm = 3) => {
 
 // Unified search — replaces listRestaurants + N×listMenuItems in SearchBar
 // Returns { restaurants: [...], dishes: [...] } in one call
-const searchRestaurantsAndDishes = async (query, { lat, lng, radius = 3 } = {}) => {
+const searchRestaurantsAndDishes = async (query, { lat, lng, radius = 8 } = {}) => {
   const params = new URLSearchParams({ q: query });
   if (lat) params.set("lat", lat);
   if (lng) params.set("lng", lng);
@@ -45,3 +45,4 @@ export {
   listRestaurants,
   searchRestaurantsAndDishes,
 };
+

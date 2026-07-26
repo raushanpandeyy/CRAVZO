@@ -344,6 +344,24 @@ model Review {
   @@index([menuItemId])
 }
 
+
+model LocationLead {
+  id          String   @id @default(cuid())
+  name        String
+  phone       String?
+  email       String?
+  location    String?
+  latitude    Float?
+  longitude   Float?
+  source      String?
+  status      String   @default("NEW")
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+}
 model Favorite {
   id           String     @id @default(cuid())
   userId       String
@@ -589,4 +607,5 @@ model DishPromotion {
 
   @@index([isActive, position])
 }
+
 

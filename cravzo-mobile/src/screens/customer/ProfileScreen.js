@@ -43,6 +43,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { clearUser, setUser, logoutUser, setShowAuthModal } from "../../store/slices/userSlice";
 import { clearSession, normalizeUser } from "../../services/authService";
 import { storage } from "../../services/storage";
+import { permissionMessages, explainPermission } from "../../services/permissionNotice";
+import { updatePrivacyConsent } from "../../services/privacyConsent";
 
 const menuItems = [
   { icon: MapPin, label: "Addresses", color: "#4f46e5", screen: "Addresses" },
@@ -56,7 +58,7 @@ const menuItems = [
 const infoItems = [
   { icon: Info, label: "About Us", screen: "AboutUs" },
   { icon: Phone, label: "Contact Us", screen: "ContactUs" },
-  { icon: Shield, label: "Privacy Policy", screen: "PrivacyPolicy" },
+  { icon: Shield, label: "Privacy & Consent", screen: "PrivacyPolicy" },
 ];
 
 export default function ProfileScreen({ navigation }) {
@@ -122,6 +124,12 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const pickImage = async (useCamera) => {
+    const shouldAsk = await explainPermission({
+      title: useCamera ? "Camera permission" : "Gallery permission",
+      message: useCamera ? permissionMessages.camera : permissionMessages.gallery,
+    });
+    if (!shouldAsk) return;
+    updatePrivacyConsent({ media: true });
     const permission = useCamera
       ? await ImagePicker.requestCameraPermissionsAsync()
       : await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -192,6 +200,16 @@ export default function ProfileScreen({ navigation }) {
     setError("");
     try {
       if (value) {
+        const shouldAsk = await explainPermission({
+          title: "Notification permission",
+          message: permissionMessages.notifications,
+        });
+        if (!shouldAsk) {
+          setNotificationsEnabled(false);
+          updatePrivacyConsent({ notifications: false });
+          return;
+        }
+        updatePrivacyConsent({ notifications: true });
         const token = await registerForPushNotifications();
         if (token) {
           setNotificationsEnabled(true);
@@ -202,6 +220,7 @@ export default function ProfileScreen({ navigation }) {
         }
       } else {
         await unregisterPushNotifications();
+        updatePrivacyConsent({ notifications: false });
         setNotificationsEnabled(false);
         setMessage("Notifications disabled.");
       }
@@ -536,3 +555,5 @@ export default function ProfileScreen({ navigation }) {
     </ScrollView>
   );
 }
+
+

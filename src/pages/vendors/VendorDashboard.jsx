@@ -2,12 +2,17 @@ import React, { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { AlertCircle, Clock, IndianRupee, ShoppingBag, Store } from "lucide-react";
 
 import { getVendorOrders, updateOrderStatus } from "../../services/orderService.js";
-import { getMyRestaurant, updateRestaurantAvailability } from "../../services/vendorService.js";
+import { getMyRestaurant, updateRestaurantAvailability, updateRestaurantHours } from "../../services/vendorService.js";
 import { VerifiedBadge, ProfileProgress } from "../../components/vendors/VerifiedBadge.jsx";
 import { Skeleton, SkeletonCard, SkeletonRow } from "../../components/Skeleton.jsx";
 import { onNewOrder, onOrderStatusUpdate } from "../../services/chatSocket.js";
+import VendorHoursAlert from "../../components/vendors/VendorHoursAlert.jsx";
+import { getExtendedClosingTime, getRestaurantHoursStatus } from "../../utils/restaurantHours.js";
 
 const OrderRequestPopup = lazy(() => import("../../components/OrderRequestPopup.jsx"));
+
+const HOURS_ALERT_CHECK_MS = 60 * 1000;
+const HOURS_ALERT_SNOOZE_MS = 10 * 60 * 1000;
 
 const formatCurrency = (amount) => `Rs ${Math.floor(amount || 0)}`;
 
@@ -19,6 +24,9 @@ const VendorDashboard = () => {
   const [error, setError] = useState("");
   const [orderRequest, setOrderRequest] = useState(null);
   const [showRequest, setShowRequest] = useState(false);
+  const [hoursAlert, setHoursAlert] = useState(null);
+  const [hoursSaving, setHoursSaving] = useState(false);
+  const [hoursSnoozedUntil, setHoursSnoozedUntil] = useState(0);
 
   const loadDashboard = async () => {
     setError("");
@@ -104,7 +112,82 @@ const VendorDashboard = () => {
       Notification.requestPermission().catch(() => { });
     }
   }, []);
+  useEffect(() => {
+    if (!restaurant?.id || !restaurant.openingTime || !restaurant.closingTime) return undefined;
 
+    const checkHoursAlert = () => {
+      if (Date.now() < hoursSnoozedUntil) return;
+      const status = getRestaurantHoursStatus(restaurant, { closingSoonMinutes: 30, openingWindowMinutes: 20 });
+      const today = new Date().toISOString().slice(0, 10);
+
+      if (status.closingSoon && restaurant.isOpen !== false) {
+        const key = `dodago-hours-alert:${restaurant.id}:closing:${today}:${restaurant.closingTime}`;
+        if (sessionStorage.getItem(key) !== "done") {
+          sessionStorage.setItem(key, "done");
+          setHoursAlert({ type: "closing", key, minutesUntilClose: status.minutesUntilClose });
+        }
+        return;
+      }
+
+      if (status.openingNow && restaurant.isOpen === false) {
+        const key = `dodago-hours-alert:${restaurant.id}:opening:${today}:${restaurant.openingTime}`;
+        if (sessionStorage.getItem(key) !== "done") {
+          sessionStorage.setItem(key, "done");
+          setHoursAlert({ type: "opening", key });
+        }
+      }
+    };
+
+    checkHoursAlert();
+    const interval = window.setInterval(checkHoursAlert, HOURS_ALERT_CHECK_MS);
+    return () => window.clearInterval(interval);
+  }, [hoursSnoozedUntil, restaurant]);
+
+
+  const handleExtendHours = async (extraMinutes) => {
+    if (!restaurant?.id) return;
+    const nextClosingTime = getExtendedClosingTime(restaurant.closingTime, extraMinutes);
+    if (!nextClosingTime) {
+      setError("Closing time is not valid. Please update restaurant profile timings.");
+      return;
+    }
+
+    setHoursSaving(true);
+    setMessage("");
+    setError("");
+    try {
+      const updatedRestaurant = await updateRestaurantHours(restaurant.id, { closingTime: nextClosingTime, isOpen: true });
+      setRestaurant((current) => ({ ...(current || {}), ...updatedRestaurant }));
+      setHoursAlert(null);
+      setMessage(`Closing time extended to ${nextClosingTime}.`);
+    } catch (requestError) {
+      setError(requestError.message || "Failed to extend closing time");
+    } finally {
+      setHoursSaving(false);
+    }
+  };
+
+  const handleGoOnlineFromAlert = async () => {
+    if (!restaurant?.id || restaurant.isOpen) return;
+    setHoursSaving(true);
+    setMessage("");
+    setError("");
+    try {
+      const updatedRestaurant = await updateRestaurantAvailability(restaurant.id, true);
+      setRestaurant((current) => ({ ...(current || {}), ...updatedRestaurant }));
+      setHoursAlert(null);
+      setMessage("Restaurant is online now.");
+    } catch (requestError) {
+      setError(requestError.message || "Failed to open restaurant");
+    } finally {
+      setHoursSaving(false);
+    }
+  };
+
+  const handleHoursSnooze = () => {
+    setHoursSnoozedUntil(Date.now() + HOURS_ALERT_SNOOZE_MS);
+    setHoursAlert(null);
+  };
   const handleToggleRestaurant = async () => {
     if (!restaurant) {
       return;
@@ -318,6 +401,15 @@ const VendorDashboard = () => {
         </div>
       </div>
 
+      <VendorHoursAlert
+        alert={hoursAlert}
+        restaurant={restaurant}
+        saving={hoursSaving}
+        onExtend={handleExtendHours}
+        onGoOnline={handleGoOnlineFromAlert}
+        onSnooze={handleHoursSnooze}
+        onClose={() => setHoursAlert(null)}
+      />
       {showRequest && orderRequest ? (
         <Suspense fallback={null}>
           <OrderRequestPopup
@@ -334,3 +426,5 @@ const VendorDashboard = () => {
 };
 
 export default VendorDashboard;
+
+

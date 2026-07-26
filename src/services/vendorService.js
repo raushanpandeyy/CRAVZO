@@ -39,6 +39,16 @@ const updateRestaurantAvailability = async (restaurantId, isOpen) => {
   return response.data;
 };
 
+
+const updateRestaurantHours = async (restaurantId, payload) => {
+  const response = await apiRequest(`${BASE}/restaurants/${restaurantId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+
+  invalidateCache("/api/restaurants");
+  return response.data;
+};
 const createVendorMenuItem = async (payload) => {
   const response = await apiRequest(`${BASE}/menu-items`, {
     method: "POST",
@@ -75,6 +85,8 @@ export {
   getMyRestaurants,
   saveVendorRestaurant,
   updateRestaurantAvailability,
+  updateRestaurantHours,
   updateVendorMenuItem,
 };
+
 

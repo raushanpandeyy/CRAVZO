@@ -58,8 +58,8 @@ export const API_ENDPOINTS = {
   },
   restaurant: {
     list: `${BASE}/restaurants`,
-    nearby: (lat, lng) =>
-      `${BASE}/restaurants/nearby?lat=${lat}&lng=${lng}`,
+    nearby: (lat, lng, radius) =>
+      `${BASE}/restaurants/nearby?lat=${lat}&lng=${lng}${radius ? `&radius=${radius}` : ""}`,
     byId: (id) => `${BASE}/restaurants/${id}`,
     menuItems: (restaurantId) => `${BASE}/menu-items/restaurant/${restaurantId}`,
   },
@@ -68,6 +68,7 @@ export const API_ENDPOINTS = {
     home: `${BASE}/public/home`,
     featuredRestaurants: `${BASE}/public/featured-restaurants`,
     ads: `${BASE}/public/ads`,
+    locationLeads: `${BASE}/public/location-leads`,
   },
 coupons: {
     validate: `${BASE}/coupons/validate`,
@@ -77,6 +78,8 @@ coupons: {
     apply: `${BASE}/referrals/apply`,
   },
 };
+
+
 
 
 

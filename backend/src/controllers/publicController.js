@@ -256,3 +256,54 @@ export const updateAdsOrder = async (req, res) => {
 
   return res.status(200).json(apiResponse({ message: "Ads order updated" }));
 };
+
+export const createLocationLead = async (req, res) => {
+  const name = String(req.body?.name || "").trim();
+  const phone = String(req.body?.phone || "").trim();
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const location = String(req.body?.location || "").trim();
+  const source = String(req.body?.source || "customer_app").trim().slice(0, 50);
+  const notes = String(req.body?.notes || "").trim();
+  const latitude = req.body?.latitude === undefined || req.body?.latitude === null || req.body?.latitude === ""
+    ? null
+    : Number(req.body.latitude);
+  const longitude = req.body?.longitude === undefined || req.body?.longitude === null || req.body?.longitude === ""
+    ? null
+    : Number(req.body.longitude);
+
+  if (!name) {
+    return res.status(400).json(apiResponse({ success: false, message: "Name is required" }));
+  }
+
+  if (!phone && !email) {
+    return res.status(400).json(apiResponse({ success: false, message: "Phone or email is required" }));
+  }
+
+  if (latitude !== null && (Number.isNaN(latitude) || latitude < -90 || latitude > 90)) {
+    return res.status(400).json(apiResponse({ success: false, message: "Latitude is invalid" }));
+  }
+
+  if (longitude !== null && (Number.isNaN(longitude) || longitude < -180 || longitude > 180)) {
+    return res.status(400).json(apiResponse({ success: false, message: "Longitude is invalid" }));
+  }
+
+  const lead = await prisma.locationLead.create({
+    data: {
+      name: name.slice(0, 120),
+      phone: phone ? phone.slice(0, 30) : null,
+      email: email ? email.slice(0, 160) : null,
+      location: location ? location.slice(0, 240) : null,
+      latitude,
+      longitude,
+      source,
+      notes: notes ? notes.slice(0, 500) : null,
+    },
+  });
+
+  return res.status(201).json(
+    apiResponse({
+      data: { id: lead.id },
+      message: "Thanks. We will notify you when Dodago reaches your location.",
+    }),
+  );
+};

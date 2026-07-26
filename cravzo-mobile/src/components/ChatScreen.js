@@ -9,6 +9,8 @@ import { colors } from "../constants/colors";
 import { connectSocket, disconnectSocket, joinChatRoom, leaveChatRoom, sendSocketMessage, onSocketMessage } from "../services/chatSocket";
 import { apiRequest } from "../services/api";
 import { useSelector } from "react-redux";
+import { explainPermission, permissionMessages } from "../services/permissionNotice";
+import { updatePrivacyConsent } from "../services/privacyConsent";
 
 export default function ChatScreen({ navigation, route }) {
   const { data: user } = useSelector(selectUserState);
@@ -109,6 +111,9 @@ export default function ChatScreen({ navigation, route }) {
   const handlePickImage = async () => {
     if (!roomId || uploadingImage) return;
     try {
+      const shouldAsk = await explainPermission({ title: "Gallery permission", message: permissionMessages.gallery });
+      if (!shouldAsk) return;
+      updatePrivacyConsent({ media: true });
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         Alert.alert("Permission required", "Allow photo access to send an image in chat.");
@@ -232,3 +237,4 @@ export default function ChatScreen({ navigation, route }) {
     </KeyboardAvoidingView>
   );
 }
+

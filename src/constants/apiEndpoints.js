@@ -99,7 +99,9 @@ restaurant: {
     home: `${BASE}/public/home`,
     featuredRestaurants: `${BASE}/public/featured-restaurants`,
     ads: `${BASE}/public/ads`,
+    locationLeads: `${BASE}/public/location-leads`,
   },
 
 };
+
 

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import SearchBar from "../../components/common/Searchbar.jsx";
+import LocationLeadForm from "../../components/common/LocationLeadForm.jsx";
 import {
   biryaniplate, burger, cake, dosa, momos,
   chinese, indianthali, rolls, parathe, Chaat,
@@ -24,6 +25,8 @@ const HeroSection = lazy(() => import("./HeroSection.jsx"));
 const Citywise = lazy(() => import("./Citywise.jsx"));
 const DishCarousel = lazy(() => import("./DishesGallery.jsx"));
 import DishPromoCarousel from "../../components/DishPromoCarousel.jsx";
+
+const NEARBY_RADIUS_KM = 8;
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
@@ -253,6 +256,7 @@ const Home = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hasPreciseLocation, setHasPreciseLocation] = useState(false);
   const [isDesktop, setIsDesktop] = useState(
     typeof window !== "undefined" && window.innerWidth >= 768
   );
@@ -284,11 +288,12 @@ const Home = () => {
       try {
         let restaurantData = [];
         if (lat && lng) {
-          const res = await getNearbyRestaurants(lat, lng, 3);
+          const res = await getNearbyRestaurants(lat, lng, NEARBY_RADIUS_KM);
           restaurantData = Array.isArray(res) ? res : (res?.data || []);
           if (isMobile) restaurantData = restaurantData.slice(0, limit);
         }
-        if (!restaurantData.length) {
+        setHasPreciseLocation(Boolean(lat && lng));
+        if (!restaurantData.length && !(lat && lng)) {
           const res = await listRestaurants({ page: 1, limit });
           restaurantData = Array.isArray(res) ? res : (res?.data || []);
         }
@@ -424,7 +429,7 @@ const Home = () => {
                 </div>
               ))
             ) : restaurants.length === 0 ? (
-              <div className="rounded-xl bg-slate-100 p-4 text-sm text-slate-500">No nearby restaurants</div>
+              <LocationLeadForm latitude={lat} longitude={lng} source="web_home_mobile" compact />
             ) : (
               restaurants.slice(0, 10).map((restaurant, index) => (
                 <MobileRestaurantCard key={restaurant.id} restaurant={restaurant} index={index} />
@@ -442,7 +447,7 @@ const Home = () => {
         <section className="max-w-[1200px] mx-auto px-3 md:px-4 py-6 md:py-8">
           <div className="mb-4 md:mb-6">
             <h2 className="text-lg md:text-2xl font-bold text-indigo-900">Nearby Restaurants</h2>
-            <p className="text-xs md:text-sm text-slate-600">Based on your location</p>
+            <p className="text-xs md:text-sm text-slate-600">Within 8 km of your location</p>
           </div>
 
           {loading ? (
@@ -458,7 +463,11 @@ const Home = () => {
               ))}
             </div>
           ) : restaurants.length === 0 ? (
-            <p>No nearby restaurants found</p>
+            hasPreciseLocation ? (
+              <LocationLeadForm latitude={lat} longitude={lng} source="web_home_desktop" />
+            ) : (
+              <p>No nearby restaurants found</p>
+            )
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-5">
               {restaurants.map((restaurant, idx) => (
@@ -500,3 +509,6 @@ const Home = () => {
 };
 
 export default Home;
+
+
+

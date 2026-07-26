@@ -13,13 +13,14 @@ import {
   Modal,
 } from "react-native";
 import { useDispatch } from "react-redux";
-import { Lock, Mail, User, Phone, X } from "lucide-react-native";
+import { Check, Lock, Mail, User, Phone, Shield, Square, X } from "lucide-react-native";
 import { dodagologo } from "../../constants/images";
 import OptimizedImage from "../../components/OptimizedImage";
 import { colors } from "../../constants/colors";
 import { login, signup, requestPasswordReset, resetPassword } from "../../services/authService";
 import { setUser } from "../../store/slices/userSlice";
 import { storage } from "../../services/storage";
+import { savePrivacyConsent } from "../../services/privacyConsent";
 
 const AuthInput = ({ icon: Icon, ...props }) => (
   <View className="relative">
@@ -46,6 +47,8 @@ export default function LoginScreen({ navigation }) {
   const [message, setMessage] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [fpEmail, setFpEmail] = useState("");
@@ -78,10 +81,15 @@ export default function LoginScreen({ navigation }) {
       setMessage("Please fill in name, email and password.");
       return;
     }
+    if (!acceptedPrivacy || !ageConfirmed) {
+      setMessage("Please accept the privacy notice and confirm age/guardian consent.");
+      return;
+    }
     setIsSubmitting(true);
     setMessage("");
     try {
       await signup({ name, email, password, phone, role: "CUSTOMER" });
+      savePrivacyConsent({ acceptedNotice: true, ageConfirmed, marketing: false });
       storage.set("otpEmail", email.trim().toLowerCase());
       storage.set("otpRole", "CUSTOMER");
       navigation.navigate("VerifyOtp");
@@ -181,6 +189,37 @@ export default function LoginScreen({ navigation }) {
                   secureTextEntry
                 />
 
+                {isSignup ? (
+                  <View className="gap-3 rounded-2xl bg-indigo-50 p-4">
+                    <TouchableOpacity
+                      onPress={() => setAcceptedPrivacy((current) => !current)}
+                      className="flex-row items-start gap-3"
+                    >
+                      <View className={`mt-0.5 h-6 w-6 items-center justify-center rounded-md border ${acceptedPrivacy ? "border-indigo-600 bg-indigo-600" : "border-slate-300 bg-white"}`}>
+                        {acceptedPrivacy ? <Check size={15} color="#fff" /> : <Square size={12} color="transparent" />}
+                      </View>
+                      <Text className="flex-1 text-xs font-semibold leading-5 text-slate-700">
+                        I agree to Dodago processing my personal data for account creation, orders, delivery, payments, support, safety, and legal compliance as described in the Privacy Policy.
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setAgeConfirmed((current) => !current)}
+                      className="flex-row items-start gap-3"
+                    >
+                      <View className={`mt-0.5 h-6 w-6 items-center justify-center rounded-md border ${ageConfirmed ? "border-indigo-600 bg-indigo-600" : "border-slate-300 bg-white"}`}>
+                        {ageConfirmed ? <Check size={15} color="#fff" /> : <Square size={12} color="transparent" />}
+                      </View>
+                      <Text className="flex-1 text-xs font-semibold leading-5 text-slate-700">
+                        I am 18+ or I have consent from my parent/legal guardian.
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => navigation.navigate("PrivacyPolicy")} className="flex-row items-center gap-2">
+                      <Shield size={14} color={colors.brand[600]} />
+                      <Text className="text-xs font-extrabold text-indigo-700">Read Privacy Policy and DPDP Notice</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+
                 {!isSignup ? (
                   <TouchableOpacity onPress={() => setShowForgotPassword(true)}>
                     <Text className="text-xs font-bold text-indigo-600 text-right">Forgot Password?</Text>
@@ -198,7 +237,7 @@ export default function LoginScreen({ navigation }) {
                 </TouchableOpacity>
 
                 <Text className="text-center text-xs text-slate-400">
-                  By continuing, you agree to our Terms & Privacy Policy
+                  By continuing, you agree to our Terms & Privacy Policy. Signup also requires the DPDP consent checks above.
                 </Text>
               </View>
 
@@ -291,5 +330,8 @@ export default function LoginScreen({ navigation }) {
     </KeyboardAvoidingView>
   );
 }
+
+
+
 
 

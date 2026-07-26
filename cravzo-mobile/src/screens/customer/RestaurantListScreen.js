@@ -3,11 +3,18 @@ import {
   View, Text, TextInput, TouchableOpacity, ActivityIndicator, FlatList, Alert,
 } from "react-native";
 import * as Location from "expo-location";
+import { useSelector } from "react-redux";
 import OptimizedImage from "../../components/OptimizedImage";
+import CoverageLeadForm from "../../components/CoverageLeadForm";
 import { Search, Star, Clock3, X, MapPin, Utensils, Navigation } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { searchRestaurantsAndDishes, listRestaurants, getNearbyRestaurants } from "../../services/foodService";
 import useDebounce from "../../hooks/useDebounce";
+import { explainPermission, permissionMessages } from "../../services/permissionNotice";
+import { updatePrivacyConsent } from "../../services/privacyConsent";
+import { selectUserState } from "../../store/selectors";
+
+const NEARBY_RADIUS_KM = 8;
 
 const SUGGESTED_DISHES = [
   "Biryani", "Burger", "Pizza", "Dosa", "Momos", "Noodles", "Paratha", "Rolls", "Chaat", "Ice Cream",
@@ -63,19 +70,20 @@ export default function RestaurantListScreen({ navigation, route }) {
   const [nearbyMode, setNearbyMode] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const inputRef = useRef(null);
+  const { data: user } = useSelector(selectUserState);
 
   const fetchResults = useCallback(async (searchQuery, nearby = nearbyMode, location = userLocation) => {
     const trimmed = (searchQuery || "").trim();
     setLoading(true); setError("");
     try {
       if (trimmed.length >= 2) {
-        const options = nearby && location ? { lat: location.latitude, lng: location.longitude, radius: 5 } : {};
+        const options = nearby && location ? { lat: location.latitude, lng: location.longitude, radius: NEARBY_RADIUS_KM } : {};
         setResults(await searchRestaurantsAndDishes(trimmed, options));
         return;
       }
 
       const restaurants = nearby && location
-        ? await getNearbyRestaurants(location.latitude, location.longitude, 5)
+        ? await getNearbyRestaurants(location.latitude, location.longitude, NEARBY_RADIUS_KM)
         : await listRestaurants({ page: 1, limit: 20 });
       setResults({ restaurants, dishes: [] });
     } catch (err) {
@@ -90,6 +98,9 @@ export default function RestaurantListScreen({ navigation, route }) {
     if (nearbyMode) { setNearbyMode(false); return; }
     setLoading(true); setError("");
     try {
+      const shouldAsk = await explainPermission({ title: "Location permission", message: permissionMessages.location });
+      if (!shouldAsk) return;
+      updatePrivacyConsent({ location: true });
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") {
         Alert.alert("Location permission needed", "Allow location access in Settings to show nearby restaurants.");
@@ -138,7 +149,13 @@ export default function RestaurantListScreen({ navigation, route }) {
         keyExtractor={({ type, item }) => `${type}-${item.id}`}
         contentContainerStyle={{ padding: 16, paddingBottom: 32, flexGrow: 1 }}
         ListHeaderComponent={header}
-        ListEmptyComponent={!loading ? <View className="flex-1 items-center justify-center py-20"><Search size={40} color="#94a3b8" /><Text className="mt-3 text-sm font-semibold text-slate-500">{query ? "No results found" : "Restaurants near you"}</Text></View> : null}
+        ListEmptyComponent={!loading ? (
+          nearbyMode && !query ? (
+            <CoverageLeadForm latitude={userLocation?.latitude} longitude={userLocation?.longitude} source="mobile_restaurant_listing" user={user} />
+          ) : (
+            <View className="flex-1 items-center justify-center py-20"><Search size={40} color="#94a3b8" /><Text className="mt-3 text-sm font-semibold text-slate-500">{query ? "No results found" : "Restaurants near you"}</Text></View>
+          )
+        ) : null}
         renderItem={({ item: row, index }) => {
           const previousType = data[index - 1]?.type;
           return <View>{previousType !== row.type ? <View className="flex-row items-center gap-2 mb-2 mt-2">{row.type === "dish" ? <Utensils size={14} color={colors.brand[700]} /> : <MapPin size={14} color="#d97706" />}<Text className="text-xs font-black uppercase tracking-wider text-slate-700">{row.type === "dish" ? "Dishes" : "Restaurants"}</Text></View> : null}{row.type === "dish" ? <DishCard dish={row.item} onPress={() => navigation.navigate("DishScreen", { dishId: row.item.id, dishName: row.item.name, restaurantId: row.item.restaurantId })} /> : <RestaurantCard restaurant={row.item} onPress={() => navigation.navigate("RestaurantMenu", { restaurantId: row.item.id, restaurantName: row.item.name })} />}</View>;
@@ -147,4 +164,6 @@ export default function RestaurantListScreen({ navigation, route }) {
     </View>
   );
 }
+
+
 

@@ -23,6 +23,7 @@ import { addItem, updateQuantity, removeItem } from "../../store/slices/cartSlic
 import { addFavorite, removeFavorite, checkIsFavorite } from "../../services/favoriteService";
 import { getShareUrl, getShareText } from "../../utils/share";
 import ShareButton from "../../components/ShareButton";
+import { getRestaurantHoursStatus } from "../../utils/restaurantHours";
 
 const formatCurrency = (value) => `\u20B9${Number(value || 0).toFixed(0)}`;
 
@@ -85,6 +86,9 @@ export default function RestaurantMenuScreen({ route, navigation }) {
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
   const [savingReview, setSavingReview] = useState(false);
   const [pricing, setPricing] = useState(null);
+  const hoursStatus = getRestaurantHoursStatus(restaurant);
+  const restaurantOpen = restaurant?.isOpen !== false;
+  const customerCanOrder = Boolean(restaurant) && restaurantOpen && hoursStatus.isWithinHours !== false;
 
   useEffect(() => {
     (async () => {
@@ -174,6 +178,10 @@ export default function RestaurantMenuScreen({ route, navigation }) {
   };
 
   const handleAdd = (item) => {
+    if (!customerCanOrder) {
+      setError("Restaurant is not accepting orders right now.");
+      return;
+    }
     const size = item.sizes?.length > 0 ? (selectedSizes[item.id] || item.sizes[0].size) : null;
     const basePrice = size
       ? Number(item.sizes.find((s) => s.size === size)?.price || item.price)
@@ -194,6 +202,10 @@ export default function RestaurantMenuScreen({ route, navigation }) {
   };
 
   const handleUpdateQty = (item, delta) => {
+    if (!customerCanOrder && delta > 0) {
+      setError("Restaurant is not accepting orders right now.");
+      return;
+    }
     const itemKey = makeCartKey(item);
     const existing = cartItems.find((ci) => ci.itemKey === itemKey);
     if (!existing && delta > 0) {
@@ -219,8 +231,6 @@ export default function RestaurantMenuScreen({ route, navigation }) {
   const platformFee = Number(pricing?.platformFee || 0);
   const taxes = foodTax + packagingTax;
   const cartPreviewTotal = cartTotal + packagingFeeBase + packagingTax + platformFee + foodTax;
-  const restaurantOpen = restaurant?.isOpen !== false;
-
   const averageRating = useMemo(() => {
     if (!reviews.length) return null;
     const total = reviews.reduce((sum, r) => sum + r.rating, 0);
@@ -332,10 +342,26 @@ export default function RestaurantMenuScreen({ route, navigation }) {
                   : restaurant?.deliveryTime || ""}
               </Text>
             </View>
+            {hoursStatus.closingSoon ? (
+              <View className="rounded-full bg-amber-100 px-3 py-1.5">
+                <Text className="text-xs font-black text-amber-700">Closing soon: {hoursStatus.minutesUntilClose} min left</Text>
+              </View>
+            ) : null}
+            {!customerCanOrder && hoursStatus.hasHours ? (
+              <View className="rounded-full bg-rose-50 px-3 py-1.5">
+                <Text className="text-xs font-black text-rose-700">Not accepting orders now</Text>
+              </View>
+            ) : null}
             {reviews.length ? (
               <Text className="text-xs font-bold text-slate-500">{reviews.length} reviews</Text>
             ) : null}
           </View>
+
+          {hoursStatus.closingSoon ? (
+            <View className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <Text className="text-sm font-bold text-amber-800">This restaurant is closing soon. Please place your order quickly.</Text>
+            </View>
+          ) : null}
 
           {restaurant?.description ? (
             <Text className="mt-4 text-sm leading-6 text-slate-600">{restaurant.description}</Text>
@@ -438,9 +464,10 @@ export default function RestaurantMenuScreen({ route, navigation }) {
                     {!qty ? (
                       <TouchableOpacity
                         onPress={() => handleAdd(item)}
+                        disabled={!customerCanOrder}
                         className="absolute -bottom-3 self-center rounded-full bg-white px-5 py-2 shadow-lg"
                       >
-                        <Text className="text-xs font-black text-indigo-700">Add</Text>
+                        <Text className={`text-xs font-black ${customerCanOrder ? "text-indigo-700" : "text-slate-400"}`}>{customerCanOrder ? "Add" : "Closed"}</Text>
                       </TouchableOpacity>
                     ) : (
                       <View className="absolute -bottom-3 self-center flex-row items-center gap-2 rounded-full bg-indigo-700 px-2 py-1.5 shadow-lg">
@@ -604,5 +631,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.38)",
   },
 });
+
+
+
 
 

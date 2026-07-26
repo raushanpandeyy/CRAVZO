@@ -19,9 +19,11 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import AppNavigator, { navigateFromNotification } from "./src/navigation/AppNavigator";
 
 import ErrorBoundary from "./src/components/ErrorBoundary";
+import PrivacyConsentModal from "./src/components/PrivacyConsentModal";
 import { clearUser } from "./src/store/slices/userSlice";
 import { setUnauthorizedHandler } from "./src/services/api";
 import { assertProductionApiConfiguration } from "./src/constants/apiEndpoints";
+import { isConsentEnabled } from "./src/services/privacyConsent";
 
 import {
   setupNotificationChannel,
@@ -55,7 +57,7 @@ function NotificationInit() {
   }, []);
 
   useEffect(() => {
-    if (isLoggedIn) {
+    if (isLoggedIn && isConsentEnabled("notifications")) {
       registerForPushNotifications().catch((error) => {
         console.warn("Push notification registration failed:", error.message);
       });
@@ -106,6 +108,7 @@ export default function App() {
               <StatusBar style="dark" />
               <NotificationInit />
               <AppNavigator />
+              <PrivacyConsentModal />
             </ErrorBoundary>
           </PersistGate>
         </Provider>
@@ -113,4 +116,8 @@ export default function App() {
     </GestureHandlerRootView>
   );
 }
+
+
+
+
 

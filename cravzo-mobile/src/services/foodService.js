@@ -49,7 +49,7 @@ export const getRestaurantById = async (id) => {
   return normalizeRestaurant(payload?.restaurant || payload?.item || payload);
 };
 
-export const getNearbyRestaurants = async (lat, lng, radiusKm = 5) => {
+export const getNearbyRestaurants = async (lat, lng, radiusKm = 8) => {
   const response = await apiRequest(API_ENDPOINTS.restaurant.nearby(lat, lng, radiusKm));
   return getList(response, ["restaurants", "items", "results"]).map(normalizeRestaurant);
 };
@@ -71,5 +71,6 @@ export const searchRestaurantsAndDishes = async (query, options = {}) => {
     dishes: getList({ data: payload }, ["dishes", "items"]).map(normalizeMenuItem),
   };
 };
+
 
 

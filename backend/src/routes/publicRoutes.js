@@ -11,6 +11,7 @@ import {
   addAd,
   removeAd,
   updateAdsOrder,
+  createLocationLead,
 } from "../controllers/publicController.js";
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
 import { publicLimiter } from "../middleware/rateLimiters.js";
@@ -23,6 +24,7 @@ publicRouter.get("/config", asyncHandler(getAppConfig));
 publicRouter.get("/home", asyncHandler(getHomeData));
 publicRouter.get("/featured-restaurants", asyncHandler(getFeaturedRestaurants));
 publicRouter.get("/ads", asyncHandler(getAds));
+publicRouter.post("/location-leads", asyncHandler(createLocationLead));
 
 publicRouter.use(authenticate, authorize("ADMIN"));
 publicRouter.post("/featured-restaurants", asyncHandler(addFeaturedRestaurant));
@@ -33,4 +35,5 @@ publicRouter.delete("/ads/:id", asyncHandler(removeAd));
 publicRouter.put("/ads/order", asyncHandler(updateAdsOrder));
 
 export { publicRouter };
+
 

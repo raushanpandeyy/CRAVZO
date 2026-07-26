@@ -83,8 +83,10 @@ app.get("/metrics", getMetrics);
 
 // Fix 6: HTTP Cache-Control headers for public endpoints
 // Browser CDN caches for 5min fresh + 30min stale-while-revalidate â€” zero round-trips on revisit
-app.use("/api/public", (_req, res, next) => {
-  res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=1800");
+app.use("/api/public", (req, res, next) => {
+  if (req.method === "GET" || req.method === "HEAD") {
+    res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=1800");
+  }
   next();
 });
 
@@ -93,3 +95,4 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 export { app };
+

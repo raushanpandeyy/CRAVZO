@@ -11,6 +11,7 @@ import { getShareUrl, getShareText } from "../../utils/share.js";
 import { Skeleton, SkeletonRow } from "../../components/Skeleton.jsx";
 import { getCloudinaryUrl } from "../../utils/cloudinary.js";
 import { getSafeImageUrl } from "../../utils/imageUrl.js";
+import { getRestaurantHoursStatus } from "../../utils/restaurantHours.js";
 
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='18' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
@@ -157,6 +158,10 @@ const RestaurantPage = () => {
   };
 
   const addToCart = (dish) => {
+    if (!customerCanOrder) {
+      setError("Restaurant is not accepting orders right now.");
+      return;
+    }
     const size = (dish.sizes && dish.sizes.length > 0) ? (selectedSizes[dish.id] || dish.sizes[0].size) : null;
     const unitPrice = getSizePrice(dish, size);
     const chosenSideDishes = selectedSideDishes[dish.id] || [];
@@ -197,6 +202,9 @@ const RestaurantPage = () => {
   };
 
   const safeCart = useMemo(() => Array.isArray(cart) ? cart : [], [cart]);
+  const hoursStatus = getRestaurantHoursStatus(restaurant);
+  const restaurantOpen = restaurant?.isOpen !== false;
+  const customerCanOrder = Boolean(restaurant) && restaurantOpen && hoursStatus.isWithinHours !== false;
 
   // Memoize all cart totals — these were recalculating on every render including
   // re-renders triggered by hover, scroll, and unrelated state changes
@@ -216,9 +224,13 @@ const RestaurantPage = () => {
   );
 
   const goToCheckout = useCallback(() => {
+    if (!customerCanOrder) {
+      setError("Restaurant is not accepting orders right now.");
+      return;
+    }
     window.scrollTo(0, 0);
     navigate("/cart");
-  }, [navigate]);
+  }, [navigate, customerCanOrder]);
 
   const averageRating = useMemo(() => {
     if (!reviews.length) return null;
@@ -307,7 +319,7 @@ const RestaurantPage = () => {
   }
 
   const menuItems = restaurant.menuItems || [];
-  const restaurantOpen = restaurant.isOpen !== false;
+
 
   return (
     <div className="bg-slate-50 pb-32 md:pb-10">
@@ -377,8 +389,24 @@ const RestaurantPage = () => {
                 <Clock3 className="h-4 w-4 text-indigo-700" />
                 {restaurant.openingTime || "25"} - {restaurant.closingTime || "35 min"}
               </span>
+              {hoursStatus.closingSoon ? (
+                <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-black text-amber-700">
+                  Closing soon: {hoursStatus.minutesUntilClose} min left
+                </span>
+              ) : null}
+              {!customerCanOrder && hoursStatus.hasHours ? (
+                <span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700">
+                  Not accepting orders now
+                </span>
+              ) : null}
               {reviews.length ? <span className="text-xs font-bold text-slate-500">{reviews.length} reviews</span> : null}
             </div>
+
+            {hoursStatus.closingSoon ? (
+              <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+                This restaurant is closing soon. Please place your order quickly.
+              </div>
+            ) : null}
 
             {restaurant.description ? (
               <p className="mt-4 text-sm leading-6 text-slate-600">{restaurant.description}</p>
@@ -482,9 +510,10 @@ const RestaurantPage = () => {
                   {!cartItem ? (
                     <button
                       onClick={() => addToCart(dish)}
-                      className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-white px-5 py-2 text-xs font-black text-indigo-700 shadow-lg shadow-slate-300 transition-all duration-200 active:scale-95"
+                      disabled={!customerCanOrder}
+                      className="absolute -bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-white px-5 py-2 text-xs font-black text-indigo-700 shadow-lg shadow-slate-300 transition-all duration-200 active:scale-95 disabled:text-slate-400"
                     >
-                      Add
+                      {customerCanOrder ? "Add" : "Closed"}
                     </button>
                   ) : (
                     <div className="absolute -bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-indigo-700 px-2 py-1.5 text-white shadow-lg">
@@ -589,7 +618,7 @@ const RestaurantPage = () => {
               </div>
             </div>
 
-            <button onClick={goToCheckout} className="mt-4 w-full rounded-2xl bg-indigo-700 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95 hover:bg-indigo-800">
+            <button onClick={goToCheckout} disabled={!customerCanOrder} className="mt-4 w-full rounded-2xl bg-indigo-700 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95 hover:bg-indigo-800 disabled:bg-slate-300">
               Checkout
             </button>
           </div>
@@ -611,7 +640,7 @@ const RestaurantPage = () => {
             <span>Delivery {deliveryFee === 0 ? "FREE" : formatCurrency(deliveryFee)}</span>
             <span>Taxes {formatCurrency(taxes)}</span>
           </div>
-          <button onClick={goToCheckout} className="w-full rounded-2xl bg-indigo-700 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95">
+          <button onClick={goToCheckout} disabled={!customerCanOrder} className="w-full rounded-2xl bg-indigo-700 py-3 text-sm font-black text-white transition-all duration-200 active:scale-95 disabled:bg-slate-300">
             Checkout
           </button>
         </div>
@@ -621,3 +650,5 @@ const RestaurantPage = () => {
 };
 
 export default RestaurantPage;
+
+

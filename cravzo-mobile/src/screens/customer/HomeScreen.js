@@ -11,11 +11,13 @@ import {
 } from "react-native";
 import { useSelector } from "react-redux";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Location from "expo-location";
 import { Star, Clock3, Search, MapPin, ShoppingCart, User, MessageCircle, Utensils, X } from "lucide-react-native";
 import DishPromoCarousel from "../../components/DishPromoCarousel";
 import OptimizedImage from "../../components/OptimizedImage";
+import CoverageLeadForm from "../../components/CoverageLeadForm";
 import { colors } from "../../constants/colors";
-import { listRestaurants, searchRestaurantsAndDishes } from "../../services/foodService";
+import { getNearbyRestaurants, listRestaurants, searchRestaurantsAndDishes } from "../../services/foodService";
 import { selectCartItemCount } from "../../store/slices/cartSlice";
 import useDebounce from "../../hooks/useDebounce";
 import {
@@ -36,6 +38,8 @@ import {
   northindian,
   dodagologo,
 } from "../../constants/images";
+
+const NEARBY_RADIUS_KM = 8;
 
 const categories = [
   { name: "Burger", image: burger },
@@ -152,6 +156,8 @@ export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [hasPreciseLocation, setHasPreciseLocation] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
   const [stickyQuery, setStickyQuery] = useState("");
   const [showSticky, setShowSticky] = useState(false);
   const [searchResults, setSearchResults] = useState({ restaurants: [], dishes: [] });
@@ -165,9 +171,21 @@ export default function HomeScreen({ navigation }) {
 
   const loadRestaurants = useCallback(async (extraParams = {}) => {
     try {
-      const params = { limit: 10, ...extraParams };
-      const data = await listRestaurants(params);
-      setRestaurants(data);
+      const permission = await Location.getForegroundPermissionsAsync();
+      if (permission.status === "granted") {
+        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const nextLocation = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+        const nearbyRestaurants = await getNearbyRestaurants(nextLocation.latitude, nextLocation.longitude, NEARBY_RADIUS_KM);
+        setUserLocation(nextLocation);
+        setHasPreciseLocation(true);
+        setRestaurants(nearbyRestaurants);
+      } else {
+        const params = { limit: 10, ...extraParams };
+        const data = await listRestaurants(params);
+        setUserLocation(null);
+        setHasPreciseLocation(false);
+        setRestaurants(data);
+      }
       setLoadError("");
     } catch {
       setLoadError("Could not load restaurants. Check your connection.");
@@ -179,14 +197,13 @@ export default function HomeScreen({ navigation }) {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const data = await listRestaurants({ limit: 10 });
-      setRestaurants(data);
+      await loadRestaurants();
     } catch {
       // silent on refresh
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [loadRestaurants]);
 
 
   useEffect(() => {
@@ -422,11 +439,15 @@ export default function HomeScreen({ navigation }) {
               <RestaurantSkeleton />
             </View>
           ) : restaurants.length === 0 ? (
-            <View className="rounded-xl bg-slate-100 p-4">
-              <Text className="text-sm text-slate-500">
-                No nearby restaurants
-              </Text>
-            </View>
+            hasPreciseLocation ? (
+              <CoverageLeadForm latitude={userLocation?.latitude} longitude={userLocation?.longitude} source="mobile_home" user={user} />
+            ) : (
+              <View className="rounded-xl bg-slate-100 p-4">
+                <Text className="text-sm text-slate-500">
+                  No nearby restaurants
+                </Text>
+              </View>
+            )
           ) : (
             restaurants.map((r) => (
               <TouchableOpacity
@@ -544,3 +565,4 @@ export default function HomeScreen({ navigation }) {
     </View>
   );
 }
+

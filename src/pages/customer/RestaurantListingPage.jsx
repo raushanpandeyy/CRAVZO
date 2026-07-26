@@ -11,6 +11,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Clock3, MapPin, Search, Star, Store, X } from "lucide-react";
+import LocationLeadForm from "../../components/common/LocationLeadForm.jsx";
 
 import { searchRestaurantsAndDishes, listRestaurants, getNearbyRestaurants } from "../../services/foodService.js";
 import { useUserLocation } from "../../hooks/useUserLocation.js";
@@ -28,6 +29,7 @@ const getThumb = (url, w = 400, h = 200) => {
 };
 
 const SUGGESTIONS = ["Biryani", "Burger", "Dosa", "Pizza", "Momos", "Chaat", "Thali", "Rolls"];
+const NEARBY_RADIUS_KM = 8;
 
 const RestaurantCard = ({ restaurant, index }) => (
   <Link
@@ -111,7 +113,7 @@ const RestaurantListingPage = () => {
       setError("");
       try {
         if (locationReady && lat && lng) {
-          const data = await getNearbyRestaurants(lat, lng, 3);
+          const data = await getNearbyRestaurants(lat, lng, NEARBY_RADIUS_KM);
           const list = Array.isArray(data) ? data : (data?.data || []);
           setRestaurants(list);
           setMode("nearby");
@@ -138,7 +140,7 @@ const RestaurantListingPage = () => {
     try {
       const data = await searchRestaurantsAndDishes(
         q,
-        locationReady && lat ? { lat, lng, radius: 3 } : {},
+        locationReady && lat ? { lat, lng, radius: NEARBY_RADIUS_KM } : {},
       );
       const combined = [
         ...data.restaurants,
@@ -184,7 +186,7 @@ const RestaurantListingPage = () => {
           {mode === "nearby" && lat && (
             <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
               <MapPin className="h-3 w-3 text-indigo-600" />
-              Showing restaurants within 3 km
+              Showing restaurants within 8 km
             </p>
           )}
         </div>
@@ -256,8 +258,8 @@ const RestaurantListingPage = () => {
           </button>
         </div>
       ) : restaurants.length === 0 ? (
-        <div className="mt-6 rounded-3xl bg-white px-5 py-10 text-center shadow-sm">
-          <p className="text-sm font-bold text-slate-500">No restaurants open near you right now.</p>
+        <div className="mt-6">
+          <LocationLeadForm latitude={lat} longitude={lng} source="web_restaurant_listing" />
         </div>
       ) : (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -271,3 +273,5 @@ const RestaurantListingPage = () => {
 };
 
 export default RestaurantListingPage;
+
+

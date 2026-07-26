@@ -13,13 +13,14 @@ import {
 } from "react-native";
 import { useDispatch } from "react-redux";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Lock, Mail, User, X } from "lucide-react-native";
+import { Check, Lock, Mail, Shield, Square, User, X } from "lucide-react-native";
 
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
 import { colors } from "../constants/colors";
 import { apiRequest } from "../services/api";
 import { login as loginApi, normalizeUser, persistSession } from "../services/authService";
 import { setUser } from "../store/slices/userSlice";
+import { savePrivacyConsent } from "../services/privacyConsent";
 
 const CUSTOMER_ROLE = "CUSTOMER";
 const passwordIsStrong = (value) =>
@@ -58,6 +59,8 @@ export default function PhoneSignupModal({ visible, onClose }) {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
   const otpInputRef = useRef(null);
 
@@ -71,6 +74,8 @@ export default function PhoneSignupModal({ visible, onClose }) {
       setPassword("");
       setOtp("");
       setAuthMethod("phone");
+      setAcceptedPrivacy(false);
+      setAgeConfirmed(false);
     }
   }, [visible]);
 
@@ -83,6 +88,10 @@ export default function PhoneSignupModal({ visible, onClose }) {
       const cleaned = phone.replace(/[^0-9]/g, "");
       if (cleaned.length < 10) {
         Alert.alert("Invalid Phone", "Please enter a valid 10-digit phone number");
+        return;
+      }
+      if (!acceptedPrivacy || !ageConfirmed) {
+        Alert.alert("Consent Required", "Please accept the DPDP privacy notice and confirm age/guardian consent.");
         return;
       }
 
@@ -114,6 +123,10 @@ export default function PhoneSignupModal({ visible, onClose }) {
       Alert.alert("Weak Password", "Password must be 8+ chars with uppercase, lowercase, number & special character");
       return;
     }
+    if (!acceptedPrivacy || !ageConfirmed) {
+      Alert.alert("Consent Required", "Please accept the DPDP privacy notice and confirm age/guardian consent.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -133,7 +146,7 @@ export default function PhoneSignupModal({ visible, onClose }) {
     } finally {
       setLoading(false);
     }
-  }, [authMethod, email, name, password, phone]);
+  }, [acceptedPrivacy, ageConfirmed, authMethod, email, name, password, phone]);
 
   const handleLogin = useCallback(async () => {
     if (!email.trim()) {
@@ -178,6 +191,7 @@ export default function PhoneSignupModal({ visible, onClose }) {
             });
       const data = res.data || res;
       const user = data.user || data;
+      savePrivacyConsent({ acceptedNotice: true, ageConfirmed, marketing: false });
       const normalized = normalizeUser(user);
       await persistSession({ user: normalized, token: data.token });
       dispatch(setUser(normalized));
@@ -187,7 +201,7 @@ export default function PhoneSignupModal({ visible, onClose }) {
     } finally {
       setLoading(false);
     }
-  }, [authMethod, dispatch, email, onClose, otp, phone]);
+  }, [ageConfirmed, authMethod, dispatch, email, onClose, otp, phone]);
 
   const handleResendOtp = useCallback(async () => {
     setLoading(true);
@@ -212,8 +226,10 @@ export default function PhoneSignupModal({ visible, onClose }) {
     }
   }, [authMethod, email, phone]);
 
+  const missingConsent = !acceptedPrivacy || !ageConfirmed;
   const isSignupDisabled =
     loading ||
+    missingConsent ||
     (authMethod === "phone"
       ? phone.replace(/[^0-9]/g, "").length < 10
       : !name.trim() || !email.trim() || !passwordIsStrong(password));
@@ -367,6 +383,27 @@ export default function PhoneSignupModal({ visible, onClose }) {
                     </View>
                   </View>
                 )}
+
+                <View style={styles.consentBox}>
+                  <TouchableOpacity style={styles.consentRow} onPress={() => setAcceptedPrivacy((current) => !current)}>
+                    <View style={[styles.checkbox, acceptedPrivacy && styles.checkboxActive]}>
+                      {acceptedPrivacy ? <Check size={14} color="#fff" /> : <Square size={12} color="transparent" />}
+                    </View>
+                    <Text style={styles.consentText}>
+                      I agree to Dodago processing my personal data for account, orders, delivery, payment, support, safety, and legal compliance.
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.consentRow} onPress={() => setAgeConfirmed((current) => !current)}>
+                    <View style={[styles.checkbox, ageConfirmed && styles.checkboxActive]}>
+                      {ageConfirmed ? <Check size={14} color="#fff" /> : <Square size={12} color="transparent" />}
+                    </View>
+                    <Text style={styles.consentText}>I am 18+ or have parent/legal guardian consent.</Text>
+                  </TouchableOpacity>
+                  <View style={styles.noticeRow}>
+                    <Shield size={14} color={colors.brand[600]} />
+                    <Text style={styles.noticeText}>Grievance Officer: Dodago Grievance Officer (Privacy), privacy@dodago.shop.</Text>
+                  </View>
+                </View>
 
                 <TouchableOpacity
                   onPress={handleSendOtp}
@@ -529,6 +566,51 @@ const styles = StyleSheet.create({
     width: StyleSheet.hairlineWidth,
     backgroundColor: colors.slate[200],
   },
+  consentBox: {
+    gap: 10,
+    marginBottom: 16,
+    borderRadius: 16,
+    backgroundColor: colors.brand[50],
+    padding: 12,
+  },
+  consentRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  checkbox: {
+    height: 22,
+    width: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.slate[300],
+    backgroundColor: colors.bg.white,
+  },
+  checkboxActive: {
+    borderColor: colors.brand[600],
+    backgroundColor: colors.brand[600],
+  },
+  consentText: {
+    flex: 1,
+    color: colors.slate[700],
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
+  noticeRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  noticeText: {
+    flex: 1,
+    color: colors.brand[700],
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 16,
+  },
   primaryButton: {
     alignItems: "center",
     borderRadius: 16,
@@ -601,3 +683,6 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
 });
+
+
+

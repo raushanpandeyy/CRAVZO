@@ -23,6 +23,8 @@ try {
 };
 import { Search, MapPin, ChevronLeft, Check, X } from "lucide-react-native";
 import { colors } from "../constants/colors";
+import { explainPermission, permissionMessages } from "../services/permissionNotice";
+import { updatePrivacyConsent } from "../services/privacyConsent";
 
 const NOMINATIM_SEARCH = "https://nominatim.openstreetmap.org/search";
 const NOMINATIM_REVERSE = "https://nominatim.openstreetmap.org/reverse";
@@ -64,6 +66,12 @@ export default function AddressMapPicker({ navigation, route }) {
     if (Platform.OS === "web") return;
     (async () => {
       try {
+        const shouldAsk = await explainPermission({ title: "Location permission", message: permissionMessages.location });
+        if (!shouldAsk) {
+          setError("Search for an address to position the map.");
+          return;
+        }
+        updatePrivacyConsent({ location: true });
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== "granted") {
           setError("Location permission denied. Search for an address to position the map.");
@@ -343,4 +351,5 @@ export default function AddressMapPicker({ navigation, route }) {
     </View>
   );
 }
+
 
