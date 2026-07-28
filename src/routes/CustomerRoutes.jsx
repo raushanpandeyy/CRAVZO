@@ -80,6 +80,7 @@ function CustomerRoutes() {
               <Route path="/dish/:dishName" element={<DishPage />} />
               <Route path="/city/:cityName" element={<Citywise />} />
               <Route path="/restaurant/:id" element={<RestaurantPage />} />
+              <Route path="/r/:id" element={<RestaurantPage />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/orders/:orderId/tracking" element={<OrderTracking />} />

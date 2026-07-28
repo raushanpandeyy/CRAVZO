@@ -14,6 +14,7 @@ import {
   ChevronDown, ChevronUp, ShoppingCart,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
+import { ACTION_BAR_BOTTOM_PADDING } from "../../constants/layout";
 import { updateQuantity, removeItem, updateItemNotes, clearCart } from "../../store/slices/cartSlice";
 import { setShowAuthModal, setPendingNavigationRoute } from "../../store/slices/userSlice";
 import CouponInput from "../../components/CouponInput";
@@ -186,7 +187,7 @@ export default function CartScreen({ navigation }) {
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-4 pt-6 pb-6">
+      <ScrollView className="flex-1 px-4 pt-6" contentContainerStyle={{ paddingBottom: ACTION_BAR_BOTTOM_PADDING }}>
         <View className="space-y-4">
           {cart.map((item) => {
             const sides = item.selectedSideDishes || [];

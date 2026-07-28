@@ -1,7 +1,5 @@
 import "react-native-gesture-handler";
 
-import "./src/styles/global.css";
-
 import React, { useRef, useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 
@@ -20,7 +18,6 @@ import { NavigationContainer } from "@react-navigation/native";
 import AppNavigator, { navigateFromNotification, navigationRef } from "./src/navigation/AppNavigator";
 
 import ErrorBoundary from "./src/components/ErrorBoundary";
-import PrivacyConsentModal from "./src/components/PrivacyConsentModal";
 import { clearUser } from "./src/store/slices/userSlice";
 import { setUnauthorizedHandler } from "./src/services/api";
 import { assertProductionApiConfiguration } from "./src/constants/apiEndpoints";
@@ -105,14 +102,13 @@ export default function App() {
       <SafeAreaProvider>
         <Provider store={store}>
           <PersistGate onAfterLift={hideSplash} loading={null} persistor={persistor}>
-            <ErrorBoundary>
-              <StatusBar style="dark" />
-              <NavigationContainer ref={navigationRef}>
+            <NavigationContainer ref={navigationRef}>
+              <ErrorBoundary>
+                <StatusBar style="dark" />
                 <NotificationInit />
                 <AppNavigator />
-                <PrivacyConsentModal />
-              </NavigationContainer>
-            </ErrorBoundary>
+              </ErrorBoundary>
+            </NavigationContainer>
           </PersistGate>
         </Provider>
       </SafeAreaProvider>

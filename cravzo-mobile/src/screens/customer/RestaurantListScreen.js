@@ -8,6 +8,7 @@ import OptimizedImage from "../../components/OptimizedImage";
 import CoverageLeadForm from "../../components/CoverageLeadForm";
 import { Search, Star, Clock3, X, MapPin, Utensils, Navigation } from "lucide-react-native";
 import { colors } from "../../constants/colors";
+import { TAB_SCREEN_BOTTOM_PADDING } from "../../constants/layout";
 import { searchRestaurantsAndDishes, listRestaurants, getNearbyRestaurants } from "../../services/foodService";
 import useDebounce from "../../hooks/useDebounce";
 import { explainPermission, permissionMessages } from "../../services/permissionNotice";
@@ -147,7 +148,7 @@ export default function RestaurantListScreen({ navigation, route }) {
       <FlatList
         data={data}
         keyExtractor={({ type, item }) => `${type}-${item.id}`}
-        contentContainerStyle={{ padding: 16, paddingBottom: 32, flexGrow: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: TAB_SCREEN_BOTTOM_PADDING, flexGrow: 1 }}
         ListHeaderComponent={header}
         ListEmptyComponent={!loading ? (
           nearbyMode && !query ? (

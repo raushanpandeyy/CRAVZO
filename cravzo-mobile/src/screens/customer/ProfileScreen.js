@@ -34,6 +34,7 @@ import {
   CreditCard,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
+import { TAB_SCREEN_BOTTOM_PADDING } from "../../constants/layout";
 import { deleteAccount, getProfile, updateProfile, uploadImage } from "../../services/userService";
 import {
   registerForPushNotifications,
@@ -300,7 +301,7 @@ export default function ProfileScreen({ navigation }) {
   }
 
   return (
-    <ScrollView className="flex-1 bg-[#F4F7FB]">
+    <ScrollView className="flex-1 bg-[#F4F7FB]" contentContainerStyle={{ paddingBottom: TAB_SCREEN_BOTTOM_PADDING }}>
       <View className="bg-indigo-950 pt-16 pb-10 px-4 rounded-b-[28px]">
         <View className="items-center">
           <TouchableOpacity onPress={handleAvatarTap} className="relative mb-3">

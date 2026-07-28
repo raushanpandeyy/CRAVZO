@@ -1,10 +1,11 @@
-import { selectUserState, selectCurrentUser, selectIsLoggedIn } from "../store/selectors";
+import { selectUserState } from "../store/selectors";
 import React, { createRef, useEffect } from "react";
 import { View } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
 import { setPendingNavigationRoute } from "../store/slices/userSlice";
 
 import AuthModalHost from "../components/AuthModalHost";
+import PrivacyConsentModal from "../components/PrivacyConsentModal";
 import CustomerNavigator from "./CustomerNavigator";
 
 export const navigationRef = createRef();
@@ -49,8 +50,9 @@ export default function AppNavigator() {
 
   return (
     <View style={{ flex: 1 }}>
-      <CustomerNavigator />
-      <AuthModalHost />
+        <CustomerNavigator />
+        <AuthModalHost />
+        <PrivacyConsentModal />
     </View>
   );
 }

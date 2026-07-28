@@ -16,6 +16,7 @@ import {
 } from "lucide-react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { colors } from "../../constants/colors";
+import { ACTION_BAR_BOTTOM_PADDING } from "../../constants/layout";
 import { getRestaurantById, listMenuItems } from "../../services/foodService";
 import { getRestaurantReviews, saveReview } from "../../services/reviewService";
 import { getAppConfig } from "../../services/configService";
@@ -160,22 +161,22 @@ export default function RestaurantMenuScreen({ route, navigation }) {
     }
   };
 
-  const cartMap = useMemo(() => {
-    const map = {};
-    cartItems.forEach((item) => {
-      map[item.menuItemId] = item;
-    });
-    return map;
-  }, [cartItems]);
-
-  const getCartQuantity = (itemId) => cartMap[itemId]?.quantity || 0;
-
   const makeCartKey = (item) => {
     const size = item.sizes?.length > 0 ? (selectedSizes[item.id] || item.sizes[0].size) : null;
     const sides = selectedSideDishes[item.id] || [];
     const sideDishKey = sides.map((s) => s.name).sort().join(",");
     return `${item.id}|${restaurantId}|${size || ""}|${sideDishKey}`;
   };
+
+  const cartMap = useMemo(() => {
+    const map = {};
+    cartItems.forEach((item) => {
+      if (item.itemKey) map[item.itemKey] = item;
+    });
+    return map;
+  }, [cartItems]);
+
+  const getCartQuantity = (item) => cartMap[makeCartKey(item)]?.quantity || 0;
 
   const handleAdd = (item) => {
     if (!customerCanOrder) {
@@ -187,7 +188,6 @@ export default function RestaurantMenuScreen({ route, navigation }) {
       ? Number(item.sizes.find((s) => s.size === size)?.price || item.price)
       : Number(item.price);
     const sides = selectedSideDishes[item.id] || [];
-    const itemKey = makeCartKey(item);
     dispatch(addItem({
       menuItemId: item.id,
       restaurantId,
@@ -240,7 +240,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
   if (loading) {
     return (
       <View className="flex-1 bg-slate-50">
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: cartItemCount > 0 ? ACTION_BAR_BOTTOM_PADDING : 32 }}>
           <Skeleton className="h-56 w-full rounded-none" />
           <View className="mx-4 -mt-10 rounded-3xl bg-white p-5 shadow-xl">
             <Skeleton className="h-8 w-2/3" />
@@ -263,7 +263,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
 
   return (
     <View className="flex-1 bg-slate-50">
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: cartItemCount > 0 ? ACTION_BAR_BOTTOM_PADDING : 32 }}>
         {message ? (
           <View className="mx-4 mt-14 rounded-xl bg-emerald-50 px-4 py-3">
             <Text className="text-sm text-emerald-700">{message}</Text>
@@ -382,7 +382,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
             </View>
           ) : (
             menuItems.map((item) => {
-              const qty = getCartQuantity(item.id);
+              const qty = getCartQuantity(item);
               const hasSizes = item.sizes && item.sizes.length > 0;
               const selectedSize = hasSizes ? (selectedSizes[item.id] || item.sizes[0].size) : null;
               const displayPrice = hasSizes && selectedSize
@@ -472,14 +472,14 @@ export default function RestaurantMenuScreen({ route, navigation }) {
                     ) : (
                       <View className="absolute -bottom-3 self-center flex-row items-center gap-2 rounded-full bg-indigo-700 px-2 py-1.5 shadow-lg">
                         <TouchableOpacity
-                          onPress={() => handleUpdateQty(item, qty - 1)}
+                          onPress={() => handleUpdateQty(item, -1)}
                           className="rounded-full p-0.5"
                         >
                           <Minus size={16} color="#fff" />
                         </TouchableOpacity>
                         <Text className="min-w-5 text-center text-sm font-black text-white">{qty}</Text>
                         <TouchableOpacity
-                          onPress={() => handleUpdateQty(item, qty + 1)}
+                          onPress={() => handleUpdateQty(item, 1)}
                           className="rounded-full p-0.5"
                         >
                           <Plus size={16} color="#fff" />

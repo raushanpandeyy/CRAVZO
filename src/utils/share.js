@@ -1,4 +1,6 @@
 const getOrigin = () => {
+  const configuredOrigin = import.meta.env.VITE_PUBLIC_APP_URL || import.meta.env.VITE_APP_URL;
+  if (configuredOrigin) return configuredOrigin.replace(/\/$/, "");
   if (typeof window !== "undefined") return window.location.origin;
   return "";
 };
@@ -7,9 +9,9 @@ export const getShareUrl = {
   dish: (dishName) =>
     `${getOrigin()}/dish/${encodeURIComponent(dishName)}?ref=share`,
   restaurant: (restaurantId) =>
-    `${getOrigin()}/restaurant/${restaurantId}?ref=share`,
+    `${getOrigin()}/r/${restaurantId}?ref=share`,
   dishOnRestaurant: (restaurantId, dishName) =>
-    `${getOrigin()}/restaurant/${restaurantId}?ref=share&dish=${encodeURIComponent(dishName)}`,
+    `${getOrigin()}/r/${restaurantId}?ref=share&dish=${encodeURIComponent(dishName)}`,
 };
 
 export const getShareText = {

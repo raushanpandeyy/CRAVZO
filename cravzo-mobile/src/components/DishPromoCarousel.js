@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
-  Image,
   ScrollView,
   TouchableOpacity,
   Dimensions,
@@ -13,6 +12,7 @@ import { apiRequest } from "../services/api";
 import OptimizedImage from "./OptimizedImage";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const PROMO_HEIGHT = 240;
 const INTERVAL_MS = 7000;
 const INTERACTION_COOLDOWN = 10000;
 
@@ -31,6 +31,7 @@ const DishPromoCarousel = ({ promotions: propPromotions, navigation }) => {
       setLoading(false);
       return;
     }
+
     const fetchPromos = async () => {
       try {
         const response = await apiRequest("/api/promotions");
@@ -41,6 +42,7 @@ const DishPromoCarousel = ({ promotions: propPromotions, navigation }) => {
         setLoading(false);
       }
     };
+
     fetchPromos();
   }, [propPromotions]);
 
@@ -54,7 +56,8 @@ const DishPromoCarousel = ({ promotions: propPromotions, navigation }) => {
   }, []);
 
   useEffect(() => {
-    if (total < 2) return;
+    if (total < 2) return undefined;
+
     const timer = setInterval(() => {
       if (Date.now() - lastInteractionRef.current < INTERACTION_COOLDOWN) return;
       const nextIndex = (currentRef.current + 1) % total;
@@ -62,6 +65,7 @@ const DishPromoCarousel = ({ promotions: propPromotions, navigation }) => {
       currentRef.current = nextIndex;
       setCurrent(nextIndex);
     }, INTERVAL_MS);
+
     return () => clearInterval(timer);
   }, [total]);
 
@@ -90,6 +94,8 @@ const DishPromoCarousel = ({ promotions: propPromotions, navigation }) => {
       touchRef.current.swiped = false;
       return;
     }
+    if (!navigation?.navigate) return;
+
     if (slide.linkType === "dish" && slide.linkValue) {
       navigation.navigate("DishScreen", { dishId: slide.linkValue });
     } else if (slide.linkType === "restaurant" && slide.linkValue) {
@@ -99,7 +105,7 @@ const DishPromoCarousel = ({ promotions: propPromotions, navigation }) => {
 
   if (loading) {
     return (
-      <View className="w-full h-60 items-center justify-center bg-slate-100">
+      <View style={styles.loadingState}>
         <ActivityIndicator size="small" color="#818cf8" />
       </View>
     );
@@ -107,17 +113,15 @@ const DishPromoCarousel = ({ promotions: propPromotions, navigation }) => {
 
   if (total === 0) {
     return (
-      <View className="w-full h-60 bg-gradient-to-br from-indigo-100 to-indigo-200 items-center justify-center">
-        <Text className="text-xl font-black text-indigo-400">DODAGO</Text>
-        <Text className="text-xs font-semibold text-indigo-400 mt-1">
-          Affordable food delivery
-        </Text>
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>DODAGO</Text>
+        <Text style={styles.emptySubtitle}>Affordable food delivery</Text>
       </View>
     );
   }
 
   return (
-    <View className="relative w-full h-60 overflow-hidden bg-slate-100">
+    <View style={styles.container}>
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -129,50 +133,42 @@ const DishPromoCarousel = ({ promotions: propPromotions, navigation }) => {
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        {promotions.map((slide, i) => (
+        {promotions.map((slide) => (
           <TouchableOpacity
             key={slide.id}
             activeOpacity={0.95}
             onPress={() => handlePress(slide)}
-            style={{ width: SCREEN_WIDTH, height: 240 }}
+            style={styles.slide}
             accessibilityLabel={slide.title || slide.subtitle || "Promotion"}
           >
             <OptimizedImage
               source={{ uri: slide.imageUrl }}
-              style={{ width: SCREEN_WIDTH, height: 240 }}
+              style={styles.slideImage}
               resizeMode="cover"
             />
             <View style={styles.slideOverlay} />
-            {slide.title ? (
-              <Text className="absolute bottom-3 left-3 text-sm font-black text-white">
-                {slide.title}
-              </Text>
-            ) : null}
+            {slide.title ? <Text style={styles.slideTitle}>{slide.title}</Text> : null}
             {slide.subtitle ? (
-              <View className="absolute bottom-3 right-3 rounded-full bg-indigo-600 px-3 py-1 shadow">
-                <Text className="text-[11px] font-extrabold text-white">
-                  {slide.subtitle}
-                </Text>
+              <View style={styles.slideBadge}>
+                <Text style={styles.slideBadgeText}>{slide.subtitle}</Text>
               </View>
             ) : null}
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {total > 1 && (
-        <View className="absolute bottom-2 inset-x-0 flex-row justify-center items-center gap-1.5 z-10">
+      {total > 1 ? (
+        <View style={styles.dots}>
           {promotions.map((_, i) => (
             <TouchableOpacity
               key={i}
               onPress={() => goTo(i)}
-              className={`h-1.5 rounded-full ${
-                i === current ? "w-5 bg-white" : "w-1.5 bg-white/50"
-              }`}
+              style={[styles.dot, i === current ? styles.dotActive : styles.dotInactive]}
               accessibilityLabel={`Go to slide ${i + 1}`}
             />
           ))}
         </View>
-      )}
+      ) : null}
     </View>
   );
 };
@@ -180,8 +176,93 @@ const DishPromoCarousel = ({ promotions: propPromotions, navigation }) => {
 export default React.memo(DishPromoCarousel);
 
 const styles = StyleSheet.create({
+  container: {
+    position: "relative",
+    width: "100%",
+    height: PROMO_HEIGHT,
+    overflow: "hidden",
+    backgroundColor: "#f1f5f9",
+  },
+  loadingState: {
+    width: "100%",
+    height: PROMO_HEIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f1f5f9",
+  },
+  emptyState: {
+    width: "100%",
+    height: PROMO_HEIGHT,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#dbeafe",
+  },
+  emptyTitle: {
+    color: "#818cf8",
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  emptySubtitle: {
+    marginTop: 4,
+    color: "#818cf8",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  slide: {
+    width: SCREEN_WIDTH,
+    height: PROMO_HEIGHT,
+  },
+  slideImage: {
+    width: SCREEN_WIDTH,
+    height: PROMO_HEIGHT,
+  },
   slideOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0, 0, 0, 0.24)",
+  },
+  slideTitle: {
+    position: "absolute",
+    left: 12,
+    bottom: 12,
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  slideBadge: {
+    position: "absolute",
+    right: 12,
+    bottom: 12,
+    borderRadius: 999,
+    backgroundColor: "#4f46e5",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  slideBadgeText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  dots: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 8,
+    zIndex: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  dot: {
+    height: 6,
+    borderRadius: 999,
+  },
+  dotActive: {
+    width: 20,
+    backgroundColor: "#ffffff",
+  },
+  dotInactive: {
+    width: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
   },
 });

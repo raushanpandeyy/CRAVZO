@@ -17,6 +17,7 @@ import DishPromoCarousel from "../../components/DishPromoCarousel";
 import OptimizedImage from "../../components/OptimizedImage";
 import CoverageLeadForm from "../../components/CoverageLeadForm";
 import { colors } from "../../constants/colors";
+import { TAB_SCREEN_BOTTOM_PADDING } from "../../constants/layout";
 import { getNearbyRestaurants, listRestaurants, searchRestaurantsAndDishes } from "../../services/foodService";
 import { selectCartItemCount } from "../../store/slices/cartSlice";
 import useDebounce from "../../hooks/useDebounce";
@@ -261,6 +262,7 @@ export default function HomeScreen({ navigation }) {
         onScroll={handleScroll}
         scrollEventThrottle={16}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: TAB_SCREEN_BOTTOM_PADDING }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4f46e5" colors={["#4f46e5"]} />
         }

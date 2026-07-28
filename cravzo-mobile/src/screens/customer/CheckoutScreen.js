@@ -29,6 +29,7 @@ import {
   Gift,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
+import { ACTION_BAR_BOTTOM_PADDING } from "../../constants/layout";
 import CouponInput from "../../components/CouponInput";
 import { clearCart, selectCartItemCount } from "../../store/slices/cartSlice";
 import { getAddresses, addAddress } from "../../services/addressService";
@@ -682,7 +683,7 @@ const {
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-4 pt-6 pb-4" keyboardShouldPersistTaps="handled">
+      <ScrollView className="flex-1 px-4 pt-6" keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: ACTION_BAR_BOTTOM_PADDING }}>
         {message ? (
           <View className="mb-4 rounded-2xl bg-emerald-50 px-4 py-3 flex-row items-center gap-2">
             <Check size={20} color="#059669" />

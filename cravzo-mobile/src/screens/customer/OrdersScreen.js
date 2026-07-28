@@ -28,6 +28,7 @@ import {
   Search,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
+import { TAB_SCREEN_BOTTOM_PADDING, MODAL_BOTTOM_PADDING } from "../../constants/layout";
 import { useDispatch } from "react-redux";
 import { getMyOrders, cancelOrder, getReorderData } from "../../services/orderService";
 import { addItem } from "../../store/slices/cartSlice";
@@ -299,6 +300,7 @@ export default function OrdersScreen({ navigation }) {
     <View className="flex-1 bg-[#F5F5F5]">
       <ScrollView
         className="flex-1 pt-16 px-4"
+        contentContainerStyle={{ paddingBottom: TAB_SCREEN_BOTTOM_PADDING }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4f46e5" colors={["#4f46e5"]} />
         }
@@ -407,7 +409,7 @@ export default function OrdersScreen({ navigation }) {
             <View className="items-center pt-2 pb-1">
               <View className="h-1 w-10 rounded-full bg-slate-300" />
             </View>
-            <ScrollView className="px-5 pb-8">
+            <ScrollView className="px-5" contentContainerStyle={{ paddingBottom: MODAL_BOTTOM_PADDING }}>
               <View className="flex-row items-start justify-between mt-2 mb-2">
                 <View className="flex-1 mr-4">
                   <Text className="text-lg font-black text-slate-900">
@@ -586,7 +588,7 @@ export default function OrdersScreen({ navigation }) {
             <View className="items-center pt-2 pb-1">
               <View className="h-1 w-10 rounded-full bg-slate-300" />
             </View>
-            <ScrollView className="px-5 pb-8">
+            <ScrollView className="px-5" contentContainerStyle={{ paddingBottom: MODAL_BOTTOM_PADDING }}>
               {feedbackDone ? (
                 <View className="items-center py-10">
                   <View className="h-16 w-16 items-center justify-center rounded-full bg-emerald-100 mb-4">

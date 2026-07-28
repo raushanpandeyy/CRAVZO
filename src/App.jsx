@@ -57,6 +57,22 @@ const App = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [toast, setToast] = useState(null);
+  const publicCustomerPathPrefixes = [
+    "/r/",
+    "/restaurant/",
+    "/dish/",
+    "/restaurants",
+    "/dishes",
+    "/city/",
+    "/about",
+    "/contact",
+    "/privacy",
+    "/refer",
+  ];
+
+  const isPublicCustomerPath =
+    location.pathname === "/" ||
+    publicCustomerPathPrefixes.some((prefix) => location.pathname.startsWith(prefix));
 
   // Auto-redirect to signin after 5 seconds if not logged in
   useEffect(() => {
@@ -64,14 +80,14 @@ const App = () => {
     if (user?.isLoggedIn) return;
 
     const authPaths = ["/signin", "/verify-otp", "/vendor-signup", "/rider-signup"];
-    if (authPaths.includes(location.pathname)) return;
+    if (authPaths.includes(location.pathname) || isPublicCustomerPath) return;
 
     const timer = setTimeout(() => {
       navigate("/signin");
     }, 5000);
 
     return () => clearTimeout(timer);
-  }, [isHydrating, user, location.pathname, navigate]);
+  }, [isHydrating, user, location.pathname, navigate, isPublicCustomerPath]);
 
   useNotifications(user);
 
@@ -126,6 +142,21 @@ const App = () => {
     return <AppLoader />;
   }
 
+  if (isPublicCustomerPath) {
+    return (
+      <>
+        <ErrorBoundary>
+          <Suspense fallback={<AppLoader />}>
+            <CustomerRoutes />
+          </Suspense>
+        </ErrorBoundary>
+        <InstallAppPrompt />
+        {toast && (
+          <InAppToast toast={toast} onDismiss={() => setToast(null)} />
+        )}
+      </>
+    );
+  }
   if (user && user.isLoggedIn) {
     const isPartnerPending =
       (user.accountType === "vendor" || user.accountType === "rider") &&
