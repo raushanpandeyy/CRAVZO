@@ -15,8 +15,9 @@ import { store, persistor } from "./src/store";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { NavigationContainer } from "@react-navigation/native";
 
-import AppNavigator, { navigateFromNotification } from "./src/navigation/AppNavigator";
+import AppNavigator, { navigateFromNotification, navigationRef } from "./src/navigation/AppNavigator";
 
 import ErrorBoundary from "./src/components/ErrorBoundary";
 import PrivacyConsentModal from "./src/components/PrivacyConsentModal";
@@ -106,9 +107,11 @@ export default function App() {
           <PersistGate onAfterLift={hideSplash} loading={null} persistor={persistor}>
             <ErrorBoundary>
               <StatusBar style="dark" />
-              <NotificationInit />
-              <AppNavigator />
-              <PrivacyConsentModal />
+              <NavigationContainer ref={navigationRef}>
+                <NotificationInit />
+                <AppNavigator />
+                <PrivacyConsentModal />
+              </NavigationContainer>
             </ErrorBoundary>
           </PersistGate>
         </Provider>

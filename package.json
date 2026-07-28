@@ -16,6 +16,7 @@
     "firebase": "^12.13.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.526.0",
+    "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-leaflet": "^5.0.0",

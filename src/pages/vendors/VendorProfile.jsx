@@ -31,6 +31,7 @@ import { VerifiedBadge, ProfileProgress, VerifiedBadgeLarge } from "../../compon
 import { getCloudinaryUrl } from "../../utils/cloudinary.js";
 import { SkeletonAvatar, SkeletonForm } from "../../components/Skeleton.jsx";
 import GoogleAddressPicker from "../../components/GoogleAddressPicker.jsx";
+import RestaurantQrCard from "../../components/vendors/RestaurantQrCard.jsx";
 
 const DAYS_OF_WEEK = [
   "Monday",
@@ -536,6 +537,8 @@ const VendorProfile = () => {
             </div>
           </div>
         )}
+
+        <RestaurantQrCard restaurant={restaurant} />
 
         {/* BASIC INFO */}
 

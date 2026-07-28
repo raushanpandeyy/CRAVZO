@@ -1,7 +1,6 @@
 import { selectUserState, selectCurrentUser, selectIsLoggedIn } from "../store/selectors";
 import React, { createRef, useEffect } from "react";
 import { View } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
 import { useSelector, useDispatch } from "react-redux";
 import { setPendingNavigationRoute } from "../store/slices/userSlice";
 
@@ -49,11 +48,9 @@ export default function AppNavigator() {
   }, [isLoggedIn, pendingNavigationRoute, dispatch]);
 
   return (
-    <NavigationContainer ref={navigationRef}>
-      <View style={{ flex: 1 }}>
-        <CustomerNavigator />
-        <AuthModalHost />
-      </View>
-    </NavigationContainer>
+    <View style={{ flex: 1 }}>
+      <CustomerNavigator />
+      <AuthModalHost />
+    </View>
   );
 }
