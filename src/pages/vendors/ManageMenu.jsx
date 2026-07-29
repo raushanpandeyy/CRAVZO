@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Menu, Plus, Edit, Trash2, Save, X, ImagePlus } from "lucide-react";
+import { CheckSquare, Edit, Filter, ImagePlus, Menu, Plus, Save, Search, Trash2, X } from "lucide-react";
 
 import {
   createVendorMenuItem,
@@ -29,6 +29,10 @@ const ManageMenu = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [availabilityFilter, setAvailabilityFilter] = useState("ALL");
+  const [selectedItemIds, setSelectedItemIds] = useState([]);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({
@@ -72,10 +76,34 @@ const ManageMenu = () => {
     loadRestaurants();
   }, [loadRestaurants]);
 
+  const filteredMenuItems = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    return menuItems.filter((item) => {
+      const matchesStatus = availabilityFilter === "ALL" || item.status === availabilityFilter;
+      const matchesSearch = !normalizedQuery
+        || [item.name, item.category, item.description]
+          .filter(Boolean)
+          .some((value) => value.toLowerCase().includes(normalizedQuery));
+
+      return matchesStatus && matchesSearch;
+    });
+  }, [availabilityFilter, menuItems, searchQuery]);
+
+  const visibleSelectedIds = useMemo(
+    () => filteredMenuItems
+      .map((item) => item.id)
+      .filter((id) => selectedItemIds.includes(id)),
+    [filteredMenuItems, selectedItemIds],
+  );
+
+  const allVisibleSelected = filteredMenuItems.length > 0 && visibleSelectedIds.length === filteredMenuItems.length;
+
   const stats = useMemo(
     () => ({
       total: menuItems.length,
       active: menuItems.filter((item) => item.status === "ACTIVE").length,
+      inactive: menuItems.filter((item) => item.status === "INACTIVE").length,
       uniqueCategories: new Set(menuItems.map((item) => item.category)).size,
     }),
     [menuItems],
@@ -107,6 +135,7 @@ const ManageMenu = () => {
     setSelectedRestaurantId(event.target.value);
     setIsAddingItem(false);
     setEditingItem(null);
+    setSelectedItemIds([]);
     resetForm();
     setMessage("");
     setError("");
@@ -237,16 +266,62 @@ const ManageMenu = () => {
     }
   }, [loadRestaurants, selectedRestaurant]);
 
+  const toggleItemSelection = useCallback((itemId) => {
+    setSelectedItemIds((prev) => (
+      prev.includes(itemId)
+        ? prev.filter((id) => id !== itemId)
+        : [...prev, itemId]
+    ));
+  }, []);
+
+  const toggleSelectVisible = useCallback(() => {
+    setSelectedItemIds((prev) => {
+      const visibleIds = filteredMenuItems.map((item) => item.id);
+      const visibleSet = new Set(visibleIds);
+
+      if (visibleIds.length > 0 && visibleIds.every((id) => prev.includes(id))) {
+        return prev.filter((id) => !visibleSet.has(id));
+      }
+
+      return Array.from(new Set([...prev, ...visibleIds]));
+    });
+  }, [filteredMenuItems]);
+
   const toggleAvailability = useCallback(async (item) => {
     try {
       await updateVendorMenuItem(item.id, {
         status: item.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
       });
+      setSelectedItemIds((prev) => prev.filter((id) => id !== item.id));
       await loadRestaurants(selectedRestaurant?.id);
     } catch (requestError) {
       setError(requestError.message || "Failed to update item availability");
     }
   }, [loadRestaurants, selectedRestaurant]);
+
+  const handleBulkAvailability = useCallback(async (status) => {
+    if (selectedItemIds.length === 0) {
+      setError("Select at least one menu item first.");
+      return;
+    }
+
+    setBulkUpdating(true);
+    setError("");
+    setMessage("");
+
+    try {
+      await Promise.all(
+        selectedItemIds.map((itemId) => updateVendorMenuItem(itemId, { status })),
+      );
+      setMessage(`${selectedItemIds.length} item${selectedItemIds.length === 1 ? "" : "s"} ${status === "ACTIVE" ? "enabled" : "disabled"} successfully.`);
+      setSelectedItemIds([]);
+      await loadRestaurants(selectedRestaurant?.id);
+    } catch (requestError) {
+      setError(requestError.message || "Failed to update selected items");
+    } finally {
+      setBulkUpdating(false);
+    }
+  }, [loadRestaurants, selectedItemIds, selectedRestaurant]);
 
   return (
     <div className="px-4 py-4 md:px-6 md:py-6 bg-[#F4F7FB] min-h-screen">
@@ -345,6 +420,75 @@ const ManageMenu = () => {
             <Plus className="w-4 h-4" />
             Add Item
           </button>
+        </div>
+        <div className="mb-6 space-y-3 rounded-xl border border-gray-100 bg-slate-50/70 p-3 md:p-4">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search dishes by name, category, or description"
+                className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-9 pr-3 text-sm text-gray-800 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <Filter className="h-3.5 w-3.5" />
+                Status
+              </span>
+              {[
+                ["ALL", "All"],
+                ["ACTIVE", "Enabled"],
+                ["INACTIVE", "Disabled"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setAvailabilityFilter(value)}
+                  className={`rounded-lg border px-3 py-2 text-xs font-semibold transition ${availabilityFilter === value ? "border-indigo-600 bg-indigo-600 text-white" : "border-gray-200 bg-white text-gray-600 hover:border-indigo-200 hover:text-indigo-700"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-gray-200 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              onClick={toggleSelectVisible}
+              disabled={filteredMenuItems.length === 0 || bulkUpdating}
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-indigo-200 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:justify-start"
+            >
+              <CheckSquare className="h-4 w-4" />
+              {allVisibleSelected ? "Clear visible" : "Select visible"}
+            </button>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <span className="text-xs font-medium text-gray-500 sm:mr-1">
+                {selectedItemIds.length} selected - {filteredMenuItems.length} shown
+              </span>
+              <button
+                type="button"
+                onClick={() => handleBulkAvailability("INACTIVE")}
+                disabled={selectedItemIds.length === 0 || bulkUpdating}
+                className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700 transition hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {bulkUpdating ? "Updating..." : "Disable selected"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleBulkAvailability("ACTIVE")}
+                disabled={selectedItemIds.length === 0 || bulkUpdating}
+                className="rounded-lg bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {bulkUpdating ? "Updating..." : "Enable selected"}
+              </button>
+            </div>
+          </div>
         </div>
 
         {(isAddingItem || editingItem) ? (
@@ -535,12 +679,21 @@ const ManageMenu = () => {
             <SkeletonCard />
             <SkeletonCard />
           </div>
-        ) : menuItems.length > 0 ? (
+        ) : filteredMenuItems.length > 0 ? (
           /* Cards Grid Layout: Mobile size pe fully 1-column responsive grid structure */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {menuItems.map((item) => (
-              <div key={item.id} className="border border-gray-100 rounded-xl p-4 hover:shadow-lg transition-all bg-white flex flex-col justify-between">
+            {filteredMenuItems.map((item) => (
+              <div key={item.id} className={`relative border rounded-xl p-4 hover:shadow-lg transition-all bg-white flex flex-col justify-between ${selectedItemIds.includes(item.id) ? "border-indigo-300 ring-2 ring-indigo-100" : "border-gray-100"}`}>
                 <div>
+                  <label className="mb-3 inline-flex items-center gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={selectedItemIds.includes(item.id)}
+                      onChange={() => toggleItemSelection(item.id)}
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    Select
+                  </label>
                   {item.imageUrl ? (
                     <img 
                       src={optimizeImageUrl(item.imageUrl, 400)} 
@@ -600,8 +753,8 @@ const ManageMenu = () => {
         ) : (
           <div className="text-center py-12 text-gray-400">
             <Menu className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p className="font-medium text-gray-600">No menu items yet</p>
-            <p className="text-xs mt-1 text-gray-400">{selectedRestaurant ? "Click Add Item to create this restaurant menu." : "Create a restaurant profile before adding menu items."}</p>
+            <p className="font-medium text-gray-600">{menuItems.length > 0 ? "No matching dishes" : "No menu items yet"}</p>
+            <p className="text-xs mt-1 text-gray-400">{menuItems.length > 0 ? "Try a different search or status filter." : selectedRestaurant ? "Click Add Item to create this restaurant menu." : "Create a restaurant profile before adding menu items."}</p>
           </div>
         )}
       </div>
@@ -610,3 +763,4 @@ const ManageMenu = () => {
 };
 
 export default ManageMenu;
+
