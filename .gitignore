@@ -28,3 +28,4 @@ dist-ssr
 
 
 backend/firebase-admin.json
+.vercel

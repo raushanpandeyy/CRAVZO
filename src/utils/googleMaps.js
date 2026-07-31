@@ -33,7 +33,7 @@ export const loadGoogleMaps = () => {
     script.id = GOOGLE_MAPS_SCRIPT_ID;
     script.async = true;
     script.defer = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=${GOOGLE_MAPS_LIBRARIES}`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=${GOOGLE_MAPS_LIBRARIES}&loading=async`;
     script.onload = () => resolve(window.google);
     script.onerror = () => reject(new Error("Failed to load Google Maps"));
     document.head.appendChild(script);
