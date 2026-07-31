@@ -276,6 +276,30 @@ const Home = () => {
 
   const ComponentLoader = () => <div className="animate-pulse bg-slate-200 h-40 rounded-2xl m-4" />;
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPromos = async () => {
+      try {
+        const res = await apiRequest("/api/public/home", { skipAuth: true, skipCache: true });
+        if (!cancelled) {
+          setPromotions(Array.isArray(res?.data?.promotions) ? res.data.promotions : []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to load promotions", err);
+          setPromotions([]);
+        }
+      }
+    };
+
+    loadPromos();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Restaurant fetch — uses shared location hook (no duplicate GPS call)
   // 3km radius when location available, fallback to latest 20 restaurants
   useEffect(() => {
@@ -313,14 +337,7 @@ const Home = () => {
       }
     };
 
-    const loadPromos = async () => {
-      try {
-        const res = await apiRequest("/api/public/home");
-        if (res?.data?.promotions) setPromotions(res.data.promotions);
-      } catch {}
-    };
 
-    loadPromos();
 
     load();
   }, [locationReady, lat, lng]);
