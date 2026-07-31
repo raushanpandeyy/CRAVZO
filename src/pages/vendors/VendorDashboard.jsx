@@ -91,11 +91,11 @@ const VendorDashboard = () => {
 
   useEffect(() => {
     loadDashboard();
-    // Real-time order updates via Socket.IO — replaces 30s polling
+    // Socket payloads are intentionally small, so refresh the full vendor order
+    // list before showing the restaurant popup.
     const cleanups = [
-      onNewOrder((data) => {
-        setOrderRequest(data);
-        setShowRequest(true);
+      onNewOrder(() => {
+        loadDashboard();
       }),
       onOrderStatusUpdate(({ orderId, status }) => {
         setOrders((prev) =>
@@ -426,5 +426,3 @@ const VendorDashboard = () => {
 };
 
 export default VendorDashboard;
-
-

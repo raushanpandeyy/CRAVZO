@@ -71,8 +71,18 @@ describe("Order schema validation", () => {
     expect(() => assertVendorStatusTransition("PENDING", "ACCEPTED")).not.toThrow();
     expect(() => assertVendorStatusTransition("ACCEPTED", "PREPARING")).not.toThrow();
     expect(() => assertVendorStatusTransition("PREPARING", "READY_FOR_PICKUP")).not.toThrow();
+    expect(() => assertVendorStatusTransition("ACCEPTED", "CANCELLED")).not.toThrow();
+    expect(() => assertVendorStatusTransition("READY_FOR_PICKUP", "CANCELLED")).not.toThrow();
     expect(() => assertVendorStatusTransition("PENDING", "DELIVERED")).toThrow();
     expect(() => assertVendorStatusTransition("READY_FOR_PICKUP", "PREPARING")).toThrow();
+  });
+
+
+  it("calculates rider cancellation earning only after pickup", async () => {
+    const { getRiderCancellationEarning } = await import("../controllers/orderController.js");
+    expect(getRiderCancellationEarning({ riderId: "rider-1", status: "OUT_FOR_DELIVERY", deliveryFee: 40, tipAmount: 10 }, "CANCELLED")).toBe(50);
+    expect(getRiderCancellationEarning({ riderId: "rider-1", status: "READY_FOR_PICKUP", deliveryFee: 40, tipAmount: 10 }, "CANCELLED")).toBe(0);
+    expect(getRiderCancellationEarning({ riderId: null, status: "OUT_FOR_DELIVERY", deliveryFee: 40, tipAmount: 10 }, "CANCELLED")).toBe(0);
   });
 
   it("builds a stable Razorpay refund idempotency key", async () => {

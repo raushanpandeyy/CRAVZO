@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from
 import { CheckCircle, Clock, Eye, MessageCircle, Printer, ShoppingBag } from "lucide-react";
 
 import { getVendorOrders, updateOrderStatus } from "../../services/orderService.js";
+import { onNewOrder, onOrderStatusUpdate } from "../../services/chatSocket.js";
 import { SkeletonRow } from "../../components/Skeleton.jsx";
 import { printOrderDocument } from "../../utils/orderPrint.js";
 
@@ -54,6 +55,15 @@ const OrderPanel = () => {
 
   useEffect(() => {
     loadOrders();
+    const cleanups = [
+      onNewOrder(() => {
+        loadOrders();
+      }),
+      onOrderStatusUpdate(() => {
+        loadOrders();
+      }),
+    ];
+    return () => cleanups.forEach((cleanup) => cleanup());
   }, [loadOrders]);
 
   const filteredOrders = useMemo(() => {
@@ -355,4 +365,3 @@ const OrderPanel = () => {
 };
 
 export default OrderPanel;
-

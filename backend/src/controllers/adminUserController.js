@@ -5,6 +5,134 @@ import { apiResponse } from "../utils/apiResponse.js";
 import { sanitizeUser } from "../utils/userResponse.js";
 import { parsePagination, serializeSupportOrder } from "../utils/adminHelpers.js";
 
+
+const userReferralSelect = {
+  id: true,
+  name: true,
+  email: true,
+  phone: true,
+  role: true,
+  status: true,
+  referralCode: true,
+  createdAt: true,
+};
+
+const mapStatusCounts = (groups) =>
+  groups.reduce(
+    (acc, group) => ({ ...acc, [group.status.toLowerCase()]: group._count._all }),
+    { pending: 0, otp_verified: 0, completed: 0, suspect: 0, cancelled: 0 },
+  );
+
+const serializeReferral = (referral) =>
+  referral
+    ? {
+        id: referral.id,
+        status: referral.status,
+        bonusAmount: Number(referral.bonusAmount || 0),
+        suspectFlag: referral.suspectFlag,
+        suspectReason: referral.suspectReason,
+        paidOrderId: referral.paidOrderId,
+        createdAt: referral.createdAt,
+        completedAt: referral.completedAt,
+        referrer: referral.referrer || null,
+        referred: referral.referred || null,
+      }
+    : null;
+
+const serializeMilestone = (milestone) => ({
+  id: milestone.id,
+  tier: milestone.tier,
+  rewardType: milestone.rewardType,
+  rewardValue: Number(milestone.rewardValue || 0),
+  voucherCode: milestone.voucherCode,
+  status: milestone.status,
+  expiresAt: milestone.expiresAt,
+  issuedAt: milestone.issuedAt,
+  redeemedAt: milestone.redeemedAt,
+  redeemedOrderId: milestone.redeemedOrderId,
+});
+
+const getReferralAuditForUser = async (userId) => {
+  const [received, made, madeCounts, milestones] = await Promise.all([
+    prisma.referral.findUnique({
+      where: { referredId: userId },
+      include: { referrer: { select: userReferralSelect } },
+    }),
+    prisma.referral.findMany({
+      where: { referrerId: userId },
+      orderBy: { createdAt: "desc" },
+      take: 25,
+      include: { referred: { select: userReferralSelect } },
+    }),
+    prisma.referral.groupBy({
+      by: ["status"],
+      where: { referrerId: userId },
+      _count: { _all: true },
+    }),
+    prisma.referralMilestone.findMany({
+      where: { userId },
+      orderBy: { issuedAt: "desc" },
+      take: 25,
+    }),
+  ]);
+
+  const counts = mapStatusCounts(madeCounts);
+
+  return {
+    received: serializeReferral(received),
+    madeSummary: {
+      total: Object.values(counts).reduce((sum, count) => sum + count, 0),
+      verified: counts.otp_verified + counts.completed,
+      qualified: counts.completed,
+      pending: counts.pending + counts.otp_verified,
+      suspect: counts.suspect,
+      cancelled: counts.cancelled,
+    },
+    made: made.map(serializeReferral),
+    milestones: milestones.map(serializeMilestone),
+  };
+};
+
+const getReferralListMetaForUsers = async (userIds) => {
+  if (userIds.length === 0) return new Map();
+
+  const [received, madeCounts] = await Promise.all([
+    prisma.referral.findMany({
+      where: { referredId: { in: userIds } },
+      include: { referrer: { select: { id: true, name: true, email: true, phone: true } } },
+    }),
+    prisma.referral.groupBy({
+      by: ["referrerId", "status"],
+      where: { referrerId: { in: userIds } },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const meta = new Map(userIds.map((id) => [id, {
+    received: null,
+    madeSummary: { total: 0, verified: 0, qualified: 0, suspect: 0 },
+  }]));
+
+  for (const referral of received) {
+    meta.set(referral.referredId, {
+      ...(meta.get(referral.referredId) || {}),
+      received: serializeReferral(referral),
+    });
+  }
+
+  for (const group of madeCounts) {
+    const current = meta.get(group.referrerId) || { received: null, madeSummary: { total: 0, verified: 0, qualified: 0, suspect: 0 } };
+    const count = group._count._all;
+    current.madeSummary.total += count;
+    if (["OTP_VERIFIED", "COMPLETED"].includes(group.status)) current.madeSummary.verified += count;
+    if (group.status === "COMPLETED") current.madeSummary.qualified += count;
+    if (group.status === "SUSPECT") current.madeSummary.suspect += count;
+    meta.set(group.referrerId, current);
+  }
+
+  return meta;
+};
+
 const getPendingVendors = async (req, res) => {
   const { page, limit, skip } = parsePagination(req.query);
 
@@ -64,10 +192,18 @@ const listUsers = async (req, res) => {
     prisma.user.count({ where }),
   ]);
 
+  const referralMeta = await getReferralListMetaForUsers(users.map((user) => user.id));
+
   res.status(200).json(
     apiResponse({
       message: "Users fetched successfully",
-      data: users.map(sanitizeUser),
+      data: users.map((user) => ({
+        ...sanitizeUser(user),
+        referral: referralMeta.get(user.id) || {
+          received: null,
+          madeSummary: { total: 0, verified: 0, qualified: 0, suspect: 0 },
+        },
+      })),
       meta: {
         page,
         limit,
@@ -292,6 +428,8 @@ const getUserDetails = async (req, res) => {
       });
     }
 
+    const referral = await getReferralAuditForUser(user.id);
+
     const response = {
       id: user.id,
       name: user.name,
@@ -300,7 +438,10 @@ const getUserDetails = async (req, res) => {
       role: user.role,
       status: user.status,
       isOnline: user.isOnline,
+      referralCode: user.referralCode,
+      walletBalance: user.walletBalance,
       createdAt: user.createdAt,
+      referral,
     };
 
     if (user.role === "VENDOR") {

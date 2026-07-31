@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, ChevronRight } from "lucide-react";
+import { ChevronRight, Gift } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { API_ENDPOINTS } from "../../constants/apiEndpoints.js";
 import { apiRequest } from "../../services/api.js";
@@ -123,6 +123,16 @@ const AdminUsers = () => {
                     {user.role === "RIDER" && (
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${user.isOnline ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`}>
                         {user.isOnline ? "Online" : "Offline"}
+                      </span>
+                    )}
+                    {user.referral?.received && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                        <Gift size={10} /> Referred
+                      </span>
+                    )}
+                    {(user.referral?.madeSummary?.total || 0) > 0 && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                        <Gift size={10} /> {user.referral.madeSummary.qualified || 0}/{user.referral.madeSummary.total} qualified
                       </span>
                     )}
                   </div>

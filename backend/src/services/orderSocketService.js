@@ -22,6 +22,7 @@ export const emitOrderStatusUpdate = async (order, actorRole) => {
 
   const recipientIds = [order.customerId];
   if (order.riderId) recipientIds.push(order.riderId);
+  if (order.cancelledRiderId) recipientIds.push(order.cancelledRiderId);
   recipientIds.push(...(await getRestaurantNotificationVendorIds(order.restaurant)));
 
   emitToUsers(recipientIds, "order:status-updated", {

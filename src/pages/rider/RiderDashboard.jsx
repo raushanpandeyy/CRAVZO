@@ -173,14 +173,13 @@ const RiderDashboard = () => {
     loadRiderState();
     loadOrders();
 
-    // Real-time order updates via Socket.IO replace 45s polling
+    // Socket payloads are small; refetch so rider popups/actions use full order data.
     const cleanups = [
-      onNewOrder((data) => {
-        setOrderRequest(data);
-        setShowRequest(true);
+      onNewOrder(() => {
+        loadOrders({ silent: true });
       }),
-      onOrderStatusUpdate(({ orderId }) => {
-        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      onOrderStatusUpdate(() => {
+        loadOrders({ silent: true });
       }),
     ];
     return () => cleanups.forEach((fn) => fn());
@@ -374,9 +373,15 @@ const RiderDashboard = () => {
     [orders],
   );
   const deliveredOrders = useMemo(() => orders.filter((order) => order.status === "DELIVERED"), [orders]);
+  const earningOrders = useMemo(
+    () => orders.filter((order) => order.status === "DELIVERED" || Number(order.riderCancellationEarning || 0) > 0),
+    [orders],
+  );
   const earnings = useMemo(
-    () => deliveredOrders.reduce((sum, order) => sum + Number(order.deliveryFee || 0), 0),
-    [deliveredOrders],
+    () => earningOrders.reduce((sum, order) => (
+      sum + (order.status === "CANCELLED" ? Number(order.riderCancellationEarning || 0) : Number(order.deliveryFee || 0))
+    ), 0),
+    [earningOrders],
   );
 
   const renderPrimaryAction = (order, fullWidth = false) => {

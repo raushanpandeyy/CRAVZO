@@ -125,10 +125,34 @@ export const normalizeUser = (user = {}) => {
   };
 };
 
+const decodeBase64Url = (value = "") => {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  if (typeof globalThis.atob === "function") return globalThis.atob(base64);
+
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+  let output = "";
+  let buffer = 0;
+  let bits = 0;
+
+  for (const char of base64.replace(/=+$/, "")) {
+    const index = chars.indexOf(char);
+    if (index < 0) continue;
+    buffer = (buffer << 6) | index;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      output += String.fromCharCode((buffer >> bits) & 0xff);
+    }
+  }
+
+  return output;
+};
+
 const jwtDecode = (token) => {
   try {
     const parts = token.split(".");
-    return JSON.parse(atob(parts[1]));
+    if (parts.length < 2) return {};
+    return JSON.parse(decodeBase64Url(parts[1]));
   } catch {
     return {};
   }

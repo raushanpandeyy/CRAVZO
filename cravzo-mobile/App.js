@@ -18,6 +18,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import AppNavigator, { navigateFromNotification, navigationRef } from "./src/navigation/AppNavigator";
 
 import ErrorBoundary from "./src/components/ErrorBoundary";
+import BrandedAlertHost from "./src/components/BrandedAlertHost";
 import { clearUser } from "./src/store/slices/userSlice";
 import { setUnauthorizedHandler } from "./src/services/api";
 import { assertProductionApiConfiguration } from "./src/constants/apiEndpoints";
@@ -107,6 +108,7 @@ export default function App() {
                 <StatusBar style="dark" />
                 <NotificationInit />
                 <AppNavigator />
+                <BrandedAlertHost />
               </ErrorBoundary>
             </NavigationContainer>
           </PersistGate>

@@ -23,7 +23,7 @@ const reduxStorage = {
   },
   removeItem: (key) => {
     if (isWeb) { localStorage.removeItem(key); return Promise.resolve(true); }
-    mmkv.delete(key);
+    mmkv.remove(key);
     return Promise.resolve(true);
   },
 };

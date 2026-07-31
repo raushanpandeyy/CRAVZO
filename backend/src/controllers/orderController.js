@@ -17,9 +17,10 @@ const RIDER_GEO_KEY = "rider:geo";
 
 const ACTIVE_DELIVERY_STATUSES = ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
 const VENDOR_STATUS_TRANSITIONS = {
-  PENDING: ["ACCEPTED", "REJECTED"],
-  ACCEPTED: ["PREPARING"],
-  PREPARING: ["READY_FOR_PICKUP"],
+  PENDING: ["ACCEPTED", "REJECTED", "CANCELLED"],
+  ACCEPTED: ["PREPARING", "CANCELLED"],
+  PREPARING: ["READY_FOR_PICKUP", "CANCELLED"],
+  READY_FOR_PICKUP: ["CANCELLED"],
 };
 
 const assertVendorStatusTransition = (currentStatus, nextStatus) => {
@@ -56,6 +57,14 @@ const getDistanceKm = (startLat, startLng, endLat, endLng) => {
 };
 
 const normalizeCity = (value) => value?.trim().toLowerCase() || "";
+
+const RIDER_CANCEL_COMPENSATION_STATUSES = ["OUT_FOR_DELIVERY"];
+
+const getRiderCancellationEarning = (order, nextStatus) => {
+  if (nextStatus !== "CANCELLED" || !order.riderId) return 0;
+  if (!RIDER_CANCEL_COMPENSATION_STATUSES.includes(order.status)) return 0;
+  return Number(order.deliveryFee || 0) + Number(order.tipAmount || 0);
+};
 
 const createOrder = async (req, res) => {
   const {
@@ -359,7 +368,15 @@ const getRiderOrders = async (req, res) => {
     prisma.order.findMany({
       where: {
         OR: [
-          { riderId: req.user.sub },
+          {
+            riderId: req.user.sub,
+            status: { notIn: ["CANCELLED", "REJECTED"] },
+          },
+          {
+            cancelledRiderId: req.user.sub,
+            status: "CANCELLED",
+            riderCancellationEarning: { gt: 0 },
+          },
           {
             riderId: null,
             status: {
@@ -601,7 +618,7 @@ const updateOrderStatus = async (req, res) => {
       throw new ApiError(400, "Customer can only cancel orders");
     }
 
-    if (!["PENDING", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP"].includes(order.status)) {
+    if (!["PENDING", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(order.status)) {
       throw new ApiError(400, "This order can no longer be cancelled");
     }
   }
@@ -776,6 +793,7 @@ const updateOrderStatus = async (req, res) => {
   const cancellationFeeBase = Math.max(0, totalAmountNum - Number(order.tipAmount || 0));
   const cancelFee = Math.round((cancellationFeeBase * cancelFeePercent) / 100 * 100) / 100;
   const refundAmount = totalAmountNum - cancelFee;
+  const riderCancellationEarning = getRiderCancellationEarning(order, status);
   const gatewayRefund =
     status === "CANCELLED" && order.paymentStatus === "PAID"
       ? await initiateRazorpayRefund({
@@ -809,6 +827,17 @@ const updateOrderStatus = async (req, res) => {
         ? { rejectedRiderIds: [] }
         : {}),
       ...(status === "OUT_FOR_DELIVERY" ? { pickedUpAt: new Date() } : {}),
+      ...(status === "CANCELLED"
+        ? {
+            riderId: null,
+            cancelledRiderId: order.riderId || order.cancelledRiderId || null,
+            riderCancellationEarning,
+            cancelledAt: new Date(),
+            cancelledByRole: req.user.role,
+            deliveryOtpHash: null,
+            deliveryOtpExpiresAt: null,
+          }
+        : {}),
       ...(status === "DELIVERED" ? { paymentStatus: "PAID", deliveredAt: new Date() } : {}),
       ...(gatewayRefund
         ? {
@@ -890,7 +919,7 @@ const getOrderTracking = async (req, res) => {
   if (!order) throw new ApiError(404, "Order not found");
   const allowed = req.user.role === "ADMIN" ||
     (req.user.role === "CUSTOMER" && order.customerId === req.user.sub) ||
-    (req.user.role === "RIDER" && order.riderId === req.user.sub) ||
+    (req.user.role === "RIDER" && (order.riderId === req.user.sub || order.cancelledRiderId === req.user.sub)) ||
     (req.user.role === "VENDOR" && canVendorManageRestaurant(order.restaurant, req.user.sub));
   if (!allowed) throw new ApiError(403, "You do not have permission to track this order");
 
@@ -1043,5 +1072,5 @@ const reorderOrder = async (req, res) => {
   );
 };
 
-export { assertVendorStatusTransition, createDeliveryOtp, createOrder, getMyOrders, getOrderTracking, getRiderOrderSuggestions, getRiderOrders, getVendorOrders, getVendorPayouts, quoteOrder, reorderOrder, requestVendorPayout, updateOrderStatus, verifyDeliveryOtp };
+export { assertVendorStatusTransition, createDeliveryOtp, createOrder, getMyOrders, getOrderTracking, getRiderCancellationEarning, getRiderOrderSuggestions, getRiderOrders, getVendorOrders, getVendorPayouts, quoteOrder, reorderOrder, requestVendorPayout, updateOrderStatus, verifyDeliveryOtp };
 

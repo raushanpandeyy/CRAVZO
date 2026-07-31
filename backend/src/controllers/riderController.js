@@ -118,13 +118,21 @@ export const getRiderEarnings = async (req, res) => {
   const riderId = req.user.sub;
 
   const orders = await prisma.order.findMany({
-    where: { riderId, status: "DELIVERED" },
+    where: {
+      OR: [
+        { riderId, status: "DELIVERED" },
+        { cancelledRiderId: riderId, status: "CANCELLED", riderCancellationEarning: { gt: 0 } },
+      ],
+    },
     select: {
       id: true,
+      status: true,
       deliveryFee: true,
       tipAmount: true,
+      riderCancellationEarning: true,
       createdAt: true,
       deliveredAt: true,
+      cancelledAt: true,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -135,21 +143,29 @@ export const getRiderEarnings = async (req, res) => {
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
-  const orderEarning = (order) => Number(order.deliveryFee || 0) + Number(order.tipAmount || 0);
-  const totalTips = orders.reduce((sum, order) => sum + Number(order.tipAmount || 0), 0);
+  const orderEarning = (order) =>
+    order.status === "CANCELLED"
+      ? Number(order.riderCancellationEarning || 0)
+      : Number(order.deliveryFee || 0) + Number(order.tipAmount || 0);
+  const earningDate = (order) => new Date(order.deliveredAt || order.cancelledAt || order.createdAt);
+  const totalTips = orders
+    .filter((order) => order.status === "DELIVERED")
+    .reduce((sum, order) => sum + Number(order.tipAmount || 0), 0);
   const totalEarnings = orders.reduce((sum, order) => sum + orderEarning(order), 0);
   const todayEarnings = orders
-    .filter((o) => new Date(o.createdAt) >= today)
+    .filter((o) => earningDate(o) >= today)
     .reduce((sum, order) => sum + orderEarning(order), 0);
   const weekEarnings = orders
-    .filter((o) => new Date(o.createdAt) >= weekStart)
+    .filter((o) => earningDate(o) >= weekStart)
     .reduce((sum, order) => sum + orderEarning(order), 0);
   const monthEarnings = orders
-    .filter((o) => new Date(o.createdAt) >= monthStart)
+    .filter((o) => earningDate(o) >= monthStart)
     .reduce((sum, order) => sum + orderEarning(order), 0);
 
-  const totalDeliveries = orders.length;
-  const todayDeliveries = orders.filter((o) => new Date(o.createdAt) >= today).length;
+  const deliveredOrders = orders.filter((order) => order.status === "DELIVERED");
+  const totalDeliveries = deliveredOrders.length;
+  const todayDeliveries = deliveredOrders.filter((o) => earningDate(o) >= today).length;
+  const compensatedCancellations = orders.filter((order) => order.status === "CANCELLED").length;
 
   res.status(200).json(
     apiResponse({
@@ -161,17 +177,17 @@ export const getRiderEarnings = async (req, res) => {
         monthEarnings,
         totalDeliveries,
         todayDeliveries,
+        compensatedCancellations,
         recentOrders: orders.slice(0, 20),
       },
     }),
   );
 };
-
 export const getRiderStats = async (req, res) => {
   const riderId = req.user.sub;
 
   const [totalOrders, activeDeliveries, ratings] = await Promise.all([
-    prisma.order.count({ where: { riderId } }),
+    prisma.order.count({ where: { OR: [{ riderId }, { cancelledRiderId: riderId }] } }),
     prisma.order.count({
       where: {
         riderId,

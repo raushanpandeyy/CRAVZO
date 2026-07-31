@@ -191,9 +191,10 @@ const notifyOrderStatusChanged = async ({ order, actorRole }) => {
     recipients.push(...vendorIds.map((userId) => ({ userId, role: "VENDOR" })));
   }
 
-  // RIDER only gets notified if they are assigned to this specific order
-  if (order.riderId && actorRole !== "RIDER") {
-    recipients.push({ userId: order.riderId, role: "RIDER" });
+  // RIDER gets notified if currently assigned, or if they were released by cancellation.
+  const riderRecipientId = order.riderId || (order.status === "CANCELLED" ? order.cancelledRiderId : null);
+  if (riderRecipientId && actorRole !== "RIDER") {
+    recipients.push({ userId: riderRecipientId, role: "RIDER" });
   }
 
   // Remove duplicates (in case customer is also vendor or other edge case)

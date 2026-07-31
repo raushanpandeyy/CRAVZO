@@ -12,7 +12,7 @@ import {
 import { useSelector } from "react-redux";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Location from "expo-location";
-import { Star, Clock3, Search, MapPin, ShoppingCart, User, MessageCircle, Utensils, X } from "lucide-react-native";
+import { Star, Clock3, Search, MapPin, ShoppingCart, User, MessageCircle, Utensils, X, Gift } from "lucide-react-native";
 import DishPromoCarousel from "../../components/DishPromoCarousel";
 import OptimizedImage from "../../components/OptimizedImage";
 import CoverageLeadForm from "../../components/CoverageLeadForm";
@@ -360,19 +360,16 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-<TouchableOpacity
-        onPress={() => navigation.navigate("Citywise")}
-        activeOpacity={0.9}
-        className="mx-4 mt-3 flex-row items-center justify-between rounded-2xl bg-indigo-600 px-4 py-3 shadow-lg shadow-indigo-200">
-        <View className="flex-row items-center gap-2">
-          <MapPin size={18} color="#fff" />
-          <View>
-            <Text className="text-sm font-extrabold text-white">We Deliver Here</Text>
-            <Text className="text-[10px] font-semibold text-indigo-100">Tap to browse by city</Text>
-          </View>
-        </View>
-        <Text className="text-xs font-bold text-white">View Cities -></Text>
-      </TouchableOpacity>
+      <View className="px-4 pb-2 pt-1">
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Referral")}
+          activeOpacity={0.9}
+          className="flex-row h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-950 shadow-md shadow-indigo-950/15"
+        >
+          <Gift size={16} color="#fff" />
+          <Text className="text-sm font-black text-white">Dodago Refer & Earn</Text>
+        </TouchableOpacity>
+      </View>
 
       <View className="py-3 border-b border-indigo-100">
         <View className="px-4 mb-2">

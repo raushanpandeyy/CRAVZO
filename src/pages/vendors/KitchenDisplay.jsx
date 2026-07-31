@@ -116,8 +116,8 @@ const KitchenDisplay = () => {
   useEffect(() => {
     loadOrders();
     const cleanups = [
-      onNewOrder((order) => {
-        setOrders((current) => [order, ...current.filter((entry) => entry.id !== order.id)]);
+      onNewOrder(() => {
+        loadOrders();
       }),
       onOrderStatusUpdate(({ orderId, status }) => {
         setOrders((current) => current

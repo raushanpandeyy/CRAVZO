@@ -53,11 +53,17 @@ const RiderAnalytics = () => {
     );
   }, [orders]);
 
+  const earningOrders = useMemo(() => {
+    return orders.filter(
+      (order) => order.status === "DELIVERED" || Number(order.riderCancellationEarning || 0) > 0
+    );
+  }, [orders]);
+
   // Earnings data
   const earningsData = useMemo(() => {
     const totals = new Map();
 
-    deliveredOrders.forEach((order) => {
+    earningOrders.forEach((order) => {
       const date = new Date(
         order.updatedAt
       ).toLocaleDateString("en-IN", {
@@ -67,7 +73,7 @@ const RiderAnalytics = () => {
       totals.set(
         date,
         (totals.get(date) || 0) +
-          Number(order.deliveryFee || 0)
+          (order.status === "CANCELLED" ? Number(order.riderCancellationEarning || 0) : Number(order.deliveryFee || 0))
       );
     });
 
@@ -77,7 +83,7 @@ const RiderAnalytics = () => {
         earnings,
       })
     );
-  }, [deliveredOrders]);
+  }, [earningOrders]);
 
   // Area analytics
   const areaData = useMemo(() => {
@@ -104,9 +110,9 @@ const RiderAnalytics = () => {
   // Summary cards
   const summary = useMemo(() => {
     return {
-      earnings: deliveredOrders.reduce(
+      earnings: earningOrders.reduce(
         (sum, order) =>
-          sum + Number(order.deliveryFee || 0),
+          sum + (order.status === "CANCELLED" ? Number(order.riderCancellationEarning || 0) : Number(order.deliveryFee || 0)),
         0
       ),
 
@@ -117,7 +123,7 @@ const RiderAnalytics = () => {
           order.status === "OUT_FOR_DELIVERY"
       ).length,
     };
-  }, [deliveredOrders, orders]);
+  }, [deliveredOrders, earningOrders, orders]);
 
   // Hot zone analytics
   const hotZone = useMemo(() => {

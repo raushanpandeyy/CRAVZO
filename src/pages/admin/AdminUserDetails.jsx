@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Award, Banknote, ChefHat, Clock, Package, Search, ShoppingBag, Star, Truck, User, X } from "lucide-react";
+import { ArrowLeft, Award, Banknote, ChefHat, Clock, Gift, Package, ShieldAlert, ShoppingBag, Star, TicketCheck, Truck, User, Users, X } from "lucide-react";
 import { API_ENDPOINTS } from "../../constants/apiEndpoints.js";
 import { apiRequest } from "../../services/api.js";
 
@@ -43,6 +43,18 @@ const AdminUserDetails = () => {
     }
   };
 
+  const getReferralStatusBadge = (status) => {
+    switch (status) {
+      case "COMPLETED": return "bg-emerald-100 text-emerald-700";
+      case "OTP_VERIFIED": return "bg-blue-100 text-blue-700";
+      case "SUSPECT": return "bg-rose-100 text-rose-700";
+      case "CANCELLED": return "bg-slate-200 text-slate-700";
+      default: return "bg-amber-100 text-amber-700";
+    }
+  };
+
+  const formatReferralStatus = (status) => status ? status.replaceAll("_", " ") : "N/A";
+
   const stats = {
     totalOrders: orders.length,
     completedOrders: orders.filter(o => o.status === "DELIVERED").length,
@@ -79,6 +91,10 @@ const AdminUserDetails = () => {
       </div>
     );
   }
+
+  const referral = user.referral || {};
+  const madeSummary = referral.madeSummary || {};
+  const hasReferralActivity = Boolean(referral.received) || (madeSummary.total || 0) > 0 || (referral.milestones || []).length > 0;
 
   return (
     <div className="max-w-5xl mx-auto space-y-4 pb-20 md:pb-4">
@@ -158,6 +174,108 @@ const AdminUserDetails = () => {
               <p className="text-2xl font-bold text-emerald-600">{formatCurrency(stats.totalEarnings)}</p>
             </div>
           </>
+        )}
+      </div>
+
+      {/* Referral Audit */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 md:p-6 shadow-sm">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between mb-4">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2"><Gift size={20} />Referral Audit</h2>
+          {user.referralCode && (
+            <span className="self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">Code: {user.referralCode}</span>
+          )}
+        </div>
+
+        {!hasReferralActivity ? (
+          <p className="text-sm text-slate-500">No referral activity found for this user.</p>
+        ) : (
+          <div className="space-y-4">
+            {referral.received && (
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <p className="font-semibold text-blue-900 flex items-center gap-2"><Users size={16} />Account came from referral</p>
+                  <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${getReferralStatusBadge(referral.received.status)}`}>
+                    {formatReferralStatus(referral.received.status)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                  <div><p className="text-blue-700/70">Referrer</p><p className="font-semibold text-slate-900">{referral.received.referrer?.name || "N/A"}</p></div>
+                  <div><p className="text-blue-700/70">Referrer Phone</p><p className="font-semibold text-slate-900">{referral.received.referrer?.phone || "N/A"}</p></div>
+                  <div><p className="text-blue-700/70">Signup Tracked</p><p className="font-semibold text-slate-900">{formatDate(referral.received.createdAt)}</p></div>
+                  <div><p className="text-blue-700/70">Qualified Order</p><p className="font-semibold text-slate-900">{referral.received.paidOrderId ? `#${referral.received.paidOrderId.slice(-6).toUpperCase()}` : "Not yet"}</p></div>
+                </div>
+                {referral.received.suspectFlag && (
+                  <div className="mt-3 rounded-xl border border-rose-200 bg-white p-3 text-sm text-rose-700 flex gap-2">
+                    <ShieldAlert size={16} className="mt-0.5 shrink-0" />
+                    <span>{referral.received.suspectReason || "Marked suspect for admin review."}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="rounded-2xl border border-slate-200 p-3">
+                <p className="text-xs text-slate-500">Shared Signups</p>
+                <p className="text-2xl font-bold text-slate-900">{madeSummary.verified || 0}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 p-3">
+                <p className="text-xs text-slate-500">Paid Qualified</p>
+                <p className="text-2xl font-bold text-emerald-600">{madeSummary.qualified || 0}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 p-3">
+                <p className="text-xs text-slate-500">Pending</p>
+                <p className="text-2xl font-bold text-amber-600">{madeSummary.pending || 0}</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 p-3">
+                <p className="text-xs text-slate-500">Suspect</p>
+                <p className="text-2xl font-bold text-rose-600">{madeSummary.suspect || 0}</p>
+              </div>
+            </div>
+
+            {(referral.milestones || []).length > 0 && (
+              <div>
+                <p className="mb-2 font-semibold text-slate-900 flex items-center gap-2"><Award size={16} />Rewards Issued</p>
+                <div className="space-y-2">
+                  {referral.milestones.map((milestone) => (
+                    <div key={milestone.id} className="flex flex-col gap-2 rounded-xl border border-slate-200 p-3 text-sm md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="font-semibold text-slate-900">Tier {milestone.tier} - {milestone.rewardType.replaceAll("_", " ")}</p>
+                        <p className="text-xs text-slate-500">{milestone.voucherCode} | {formatCurrency(milestone.rewardValue)} | expires {formatDate(milestone.expiresAt)}</p>
+                      </div>
+                      <span className="self-start rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700 md:self-auto">{milestone.status}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(referral.made || []).length > 0 && (
+              <div>
+                <p className="mb-2 font-semibold text-slate-900 flex items-center gap-2"><TicketCheck size={16} />Recent Referred Accounts</p>
+                <div className="space-y-2">
+                  {referral.made.map((item) => (
+                    <div key={item.id} className="rounded-xl border border-slate-200 p-3 text-sm">
+                      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-900">{item.referred?.name || "N/A"}</p>
+                          <p className="truncate text-xs text-slate-500">{item.referred?.phone || item.referred?.email || "No contact"}</p>
+                        </div>
+                        <span className={`self-start rounded-full px-2 py-1 text-[10px] font-bold md:self-auto ${getReferralStatusBadge(item.status)}`}>
+                          {formatReferralStatus(item.status)}
+                        </span>
+                      </div>
+                      <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-slate-500 md:grid-cols-3">
+                        <span>Joined: {formatDate(item.createdAt)}</span>
+                        <span>Qualified: {item.completedAt ? formatDate(item.completedAt) : "Not yet"}</span>
+                        <span>Order: {item.paidOrderId ? `#${item.paidOrderId.slice(-6).toUpperCase()}` : "N/A"}</span>
+                      </div>
+                      {item.suspectFlag && <p className="mt-2 text-xs font-semibold text-rose-600">{item.suspectReason || "Suspect referral"}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
