@@ -63,6 +63,7 @@ async function apiRequest(path, options = {}) {
     ...fetchOptions,
     headers,
     credentials: "include",
+    cache: "no-store",
     signal: controller.signal,
   })
     .then(async (response) => {

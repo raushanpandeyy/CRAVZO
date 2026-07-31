@@ -34,6 +34,9 @@ export default defineConfig({
         ],
       },
       workbox: {
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         // Only precache the HTML shell + CSS + fonts — not large images/icons
         globPatterns: ['**/*.{html,css,woff2}'],
         // Exclude oversized public files from SW precache
@@ -81,16 +84,7 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // API — stale while revalidate: show cached instantly, fetch fresh in background
-          {
-            urlPattern: /\/api\/.*/i,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'api-cache',
-              expiration: { maxEntries: 80, maxAgeSeconds: 60 * 5 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
+
         ],
       },
     }),
