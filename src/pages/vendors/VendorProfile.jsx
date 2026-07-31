@@ -8,16 +8,21 @@ import React, {
   useState,
   useCallback,
 } from "react";
+import { Link } from "react-router-dom";
 
 import {
+  BarChart3,
   CheckCircle,
+  ChefHat,
   Clock,
   CreditCard,
   Edit,
   ImagePlus,
   Loader2,
+  MessageCircle,
   Plus,
   MapPin,
+  Star,
   Store,
 } from "lucide-react";
 
@@ -41,6 +46,13 @@ const DAYS_OF_WEEK = [
   "Friday",
   "Saturday",
   "Sunday",
+];
+
+const profileLinks = [
+  { label: "Kitchen", to: "/vendor-dashboard/kitchen", icon: ChefHat },
+  { label: "Reports", to: "/vendor-dashboard/reports", icon: BarChart3 },
+  { label: "Reviews", to: "/vendor-dashboard/reviews", icon: Star },
+  { label: "Chat", to: "/vendor-dashboard/chat", icon: MessageCircle },
 ];
 
 // ======================
@@ -527,6 +539,21 @@ const VendorProfile = () => {
             {error}
           </div>
         )}
+
+        <div className="grid grid-cols-4 gap-3 md:hidden">
+          {profileLinks.map(({ label, to, icon: Icon }) => (
+            <Link
+              key={to}
+              to={to}
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-white p-3 text-center text-[11px] font-black text-indigo-950 shadow-sm active:scale-95"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700">
+                <Icon className="h-5 w-5" />
+              </span>
+              {label}
+            </Link>
+          ))}
+        </div>
 
         {/* PROGRESS STATUS */}
         {restaurant && (

@@ -15,6 +15,12 @@ const LOCATION_MOVEMENT_THRESHOLD = 0.0003;
 
 const formatCurrency = (amount) => `Rs ${Math.floor(amount || 0)}`;
 
+const formatDistance = (distance) => {
+  const value = Number(distance || 0);
+  if (!Number.isFinite(value) || value <= 0) return "N/A";
+  return `${value.toFixed(value < 10 ? 1 : 0)} km`;
+};
+
 const formatRestaurantAddress = (restaurant) =>
   [restaurant?.addressLine1, restaurant?.addressLine2, restaurant?.city, restaurant?.state, restaurant?.postalCode, "India"]
     .filter(Boolean)
@@ -383,6 +389,10 @@ const RiderDashboard = () => {
     ), 0),
     [earningOrders],
   );
+  const deliveredDistanceKm = useMemo(
+    () => deliveredOrders.reduce((sum, order) => sum + Number(order.deliveryDistance || 0), 0),
+    [deliveredOrders],
+  );
 
   const renderPrimaryAction = (order, fullWidth = false) => {
     const className = fullWidth
@@ -478,17 +488,19 @@ const RiderDashboard = () => {
       </div>
 
       <div className="mx-auto max-w-4xl px-4">
-        <div className="-mt-8 flex items-center justify-around rounded-3xl border border-gray-100 bg-white p-6 shadow-xl">
+        <div className="-mt-8 grid grid-cols-2 gap-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-xl sm:grid-cols-4 sm:p-6">
           <div className="text-center">
             <p className="mb-1 text-sm font-medium text-gray-500">Available Orders</p>
             <h3 className="text-2xl font-extrabold text-gray-800">{availableOrders.length}</h3>
           </div>
-          <div className="h-10 w-px bg-gray-200" />
           <div className="text-center">
             <p className="mb-1 text-sm font-medium text-gray-500">Completed Orders</p>
             <h3 className="text-2xl font-extrabold text-gray-800">{deliveredOrders.length}</h3>
           </div>
-          <div className="h-10 w-px bg-gray-200" />
+          <div className="text-center">
+            <p className="mb-1 text-sm font-medium text-gray-500">Delivered Km</p>
+            <h3 className="text-2xl font-extrabold text-gray-800">{formatDistance(deliveredDistanceKm)}</h3>
+          </div>
           <div className="text-center">
             <p className="mb-1 text-sm font-medium text-gray-500">Delivery Earnings</p>
             <h3 className="text-2xl font-extrabold text-gray-800">{formatCurrency(earnings)}</h3>
@@ -557,6 +569,9 @@ const RiderDashboard = () => {
                     </button>
                     {renderPrimaryAction(order)}
                   </div>
+                  <div className="mt-3 rounded-2xl bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-800">
+                    Delivery km: {formatDistance(order.deliveryDistance)}
+                  </div>
                 </div>
               ))}
             </div>
@@ -587,6 +602,7 @@ const RiderDashboard = () => {
                       <div className="text-right">
                         <div className="font-bold">{formatCurrency(order.totalAmount)}</div>
                         <div className="text-xs text-slate-500">{order.status.replaceAll("_", " ")}</div>
+                        <div className="mt-1 text-xs font-bold text-indigo-700">{formatDistance(order.deliveryDistance)}</div>
                       </div>
                     </div>
 
@@ -607,6 +623,9 @@ const RiderDashboard = () => {
                         </button>
                       ) : null}
                       {renderPrimaryAction(order)}
+                    </div>
+                    <div className="mt-3 rounded-2xl bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-800">
+                      Delivery km for this order: {formatDistance(order.deliveryDistance)}
                     </div>
                   </div>
                 );
@@ -650,6 +669,19 @@ const RiderDashboard = () => {
             </div>
 
             <div className="mb-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-indigo-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-indigo-500">Delivery km</p>
+                  <p className="mt-1 text-xl font-black text-indigo-900">{formatDistance(selectedOrder.deliveryDistance)}</p>
+                </div>
+                <div className="rounded-2xl bg-emerald-50 p-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-emerald-500">Earning</p>
+                  <p className="mt-1 text-xl font-black text-emerald-900">
+                    {formatCurrency(Number(selectedOrder.deliveryFee || 0) + Number(selectedOrder.tipAmount || 0))}
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <p className="text-sm font-bold text-gray-800">Pickup Address</p>
                 <p className="text-xs text-gray-500">{formatRestaurantAddress(selectedOrder.restaurant)}</p>
@@ -769,3 +801,5 @@ const RiderDashboard = () => {
 };
 
 export default RiderDashboard;
+
+

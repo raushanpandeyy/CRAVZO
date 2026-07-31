@@ -7,6 +7,13 @@ import React, {
 } from "react";
 
 import { getRiderOrders } from "../../services/orderService.js";
+const formatDistance = (distance) => {
+  const value = Number(distance || 0);
+  if (!Number.isFinite(value) || value <= 0) return "N/A";
+  return `${value.toFixed(value < 10 ? 1 : 0)} km`;
+};
+
+const formatCurrency = (amount) => `Rs ${Math.floor(Number(amount || 0))}`;
 
 // Lazy Loaded Charts
 const EarningsChart = lazy(() =>
@@ -122,6 +129,11 @@ const RiderAnalytics = () => {
         (order) =>
           order.status === "OUT_FOR_DELIVERY"
       ).length,
+
+      distance: deliveredOrders.reduce(
+        (sum, order) => sum + Number(order.deliveryDistance || 0),
+        0
+      ),
     };
   }, [deliveredOrders, earningOrders, orders]);
 
@@ -171,7 +183,7 @@ const RiderAnalytics = () => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-6">
+        <div className="grid gap-6 mb-6 sm:grid-cols-2 lg:grid-cols-4">
           <div className="bg-white p-6 rounded-2xl shadow">
             <h2>Total Delivery Earnings</h2>
             <p className="text-3xl font-bold text-purple-700">
@@ -190,6 +202,13 @@ const RiderAnalytics = () => {
             <h2>Active Deliveries</h2>
             <p className="text-3xl font-bold text-green-600">
               {summary.active}
+            </p>
+          </div>
+
+          <div className="bg-white p-6 rounded-2xl shadow">
+            <h2>Total Delivered Km</h2>
+            <p className="text-3xl font-bold text-indigo-700">
+              {formatDistance(summary.distance)}
             </p>
           </div>
         </div>
@@ -228,6 +247,32 @@ const RiderAnalytics = () => {
           </Suspense>
         </div>
 
+
+        {/* Recent Delivered Distances */}
+        <div className="bg-white p-6 rounded-2xl shadow mb-6">
+          <h2 className="mb-4 font-semibold">
+            Recent Completed Delivery Km
+          </h2>
+
+          {deliveredOrders.length === 0 ? (
+            <p className="text-sm text-slate-500">No completed delivery distance yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {deliveredOrders.slice(0, 8).map((order) => (
+                <div key={order.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">Order #{order.id?.slice(-6)}</p>
+                    <p className="text-xs text-slate-500">{order.restaurant?.name || order.address?.city || "Delivered order"}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-indigo-700">{formatDistance(order.deliveryDistance)}</p>
+                    <p className="text-xs font-semibold text-slate-500">{formatCurrency(order.deliveryFee)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         {/* Hot Zone */}
         <div className="bg-white p-6 rounded-2xl shadow">
           <h2 className="mb-2 font-semibold">
@@ -248,4 +293,6 @@ const RiderAnalytics = () => {
 };
 
 export default RiderAnalytics;
+
+
 

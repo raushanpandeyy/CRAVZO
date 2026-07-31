@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Bike, Camera, Mail, Phone, Save, User } from "lucide-react";
+import { Link } from "react-router-dom";
+import { BarChart3, Bike, Camera, Mail, MessageCircle, Phone, Save, Star, User } from "lucide-react";
 
 import { getStoredUser } from "../../services/authService.js";
 import { getProfile, updateProfile, uploadImage } from "../../services/userService.js";
@@ -23,6 +24,12 @@ const buildInitialForm = (user) => ({
     registrationNumber: user?.vehicleDetails?.registrationNumber || "",
   },
 });
+
+const profileLinks = [
+  { label: "Orders", to: "/rider-analytics", icon: BarChart3 },
+  { label: "Reviews", to: "/rider-reviews", icon: Star },
+  { label: "Chat", to: "/rider-chat", icon: MessageCircle },
+];
 
 const RiderProfile = () => {
   const [profile, setProfile] = useState(getStoredUser());
@@ -149,6 +156,21 @@ const RiderProfile = () => {
 
         {message ? <div className="mt-6 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{message}</div> : null}
         {error ? <div className="mt-6 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
+
+        <div className="mt-6 grid grid-cols-3 gap-3 md:hidden">
+          {profileLinks.map(({ label, to, icon: Icon }) => (
+            <Link
+              key={to}
+              to={to}
+              className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-indigo-100 bg-white p-3 text-center text-xs font-black text-indigo-950 shadow-sm active:scale-95"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700">
+                <Icon className="h-5 w-5" />
+              </span>
+              {label}
+            </Link>
+          ))}
+        </div>
 
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="rounded-3xl bg-white p-6 shadow-lg">
