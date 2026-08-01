@@ -74,26 +74,29 @@ const createFavorite = async (req, res) => {
     }
   }
 
-  const favorite = await prisma.favorite.upsert({
+  const include = {
+    restaurant: true,
+    menuItem: menuItemId
+      ? { select: { id: true, name: true, price: true, imageUrl: true } }
+      : false,
+  };
+
+  const existingFavorite = await prisma.favorite.findFirst({
     where: {
-      userId_restaurantId_menuItemId: {
-        userId: req.user.sub,
-        restaurantId,
-        menuItemId: menuItemId ?? null,
-      },
-    },
-    update: {},
-    create: {
       userId: req.user.sub,
       restaurantId,
       menuItemId: menuItemId ?? null,
     },
-    include: {
-      restaurant: true,
-      menuItem: menuItemId
-        ? { select: { id: true, name: true, price: true, imageUrl: true } }
-        : false,
+    include,
+  });
+
+  const favorite = existingFavorite || await prisma.favorite.create({
+    data: {
+      userId: req.user.sub,
+      restaurantId,
+      menuItemId: menuItemId ?? null,
     },
+    include,
   });
 
   const data = menuItemId
@@ -227,3 +230,4 @@ const removeDishFavorite = async (req, res) => {
 };
 
 export { checkFavorite, createFavorite, deleteFavorite, getDishFavorites, listFavorites, removeDishFavorite };
+

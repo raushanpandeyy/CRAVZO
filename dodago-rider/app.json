@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "Dodago Rider",
+    "slug": "dodago-rider",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "shop.dodago.rider",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Dodago Rider needs your location to assign orders and share live delivery updates.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Dodago Rider needs location while you deliver active orders."
+      }
+    },
+    "android": {
+      "package": "shop.dodago.rider",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "apiBaseUrl": "https://api.dodago.shop"
+    }
+  }
+}
