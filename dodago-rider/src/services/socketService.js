@@ -41,6 +41,12 @@ const subscribe = (eventName, handler) => {
 export const onNewOrder = (handler) => subscribe("order:new", handler);
 export const onOrderStatusUpdate = (handler) => subscribe("order:status-updated", handler);
 export const onSocketMessage = (handler) => subscribe("chat:message", handler);
+export const sendSocketMessage = async (payload, callback) => {
+  const s = await getSocket();
+  if (!s.connected) s.connect();
+  s.emit("chat:send", payload, callback);
+  return true;
+};
 
 export const joinChatRoom = async (roomId) => {
   const s = await getSocket();

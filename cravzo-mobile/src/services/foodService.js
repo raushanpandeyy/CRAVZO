@@ -21,17 +21,68 @@ const normalizeMenuItem = (item = {}) => ({
   id: item.id || item._id,
   restaurantId: item.restaurantId || item.restaurant || item.restaurant_id,
   imageUrl: item.imageUrl || item.image || item.photoUrl,
+  price: Number(item.price || 0),
 });
 
-const normalizeRestaurant = (restaurant = {}) => ({
-  ...restaurant,
-  id: restaurant.id || restaurant._id,
-  imageUrl: restaurant.imageUrl || restaurant.image || restaurant.logoUrl || restaurant.coverImage,
-  location: restaurant.location || restaurant.address || restaurant.area,
-  cuisine: Array.isArray(restaurant.cuisine) ? restaurant.cuisine.join(", ") : restaurant.cuisine,
-  menuItems: Array.isArray(restaurant.menuItems) ? restaurant.menuItems.map(normalizeMenuItem) : restaurant.menuItems,
-  menuPreview: Array.isArray(restaurant.menuPreview) ? restaurant.menuPreview.map(normalizeMenuItem) : restaurant.menuPreview,
-});
+const getLowestSizePrice = (sizes) => {
+  if (!Array.isArray(sizes)) return null;
+  const prices = sizes.map((size) => Number(size?.price)).filter((price) => Number.isFinite(price) && price > 0);
+  return prices.length ? Math.min(...prices) : null;
+};
+
+const getDishPrice = (item = {}) => {
+  const basePrice = Number(item.price);
+  const sizePrice = getLowestSizePrice(item.sizes);
+  if (Number.isFinite(basePrice) && basePrice > 0 && sizePrice) return Math.min(basePrice, sizePrice);
+  if (Number.isFinite(basePrice) && basePrice > 0) return basePrice;
+  return sizePrice;
+};
+
+const getStartingDishPrice = (restaurant = {}) => {
+  const menuItems = [
+    ...(Array.isArray(restaurant.menuItems) ? restaurant.menuItems : []),
+    ...(Array.isArray(restaurant.menuPreview) ? restaurant.menuPreview : []),
+    ...(Array.isArray(restaurant.matchingDishes) ? restaurant.matchingDishes : []),
+  ];
+  const prices = menuItems.map(getDishPrice).filter((price) => Number.isFinite(price) && price > 0);
+  return prices.length ? Math.min(...prices) : null;
+};
+
+const formatDistanceLabel = (distance) => {
+  const distanceKm = Number(distance);
+  if (!Number.isFinite(distanceKm) || distanceKm <= 0) return "";
+  return `${distanceKm.toFixed(distanceKm < 10 ? 1 : 0)} km away`;
+};
+
+const normalizeRestaurant = (restaurant = {}) => {
+  const menuItems = Array.isArray(restaurant.menuItems) ? restaurant.menuItems.map(normalizeMenuItem) : restaurant.menuItems;
+  const menuPreview = Array.isArray(restaurant.menuPreview) ? restaurant.menuPreview.map(normalizeMenuItem) : restaurant.menuPreview;
+  const reviewCountValue = restaurant.reviewCount ?? restaurant.totalReviews ?? restaurant.reviewsCount;
+  const hasReviewCount = reviewCountValue !== undefined && reviewCountValue !== null;
+  const reviewCount = Number(reviewCountValue || 0);
+  const rawRating = restaurant.averageRating ?? restaurant.rating;
+  const hasRating = hasReviewCount ? reviewCount > 0 : Number(rawRating || 0) > 0;
+  const averageRating = hasRating ? Number(Number(rawRating || 0).toFixed(1)) : 0;
+  const normalized = {
+    ...restaurant,
+    id: restaurant.id || restaurant._id,
+    imageUrl: restaurant.imageUrl || restaurant.image || restaurant.logoUrl || restaurant.coverImage,
+    location: restaurant.location || restaurant.address || restaurant.area,
+    cuisine: Array.isArray(restaurant.cuisine) ? restaurant.cuisine.join(", ") : restaurant.cuisine,
+    menuItems,
+    menuPreview,
+    reviewCount,
+    averageRating,
+    rating: averageRating,
+    hasRating: hasRating && averageRating > 0,
+    distanceLabel: restaurant.distanceLabel || formatDistanceLabel(restaurant.distance ?? restaurant.distanceKm),
+  };
+
+  return {
+    ...normalized,
+    startingDishPrice: getStartingDishPrice(normalized),
+  };
+};
 
 export const listRestaurants = async (params = {}) => {
   const query = Object.entries(params)

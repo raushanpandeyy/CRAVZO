@@ -174,7 +174,7 @@ const PartnerMobileBottomNav = ({ role }) => {
   const navItems = config.bottomItems || config.items;
 
   return (
-    <nav className="fixed inset-x-0 bottom-3 z-50 px-4 md:hidden">
+    <nav className="fixed inset-x-0 mobile-safe-bottom-nav z-50 px-4 md:hidden">
       <div className="mx-auto flex max-w-md gap-1 overflow-x-auto rounded-3xl border border-slate-100 bg-white/95 p-2 shadow-xl shadow-slate-900/15 backdrop-blur">
         {navItems.map(({ label, icon, to }) => {
           const NavIcon = icon;
@@ -218,6 +218,7 @@ const PartnerMobileNav = ({ role }) => (
 );
 
 export default PartnerMobileNav;
+
 
 
 

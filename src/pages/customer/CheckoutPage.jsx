@@ -1192,7 +1192,7 @@ const CheckoutPage = () => {
         </div>
       </form>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white p-4 shadow-lg md:hidden">
+      <div className="fixed inset-x-0 mobile-safe-action-bar z-40 border-t border-slate-200 bg-white p-4 shadow-lg md:hidden">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-slate-500">Total to pay</p>
@@ -1219,3 +1219,4 @@ const svgCashIcon = () => (
 );
 
 export default CheckoutPage;
+

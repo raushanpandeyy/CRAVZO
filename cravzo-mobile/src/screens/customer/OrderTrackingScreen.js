@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Linking } from "react-native";
 import LightweightTrackingMap from "../../components/LightweightTrackingMap";
+import PressableScale from "../../components/PressableScale";
 import { ChevronLeft, Bike, MapPin, Phone, ShieldCheck, Navigation, Clock3, Route } from "lucide-react-native";
 import { getOrderTracking, requestDeliveryOtp } from "../../services/orderService";
 import { colors } from "../../constants/colors";
@@ -122,27 +123,27 @@ export default function OrderTrackingScreen({ navigation, route }) {
   return (
     <View className="flex-1 bg-slate-50">
       <View className="bg-indigo-950 pt-14 pb-5 px-4 flex-row items-center gap-3">
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <PressableScale onPress={() => navigation.goBack()} className="h-10 w-10 items-center justify-center rounded-full bg-white/10">
           <ChevronLeft color="#fff" />
-        </TouchableOpacity>
+        </PressableScale>
         <Text className="text-xl font-extrabold text-white">Track order</Text>
       </View>
 
-      <View className="h-72 overflow-hidden bg-indigo-50">
+      <View className="h-80 overflow-hidden bg-indigo-50">
         <LightweightTrackingMap rider={riderLoc} restaurant={restaurantLoc} destination={addressLoc} />
         <View className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-2 shadow-sm">
           <Text className="text-xs font-black text-indigo-950">LIGHTWEIGHT LIVE TRACKING</Text>
         </View>
       </View>
-      <ScrollView className="flex-1 px-4 pt-5">
-        <View className="rounded-3xl bg-white p-5 shadow-sm">
+      <ScrollView className="-mt-8 flex-1 px-4 pt-0" contentContainerStyle={{ paddingBottom: 28 }}>
+        <View className="rounded-3xl border border-white bg-white p-5 shadow-xl shadow-slate-300/50">
           <View className="flex-row justify-between">
             <Text className="font-extrabold text-slate-900">
               Order #{orderId?.slice?.(-6) || ""}
             </Text>
-            <TouchableOpacity onPress={load}>
-              <Text className="text-indigo-600 font-bold text-sm">Refresh</Text>
-            </TouchableOpacity>
+            <PressableScale onPress={load} className="rounded-full bg-indigo-50 px-3 py-1.5">
+              <Text className="text-indigo-600 font-black text-sm">Refresh</Text>
+            </PressableScale>
           </View>
           <Text className="mt-2 text-indigo-700 font-bold">
             {formatStatus(tracking?.status)}
@@ -173,21 +174,21 @@ export default function OrderTrackingScreen({ navigation, route }) {
             </View>
           </View>
           <View className="mt-4 flex-row gap-3">
-            <TouchableOpacity
+            <PressableScale
               onPress={openMap}
-              className="flex-1 rounded-2xl bg-indigo-600 py-3 items-center"
+              className="flex-1 rounded-2xl bg-indigo-600 py-3 items-center shadow-lg shadow-indigo-200"
             >
               <MapPin size={17} color="#fff" />
               <Text className="text-white font-bold">Open map</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            </PressableScale>
+            <PressableScale
               disabled={!tracking?.rider?.phone}
               onPress={() => Linking.openURL(`tel:${tracking.rider.phone}`)}
-              className="flex-1 rounded-2xl bg-emerald-600 py-3 items-center disabled:opacity-60"
+              className="flex-1 rounded-2xl bg-emerald-600 py-3 items-center shadow-lg shadow-emerald-200 disabled:opacity-60"
             >
               <Phone size={17} color="#fff" />
               <Text className="text-white font-bold">Call rider</Text>
-            </TouchableOpacity>
+            </PressableScale>
           </View>
         </View>
 
@@ -210,18 +211,20 @@ export default function OrderTrackingScreen({ navigation, route }) {
               {otp}
             </Text>
           ) : (
-            <TouchableOpacity
+            <PressableScale
               onPress={getOtp}
-              className="mt-4 rounded-2xl bg-amber-600 py-3 items-center"
+              className="mt-4 rounded-2xl bg-amber-600 py-3 items-center shadow-lg shadow-amber-200"
             >
               <Text className="text-white font-extrabold">Generate OTP</Text>
-            </TouchableOpacity>
+            </PressableScale>
           )}
         </View>
       </ScrollView>
     </View>
   );
 }
+
+
 
 
 

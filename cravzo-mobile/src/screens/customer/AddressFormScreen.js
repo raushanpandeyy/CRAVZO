@@ -13,6 +13,9 @@ import {
 import { ChevronLeft, MapPin, Check, Navigation } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { addAddress, updateAddress } from "../../services/addressService";
+import { getCurrentAddress } from "../../services/locationAddressService";
+import { explainPermission, permissionMessages } from "../../services/permissionNotice";
+import { updatePrivacyConsent } from "../../services/privacyConsent";
 
 const emptyForm = {
   label: "HOME",
@@ -31,6 +34,7 @@ export default function AddressFormScreen({ navigation, route }) {
   const editAddress = route.params?.address;
   const [form, setForm] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPickingCurrentAddress, setIsPickingCurrentAddress] = useState(false);
 
   useEffect(() => {
     if (editAddress) {
@@ -54,7 +58,7 @@ export default function AddressFormScreen({ navigation, route }) {
       const loc = route.params.pickedLocation;
       setForm((prev) => ({
         ...prev,
-        line1: loc.line1 || prev.line1,
+        line1: loc.line1 || loc.displayName || prev.line1,
         line2: loc.line2 || prev.line2,
         city: loc.city || prev.city,
         state: loc.state || prev.state,
@@ -69,6 +73,34 @@ export default function AddressFormScreen({ navigation, route }) {
   const handleChange = useCallback((field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   }, []);
+
+  const applyPickedAddress = useCallback((loc) => {
+    setForm((prev) => ({
+      ...prev,
+      line1: loc.line1 || loc.displayName || prev.line1,
+      line2: loc.line2 || prev.line2,
+      city: loc.city || prev.city,
+      state: loc.state || prev.state,
+      postalCode: loc.postalCode || prev.postalCode,
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+    }));
+  }, []);
+
+  const handleUseCurrentAddress = useCallback(async () => {
+    try {
+      const shouldAsk = await explainPermission({ title: "Location permission", message: permissionMessages.location });
+      if (!shouldAsk) return;
+      setIsPickingCurrentAddress(true);
+      updatePrivacyConsent({ location: true });
+      const loc = await getCurrentAddress();
+      applyPickedAddress(loc);
+    } catch (err) {
+      Alert.alert("Location unavailable", err.message || "Could not pick your current address.");
+    } finally {
+      setIsPickingCurrentAddress(false);
+    }
+  }, [applyPickedAddress]);
 
   const handlePickOnMap = () => {
     navigation.navigate("AddressMapPicker", { returnRoute: "AddressForm" });
@@ -199,14 +231,30 @@ export default function AddressFormScreen({ navigation, route }) {
             </View>
           ) : null}
 
-          <TouchableOpacity
-            onPress={handlePickOnMap}
-            className="flex-row items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-indigo-400 bg-indigo-50/50 py-4"
-          >
-            <MapPin size={20} color={colors.brand[600]} />
-            <Text className="font-bold text-indigo-600">Pick on Map</Text>
-            <Navigation size={16} color={colors.brand[600]} />
-          </TouchableOpacity>
+          <View className="flex-row gap-3">
+            <TouchableOpacity
+              onPress={handleUseCurrentAddress}
+              disabled={isPickingCurrentAddress}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-4 disabled:bg-slate-300"
+            >
+              {isPickingCurrentAddress ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Navigation size={18} color="#fff" />
+              )}
+              <Text className="font-bold text-white">
+                {isPickingCurrentAddress ? "Picking..." : "Current"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handlePickOnMap}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-indigo-400 bg-indigo-50/50 py-4"
+            >
+              <MapPin size={18} color={colors.brand[600]} />
+              <Text className="font-bold text-indigo-600">Map</Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             onPress={handleSave}

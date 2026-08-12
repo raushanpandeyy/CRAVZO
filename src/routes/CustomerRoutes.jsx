@@ -61,7 +61,7 @@ function CustomerRoutes() {
     <div className="flex flex-col min-h-screen">
       <Navbar />
 
-      <main className="flex-1 min-h-0 pb-20 md:pb-0">
+      <main className="flex-1 min-h-0 mobile-safe-content md:pb-0">
         <Suspense
           fallback={
             <div className="flex items-center justify-center min-h-[60vh] text-slate-500 text-sm">
@@ -128,3 +128,4 @@ function CustomerRoutes() {
 }
 
 export default CustomerRoutes;
+

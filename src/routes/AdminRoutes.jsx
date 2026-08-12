@@ -98,7 +98,7 @@ const AdminRoutes = () => {
         </div>
       )}
 
-      <main className="flex-1 px-2 pb-20 pt-20 md:pt-16 md:pb-8 md:pl-56 md:px-6">
+      <main className="flex-1 px-2 mobile-safe-content pt-20 md:pt-16 md:pb-8 md:pl-56 md:px-6">
         <Suspense fallback={<div className="p-4 text-center text-slate-500">Loading...</div>}>
           <Routes>
             <Route path="/" element={<Navigate to="/admin/featured" replace />} />
@@ -123,3 +123,4 @@ const AdminRoutes = () => {
 };
 
 export default AdminRoutes;
+

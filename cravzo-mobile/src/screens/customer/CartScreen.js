@@ -9,12 +9,13 @@ import {
   Alert,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Minus, Plus, Trash2, ChevronLeft,
   ChevronDown, ChevronUp, ShoppingCart,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
-import { ACTION_BAR_BOTTOM_PADDING } from "../../constants/layout";
+import { ACTION_BAR_BOTTOM_PADDING, MIN_BOTTOM_BAR_PADDING, MIN_DEVICE_NAV_GAP } from "../../constants/layout";
 import { updateQuantity, removeItem, updateItemNotes, clearCart } from "../../store/slices/cartSlice";
 import { setShowAuthModal, setPendingNavigationRoute } from "../../store/slices/userSlice";
 import CouponInput from "../../components/CouponInput";
@@ -42,6 +43,8 @@ const getDistanceKm = (lat1, lng1, lat2, lng2) => {
 };
 
 export default function CartScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
+  const bottomBarPadding = Math.max(insets.bottom + MIN_DEVICE_NAV_GAP, MIN_BOTTOM_BAR_PADDING);
   const dispatch = useDispatch();
   const isLoggedIn = useSelector(selectIsLoggedIn);
   const cart = useSelector((state) => state.cart.items);
@@ -309,7 +312,7 @@ export default function CartScreen({ navigation }) {
         ) : null}
       </ScrollView>
 
-      <View className="border-t border-slate-200 bg-white px-4 pt-4 pb-8">
+      <View className="border-t border-slate-200 bg-white px-4 pt-4" style={{ paddingBottom: bottomBarPadding }}>
         <TouchableOpacity onPress={() => {
           if (!isLoggedIn) {
             dispatch(setPendingNavigationRoute("Checkout"));
@@ -328,5 +331,6 @@ export default function CartScreen({ navigation }) {
     </View>
   );
 }
+
 
 

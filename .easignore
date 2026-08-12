@@ -1,0 +1,45 @@
+# EAS builds from this git root, but this repo has multiple apps.
+# Keep app source folders available while excluding heavy generated/dependency output.
+
+.git/
+node_modules/
+backend/
+dist/
+dev-dist/
+.vercel/
+.vscode/
+.aws-restore-temp/
+bundle-report.html
+*.dump
+*.jmx
+*.log
+
+# Mobile app generated/dependency output
+cravzo-mobile/node_modules/
+cravzo-mobile/.expo/
+cravzo-mobile/dist/
+cravzo-mobile/dist*/
+cravzo-mobile/web-build/
+cravzo-mobile/android/
+cravzo-mobile/ios/
+cravzo-mobile/**/*.log
+cravzo-mobile/**/*.apk
+cravzo-mobile/**/*.aab
+cravzo-mobile/**/*.zip
+cravzo-mobile/**/*.tar
+cravzo-mobile/**/*.tgz
+
+# Rider app generated/dependency output
+dodago-rider/node_modules/
+dodago-rider/.expo/
+dodago-rider/dist/
+dodago-rider/dist*/
+dodago-rider/web-build/
+dodago-rider/android/
+dodago-rider/ios/
+dodago-rider/**/*.log
+dodago-rider/**/*.apk
+dodago-rider/**/*.aab
+dodago-rider/**/*.zip
+dodago-rider/**/*.tar
+dodago-rider/**/*.tgz

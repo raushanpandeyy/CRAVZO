@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Expo/local output
+.expo/
+.expo-start*.log
+dist/
+dist-*/
+dist*/
+web-build/
+expo-env.d.ts
+
+# Local environment files
+.env
+.env*.local
+
+# Generated native folders. EAS should prebuild these on Linux.
+/android/
+/ios/
+android/
+ios/
+
+# Extra protection if a native folder is intentionally re-included later.
+**/.gradle/
+**/.kotlin/
+**/build/
+**/.cxx/
+**/local.properties
+**/*.iml
+
+# Bundle artifacts
+*.jsbundle
+*.apk
+*.aab
+*.zip
+*.tar
+*.tgz
+*.log
+

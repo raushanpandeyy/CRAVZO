@@ -24,7 +24,7 @@ const navItems = [
 
 const AdminMobileNav = () => {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[100] bg-white border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] md:hidden">
+    <nav className="fixed left-0 right-0 mobile-safe-bottom-nav z-[100] bg-white border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] md:hidden">
       <div className="flex items-center justify-between h-14 px-0.5 overflow-x-auto [scrollbar-width:none]">
         {navItems.map((item) => (
           <NavLink

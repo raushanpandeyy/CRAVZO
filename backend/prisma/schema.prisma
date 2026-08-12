@@ -377,10 +377,10 @@ model Favorite {
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   menuItem     MenuItem?  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, restaurantId, menuItemId])
   @@index([userId, createdAt])
   @@index([restaurantId])
   @@index([menuItemId])
+  @@index([userId, restaurantId, menuItemId])
   @@index([userId, menuItemId])
 }
 
@@ -612,5 +612,4 @@ model DishPromotion {
 
   @@index([isActive, position])
 }
-
 

@@ -26,6 +26,7 @@ import {
   UtensilsCrossed,
   CheckCircle2,
   Search,
+  ReceiptText,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { TAB_SCREEN_BOTTOM_PADDING, MODAL_BOTTOM_PADDING } from "../../constants/layout";
@@ -55,6 +56,24 @@ const formatStatus = (status) =>
 
 const closedStatuses = ["DELIVERED", "CANCELLED", "REJECTED"];
 const cancellableStatuses = ["PENDING", "ACCEPTED", "PREPARING", "READY_FOR_PICKUP"];
+
+const formatMoney = (value) => {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount)) return "Rs 0";
+  return `Rs ${amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2)}`;
+};
+
+const formatDistance = (value) => {
+  const distance = Number(value || 0);
+  if (!Number.isFinite(distance) || distance <= 0) return "Distance pending";
+  return `${distance.toFixed(distance < 10 ? 1 : 0)} km`;
+};
+
+const getRestaurantName = (order) => order?.restaurantName || order?.restaurant?.name || "Restaurant";
+const getRestaurantImage = (order) => order?.restaurantImage || order?.restaurant?.imageUrl || null;
+const getOrderItemsText = (order) =>
+  order?.items?.map?.((item) => item.name || item.menuItem?.name).filter(Boolean).join(", ") ||
+  `${order?.itemCount || 0} items`;
 
 const calcCancelFee = (order) => {
   if (["PENDING", "ACCEPTED"].includes(order.status)) return 0;
@@ -159,7 +178,8 @@ export default function OrdersScreen({ navigation }) {
     const offStatus = onOrderStatusUpdate((payload = {}) => {
       const updatedOrder = payload.order || payload.data || payload;
       const orderId = updatedOrder.id || payload.orderId;
-      if (!orderId) return loadOrders();
+      loadOrders();
+      if (!orderId) return;
       setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, ...updatedOrder } : order)));
       setSelectedOrder((current) => current?.id === orderId ? { ...current, ...updatedOrder } : current);
     });
@@ -177,7 +197,7 @@ export default function OrdersScreen({ navigation }) {
       const haystack = [
         order.id,
         order.status,
-        order.restaurantName,
+        getRestaurantName(order),
         order.restaurant?.name,
         ...(order.items || []).map((item) => item.name || item.menuItem?.name),
       ].filter(Boolean).join(" ").toLowerCase();
@@ -215,7 +235,7 @@ export default function OrdersScreen({ navigation }) {
         dispatch(addItem({
           menuItemId: item.menuItemId || item.id,
           restaurantId: order.restaurantId || order.restaurant?.id,
-          restaurantName: order.restaurantName || order.restaurant?.name,
+          restaurantName: getRestaurantName(order),
           name: item.name || item.menuItem?.name,
           price: Number(item.price || item.unitPrice || 0),
           quantity: item.quantity || 1,
@@ -339,10 +359,12 @@ export default function OrdersScreen({ navigation }) {
             <SkeletonOrder />
           </View>
         ) : filteredOrders.length === 0 ? (
-          <View className="items-center justify-center py-20">
-            <Text className="text-5xl mb-4">📋</Text>
-            <Text className="text-lg font-bold text-slate-900">No orders yet</Text>
-            <Text className="text-sm text-slate-500 mt-1">Your orders will appear here</Text>
+          <View className="items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-white px-6 py-16 shadow-sm">
+            <View className="h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50">
+              <ReceiptText size={26} color={colors.brand[700]} />
+            </View>
+            <Text className="mt-4 text-lg font-black text-slate-900">No orders yet</Text>
+            <Text className="mt-1 text-center text-sm font-semibold text-slate-500">Your live and past orders will appear here.</Text>
           </View>
         ) : (
           <View className="space-y-4">
@@ -350,19 +372,19 @@ export default function OrdersScreen({ navigation }) {
               <TouchableOpacity
                 key={order.id}
                 onPress={() => setSelectedOrder(order)}
-                className="bg-white rounded-3xl p-4 shadow-sm"
+                className="rounded-3xl border border-white bg-white p-4 shadow-xl shadow-slate-200/70"
               >
                 <View className="flex-row items-start gap-3">
-                  {failedImages[order.id] || !order.restaurantImage ? (
-                    <View className="h-14 w-14 rounded-2xl bg-indigo-100 items-center justify-center">
+                  {failedImages[order.id] || !getRestaurantImage(order) ? (
+                    <View className="h-16 w-16 rounded-2xl bg-indigo-100 items-center justify-center">
                       <Text className="text-xl font-black text-indigo-600">
-                        {order.restaurantName?.[0] || "R"}
+                        {getRestaurantName(order)?.[0] || "R"}
                       </Text>
                     </View>
                   ) : (
                     <OptimizedImage
-                      source={{ uri: order.restaurantImage }}
-                      className="h-14 w-14 rounded-2xl"
+                      source={{ uri: getRestaurantImage(order) }}
+                      className="h-16 w-16 rounded-2xl"
                       onError={() =>
                         setFailedImages((prev) => ({ ...prev, [order.id]: true }))
                       }
@@ -370,20 +392,24 @@ export default function OrdersScreen({ navigation }) {
                   )}
                   <View className="flex-1">
                     <View className="flex-row items-center justify-between">
-                      <Text className="font-bold text-slate-900" numberOfLines={1}>
-                        {order.restaurantName || "Restaurant"}
+                      <Text className="font-black text-slate-950" numberOfLines={1}>
+                        {getRestaurantName(order)}
                       </Text>
                       <View className={`rounded-full px-2.5 py-0.5 ${statusColors[order.status] || "bg-slate-100"}`}>
                         <Text className="text-[10px] font-extrabold">{formatStatus(order.status)}</Text>
                       </View>
                     </View>
                     <Text className="text-xs text-slate-500 mt-0.5" numberOfLines={1}>
-                      {order.items?.map?.((i) => i.name).join(", ") || `${order.itemCount || 0} items`}
+                      {getOrderItemsText(order)}
                     </Text>
-                    <View className="flex-row items-center gap-3 mt-2">
+                    <View className="mt-3 flex-row flex-wrap items-center gap-2">
+                      <View className="flex-row items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1">
+                        <IndianRupee size={12} color={colors.brand[700]} />
+                        <Text className="text-xs font-black text-indigo-700">{formatMoney(order.totalAmount || order.total)}</Text>
+                      </View>
                       <View className="flex-row items-center gap-1">
-                        <IndianRupee size={12} color={colors.slate[500]} />
-                        <Text className="text-xs font-bold text-slate-700">{order.totalAmount || order.total}</Text>
+                        <Bike size={12} color={colors.slate[500]} />
+                        <Text className="text-xs font-bold text-slate-700">{formatDistance(order.deliveryDistance)}</Text>
                       </View>
                       <View className="flex-row items-center gap-1">
                         <Clock3 size={12} color={colors.slate[500]} />
@@ -391,6 +417,11 @@ export default function OrdersScreen({ navigation }) {
                           {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : ""}
                         </Text>
                       </View>
+                    </View>
+                    <View className="mt-3 flex-row flex-wrap gap-2">
+                      <Text className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-600">Food {formatMoney(order.subtotal)}</Text>
+                      <Text className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700">Delivery {formatMoney(order.deliveryFee)}</Text>
+                      <Text className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-black text-indigo-700">Charges {formatMoney(Number(order.platformFee || 0) + Number(order.packagingFee || 0) + Number(order.gatewayFee || 0) + Number(order.codCharge || 0))}</Text>
                     </View>
                   </View>
                   <ChevronRight size={20} color={colors.slate[400]} />
@@ -413,7 +444,7 @@ export default function OrdersScreen({ navigation }) {
               <View className="flex-row items-start justify-between mt-2 mb-2">
                 <View className="flex-1 mr-4">
                   <Text className="text-lg font-black text-slate-900">
-                    {selectedOrder?.restaurantName || "Order"}
+                    {getRestaurantName(selectedOrder)}
                   </Text>
                   <Text className="text-xs font-bold text-indigo-700 mt-0.5">
                     Order #{selectedOrder?.id?.slice?.(-6) || ""}
@@ -454,16 +485,41 @@ export default function OrdersScreen({ navigation }) {
                           ) : null}
                         </View>
                       </View>
-                      <Text className="text-sm font-bold text-slate-700">₹{item.totalPrice || item.price}</Text>
+                      <Text className="text-sm font-bold text-slate-700">{formatMoney(item.totalPrice || item.price)}</Text>
                     </View>
                   ))}
                 </View>
               )}
 
-              {selectedOrder?.totalAmount != null && (
-                <View className="flex-row items-center justify-between mt-3 pt-2">
-                  <Text className="text-sm font-black text-slate-900">Total</Text>
-                  <Text className="text-sm font-black text-slate-900">₹{selectedOrder.totalAmount}</Text>
+              {selectedOrder && (
+                <View className="mt-4 rounded-2xl bg-slate-50 p-4">
+                  <Text className="text-xs font-black uppercase text-slate-500">Restaurant and charges</Text>
+                  <View className="mt-3 flex-row justify-between">
+                    <Text className="text-sm text-slate-600">Restaurant distance</Text>
+                    <Text className="text-sm font-bold text-slate-900">{formatDistance(selectedOrder.deliveryDistance)}</Text>
+                  </View>
+                  <View className="mt-2 flex-row justify-between">
+                    <Text className="text-sm text-slate-600">Food subtotal</Text>
+                    <Text className="text-sm font-bold text-slate-900">{formatMoney(selectedOrder.subtotal)}</Text>
+                  </View>
+                  <View className="mt-2 flex-row justify-between">
+                    <Text className="text-sm text-slate-600">Delivery charge</Text>
+                    <Text className="text-sm font-bold text-slate-900">{formatMoney(selectedOrder.deliveryFee)}</Text>
+                  </View>
+                  <View className="mt-2 flex-row justify-between">
+                    <Text className="text-sm text-slate-600">Platform, packing and payment</Text>
+                    <Text className="text-sm font-bold text-slate-900">{formatMoney(Number(selectedOrder.platformFee || 0) + Number(selectedOrder.packagingFee || 0) + Number(selectedOrder.gatewayFee || 0) + Number(selectedOrder.codCharge || 0))}</Text>
+                  </View>
+                  {Number(selectedOrder.discount || 0) > 0 ? (
+                    <View className="mt-2 flex-row justify-between">
+                      <Text className="text-sm text-emerald-700">Discount</Text>
+                      <Text className="text-sm font-bold text-emerald-700">-{formatMoney(selectedOrder.discount)}</Text>
+                    </View>
+                  ) : null}
+                  <View className="mt-3 flex-row justify-between border-t border-slate-200 pt-3">
+                    <Text className="text-sm font-black text-slate-900">Total</Text>
+                    <Text className="text-sm font-black text-slate-900">{formatMoney(selectedOrder.totalAmount)}</Text>
+                  </View>
                 </View>
               )}
 
@@ -510,10 +566,11 @@ export default function OrdersScreen({ navigation }) {
                 {selectedOrder && !closedStatuses.includes(selectedOrder.status) && (
                   <TouchableOpacity
                     onPress={handleChat}
-                    className="flex-row items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3.5"
+                    disabled={!selectedOrder.rider?.id}
+                    className="flex-row items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3.5 disabled:bg-slate-300"
                   >
                     <MessageCircle size={18} color="#fff" />
-                    <Text className="text-sm font-extrabold text-white">Chat with Rider</Text>
+                    <Text className="text-sm font-extrabold text-white">{selectedOrder.rider?.id ? "Chat with Rider" : "Rider assigning"}</Text>
                   </TouchableOpacity>
                 )}
 
@@ -549,11 +606,11 @@ export default function OrdersScreen({ navigation }) {
                 <View className="mt-4 space-y-2 rounded-2xl bg-rose-50 p-4">
                   <View className="flex-row justify-between">
                     <Text className="text-sm text-rose-700">Cancellation fee ({pct}%)</Text>
-                    <Text className="text-sm font-bold text-rose-600">-₹{fee}</Text>
+                    <Text className="text-sm font-bold text-rose-600">-{formatMoney(fee)}</Text>
                   </View>
                   <View className="flex-row justify-between border-t border-rose-200 pt-2">
                     <Text className="text-sm font-bold text-rose-700">Amount to refund</Text>
-                    <Text className="text-sm font-bold text-rose-700">₹{refund}</Text>
+                    <Text className="text-sm font-bold text-rose-700">{formatMoney(refund)}</Text>
                   </View>
                 </View>
               ) : (
@@ -603,7 +660,7 @@ export default function OrdersScreen({ navigation }) {
                     <View>
                       <Text className="text-xs font-black uppercase tracking-[0.15em] text-indigo-600">Rate your experience</Text>
                       <Text className="text-xl font-black text-slate-900 mt-1">
-                        {feedbackOrder?.restaurantName || "Restaurant"}
+                        {getRestaurantName(feedbackOrder)}
                       </Text>
                       <Text className="text-sm text-slate-500 mt-0.5">
                         Order delivered on {formatDate(feedbackOrder?.updatedAt || feedbackOrder?.createdAt)}

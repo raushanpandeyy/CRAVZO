@@ -40,6 +40,7 @@ export const getFavorites = async () => {
 };
 
 export const addFavorite = async (restaurantId) => {
+  if (!restaurantId) throw new Error("Restaurant id is missing");
   const response = await apiRequest(API_ENDPOINTS.favorites.create, {
     method: "POST",
     data: { restaurantId },
@@ -48,10 +49,12 @@ export const addFavorite = async (restaurantId) => {
 };
 
 export const removeFavorite = async (id) => {
+  if (!id) throw new Error("Restaurant id is missing");
   await apiRequest(API_ENDPOINTS.favorites.remove(id), { method: "DELETE" });
 };
 
 export const isFavorite = async (restaurantId) => {
+  if (!restaurantId) return false;
   try {
     const response = await apiRequest(API_ENDPOINTS.favorites.check(restaurantId));
     const payload = response.data || response;
@@ -62,6 +65,7 @@ export const isFavorite = async (restaurantId) => {
 };
 
 export const checkIsFavorite = async (restaurantId) => {
+  if (!restaurantId) return { isFavorite: false, id: null };
   try {
     const response = await apiRequest(API_ENDPOINTS.favorites.check(restaurantId));
     const payload = response.data || response;

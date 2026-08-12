@@ -20,7 +20,7 @@ const MobileBottomNav = () => {
 
   return (
     <>
-      <nav className="fixed inset-x-0 bottom-14 z-50 px-4 md:hidden">
+      <nav className="fixed inset-x-0 mobile-safe-bottom-rail z-50 px-4 md:hidden">
         <div className="mx-auto flex max-w-md items-center justify-center gap-4 rounded-full bg-white/90 px-3 py-1.5 shadow-lg shadow-slate-900/10 backdrop-blur">
           {bottomLinks.map(({ label, icon, to }) => {
             const BottomIcon = icon;
@@ -49,7 +49,7 @@ const MobileBottomNav = () => {
         </div>
       </nav>
 
-      <nav className="fixed inset-x-0 bottom-3 z-50 px-4 md:hidden">
+      <nav className="fixed inset-x-0 mobile-safe-bottom-nav z-50 px-4 md:hidden">
         <div className="mx-auto grid max-w-md grid-cols-4 rounded-3xl border border-indigo-100 bg-white/95 p-1.5 shadow-xl shadow-indigo-900/10 backdrop-blur">
           {navItems.map(({ label, icon, to }) => {
             const NavIcon = icon;

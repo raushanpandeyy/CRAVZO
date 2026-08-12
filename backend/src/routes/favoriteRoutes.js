@@ -12,7 +12,7 @@ favoriteRouter.get("/", asyncHandler(listFavorites));
 favoriteRouter.get("/check", asyncHandler(checkFavorite));
 favoriteRouter.get("/dishes", asyncHandler(getDishFavorites));
 favoriteRouter.post("/", asyncHandler(createFavorite));
-favoriteRouter.delete("/:restaurantId", asyncHandler(deleteFavorite));
 favoriteRouter.delete("/dishes/:menuItemId", asyncHandler(removeDishFavorite));
+favoriteRouter.delete("/:restaurantId", asyncHandler(deleteFavorite));
 
 export { favoriteRouter };

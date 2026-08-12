@@ -26,8 +26,10 @@ const ensureRiderAccount = (user) => {
 };
 
 export const persistSession = async ({ user, token }) => {
+  const normalized = user ? normalizeUser(user) : null;
   if (token) await storage.set("authToken", token);
-  if (user) await storage.set("user", JSON.stringify(normalizeUser(user)));
+  if (normalized) await storage.set("user", JSON.stringify(normalized));
+  return normalized;
 };
 
 export const clearSession = async () => storage.multiRemove(["authToken", "user"]);
@@ -38,6 +40,27 @@ export const login = async (payload) => {
   const user = normalizeUser(result.user || result);
   ensureRiderAccount(user);
   await persistSession({ user, token: result.token });
+  return { ...result, user };
+};
+
+export const signup = async (payload) => {
+  const response = await apiRequest(API_ENDPOINTS.auth.signup, { method: "POST", data: payload });
+  return response.data || response;
+};
+
+export const sendOtp = async (payload) => {
+  const response = await apiRequest(API_ENDPOINTS.auth.sendOtp, { method: "POST", data: payload });
+  return response.data || response;
+};
+
+export const verifyOtp = async (payload) => {
+  const response = await apiRequest(API_ENDPOINTS.auth.verifyOtp, { method: "POST", data: payload });
+  const result = response.data || response;
+  const user = normalizeUser(result.user || result);
+  if (result.token && user?.id) {
+    ensureRiderAccount(user);
+    await persistSession({ user, token: result.token });
+  }
   return { ...result, user };
 };
 

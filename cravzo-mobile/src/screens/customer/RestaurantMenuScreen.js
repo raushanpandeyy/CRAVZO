@@ -11,12 +11,14 @@ import {
   StyleSheet,
 } from "react-native";
 import OptimizedImage from "../../components/OptimizedImage";
+import PremiumSkeleton from "../../components/PremiumSkeleton";
 import {
   Star, Clock3, IndianRupee, MapPin, ChevronLeft, Plus, Minus, Heart, ShoppingBag,
 } from "lucide-react-native";
 import { useDispatch, useSelector } from "react-redux";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors } from "../../constants/colors";
-import { ACTION_BAR_BOTTOM_PADDING } from "../../constants/layout";
+import { ACTION_BAR_BOTTOM_PADDING, MIN_DEVICE_NAV_GAP } from "../../constants/layout";
 import { getRestaurantById, listMenuItems } from "../../services/foodService";
 import { getRestaurantReviews, saveReview } from "../../services/reviewService";
 import { getAppConfig } from "../../services/configService";
@@ -30,7 +32,7 @@ const formatCurrency = (value) => `\u20B9${Number(value || 0).toFixed(0)}`;
 
 function Skeleton({ className }) {
   return (
-    <View className={`rounded-2xl bg-slate-200 ${className || ""}`} />
+    <PremiumSkeleton className={`rounded-2xl bg-slate-200 ${className || ""}`} />
   );
 }
 
@@ -71,6 +73,8 @@ function Stars({ rating, onSelect }) {
 }
 
 export default function RestaurantMenuScreen({ route, navigation }) {
+  const insets = useSafeAreaInsets();
+  const cartBarBottom = Math.max(insets.bottom + MIN_DEVICE_NAV_GAP, 28);
   const dispatch = useDispatch();
   const { restaurantId, restaurantName } = route.params || {};
   const [restaurant, setRestaurant] = useState(null);
@@ -288,7 +292,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
         </View>
 
         {/* Restaurant Info Card */}
-        <View className="relative z-10 mx-4 -mt-10 rounded-3xl bg-white p-5 shadow-xl">
+        <View className="relative z-10 mx-4 -mt-10 rounded-3xl border border-white bg-white p-5 shadow-2xl shadow-slate-300/60">
           <View className="flex-row items-start justify-between gap-4">
             <View className="min-w-0 flex-1">
               <Text className="text-2xl font-black tracking-tight text-slate-950">{restaurant?.name || restaurantName}</Text>
@@ -328,7 +332,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
             </Text>
           </View>
 
-          <View className="mt-4 flex-row flex-wrap items-center gap-3">
+          <View className="mt-4 flex-row flex-wrap items-center gap-3 rounded-2xl bg-slate-50 p-3">
             <View className={`rounded-full px-3 py-1.5 ${restaurantOpen ? "bg-emerald-100" : "bg-slate-100"}`}>
               <Text className={`text-xs font-black ${restaurantOpen ? "text-emerald-700" : "text-slate-600"}`}>
                 {restaurantOpen ? "Open" : "Closed"}
@@ -390,7 +394,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
                 : Number(item.price);
 
               return (
-                <View key={item.id} className="flex-row gap-4 rounded-3xl bg-white p-4 shadow-sm">
+                <View key={item.id} className="flex-row gap-4 rounded-3xl border border-white bg-white p-4 shadow-lg shadow-slate-200/70">
                   <View className="min-w-0 flex-1">
                     <View className="flex-row items-center gap-1.5">
                       <View className={`h-2.5 w-2.5 rounded-sm ${item.isVeg ? "bg-green-500" : "bg-red-500"}`} />
@@ -465,12 +469,12 @@ export default function RestaurantMenuScreen({ route, navigation }) {
                       <TouchableOpacity
                         onPress={() => handleAdd(item)}
                         disabled={!customerCanOrder}
-                        className="absolute -bottom-3 self-center rounded-full bg-white px-5 py-2 shadow-lg"
+                        className="absolute -bottom-3 self-center rounded-full border border-indigo-100 bg-white px-5 py-2 shadow-xl shadow-indigo-200/60"
                       >
                         <Text className={`text-xs font-black ${customerCanOrder ? "text-indigo-700" : "text-slate-400"}`}>{customerCanOrder ? "Add" : "Closed"}</Text>
                       </TouchableOpacity>
                     ) : (
-                      <View className="absolute -bottom-3 self-center flex-row items-center gap-2 rounded-full bg-indigo-700 px-2 py-1.5 shadow-lg">
+                      <View className="absolute -bottom-3 self-center flex-row items-center gap-2 rounded-full bg-indigo-700 px-2 py-1.5 shadow-xl shadow-indigo-300/60">
                         <TouchableOpacity
                           onPress={() => handleUpdateQty(item, -1)}
                           className="rounded-full p-0.5"
@@ -594,7 +598,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
 
       {/* Cart Summary Bar */}
       {cartItemCount > 0 ? (
-        <View className="absolute bottom-0 left-0 right-0 mx-4 mb-4 rounded-t-3xl rounded-b-2xl bg-white p-4 shadow-xl">
+        <View className="absolute left-0 right-0 mx-4 rounded-3xl border border-white bg-white p-4 shadow-2xl shadow-slate-400/40" style={{ bottom: cartBarBottom }}>
           <View className="mb-3 flex-row items-center justify-between">
             <View>
               <Text className="text-xs font-bold text-slate-500">Subtotal before delivery</Text>
@@ -615,7 +619,7 @@ export default function RestaurantMenuScreen({ route, navigation }) {
           </View>
           <TouchableOpacity
             onPress={() => navigation.navigate("Cart")}
-            className="w-full rounded-2xl bg-indigo-700 py-3"
+            className="w-full rounded-2xl bg-indigo-950 py-3.5 shadow-lg shadow-indigo-300/40"
           >
             <Text className="text-center text-sm font-black text-white">Checkout</Text>
           </TouchableOpacity>
@@ -631,6 +635,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.38)",
   },
 });
+
 
 
 

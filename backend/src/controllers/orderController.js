@@ -7,7 +7,7 @@ import { apiResponse } from "../utils/apiResponse.js";
 import { createPersistedOrder, prepareOrderDraft, serializeOrder } from "../services/orderCheckoutService.js";
 import { markReferredQualifiedAndIssueMilestones } from "../services/referralService.js";
 import { queueNotification } from "../services/notificationQueue.js";
-import { emitOrderStatusUpdate, emitNewOrderToVendor } from "../services/orderSocketService.js";
+import { emitOrderStatusUpdate, emitNewOrderToRiders, emitNewOrderToVendor } from "../services/orderSocketService.js";
 import { initiateRazorpayRefund } from "../services/razorpayRefundService.js";
 import { createOrderSchema, quoteOrderSchema } from "../validators/orderValidators.js";
 import { getGoogleRouteSummary } from "../utils/googleMaps.js";
@@ -60,6 +60,56 @@ const normalizeCity = (value) => value?.trim().toLowerCase() || "";
 
 const RIDER_CANCEL_COMPENSATION_STATUSES = ["OUT_FOR_DELIVERY"];
 
+const getAvailableRiderIdsForOrder = async (order) => {
+  const restaurant = order?.restaurant;
+  const rLat = restaurant?.latitude;
+  const rLng = restaurant?.longitude;
+  let candidateIds = [];
+
+  const redisClient = await connectRedis();
+  if (redisClient?.isOpen && typeof rLat === "number" && typeof rLng === "number") {
+    candidateIds = await redisClient.geoSearch(
+      RIDER_GEO_KEY,
+      { longitude: rLng, latitude: rLat },
+      { radius: 10, unit: "km" },
+    );
+  }
+
+  if (!candidateIds.length) {
+    const restaurantCity = restaurant?.city?.trim().toLowerCase();
+    const riders = await prisma.user.findMany({
+      where: {
+        role: "RIDER",
+        status: "ACTIVE",
+        isOnline: true,
+        ...(restaurantCity
+          ? { riderOnboarding: { path: ["city"], string_contains: restaurantCity } }
+          : {}),
+      },
+      select: { id: true },
+    });
+    candidateIds = riders.map((rider) => rider.id);
+  }
+
+  const uniqueCandidateIds = [...new Set(candidateIds.filter(Boolean))];
+  if (!uniqueCandidateIds.length) return [];
+
+  const busyRiderIds = (
+    await prisma.order.findMany({
+      where: {
+        riderId: { in: uniqueCandidateIds },
+        status: { in: ACTIVE_DELIVERY_STATUSES },
+        id: { not: order.id },
+      },
+      select: { riderId: true },
+    })
+  ).map((entry) => entry.riderId).filter(Boolean);
+  const busySet = new Set(busyRiderIds);
+  const rejectedSet = new Set(order.rejectedRiderIds || []);
+
+  return uniqueCandidateIds.filter((id) => !busySet.has(id) && !rejectedSet.has(id));
+};
+
 const getRiderCancellationEarning = (order, nextStatus) => {
   if (nextStatus !== "CANCELLED" || !order.riderId) return 0;
   if (!RIDER_CANCEL_COMPENSATION_STATUSES.includes(order.status)) return 0;
@@ -108,10 +158,9 @@ const createOrder = async (req, res) => {
     referralVoucherCode,
   });
 
-  // Queue notifications after order is persisted; background worker handles FCM.
-  // This removes ~500ms of FCM send time from the request lifecycle
+  // Queue vendor notification after order is persisted; background worker handles FCM.
+  // Riders are alerted after the restaurant accepts the order.
   queueNotification("vendor-new-order", { order });
-  queueNotification("rider-new-order", { order });
 
   // Real-time socket push replaces frontend polling for new orders.
   emitNewOrderToVendor(order);
@@ -883,12 +932,19 @@ const updateOrderStatus = async (req, res) => {
   // Queue notification; background worker handles FCM send.
   queueNotification("order-status-changed", { order: updatedOrder, actorRole: req.user.role });
 
-  // NOTE: notifyRiderNewOrder is NOT called here.
-  // New order alerts to riders are sent only when an order is first created
-  // (createOrder) or when a rider claims an order (the canClaimOrder block above).
-  // Calling it here on every status update was a bug; it was blasting all
-  // online riders with notifications for every DELIVERED / CANCELLED etc.
+  if (
+    req.user.role === "VENDOR" &&
+    order.status === "PENDING" &&
+    status === "ACCEPTED" &&
+    !updatedOrder.riderId
+  ) {
+    const availableRiderIds = await getAvailableRiderIdsForOrder(updatedOrder);
+    emitNewOrderToRiders(updatedOrder, availableRiderIds);
+    queueNotification("rider-new-order", { order: updatedOrder });
+  }
 
+  // Rider request alerts are sent only when the restaurant first accepts an
+  // unassigned order. Later status updates should not ping available riders.
   res.status(200).json(
     apiResponse({
       message: status === "CANCELLED" && cancelFee > 0

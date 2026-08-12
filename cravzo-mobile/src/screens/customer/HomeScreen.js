@@ -15,6 +15,7 @@ import * as Location from "expo-location";
 import { Star, Clock3, Search, MapPin, ShoppingCart, User, MessageCircle, Utensils, X, Gift } from "lucide-react-native";
 import DishPromoCarousel from "../../components/DishPromoCarousel";
 import OptimizedImage from "../../components/OptimizedImage";
+import PremiumSkeleton from "../../components/PremiumSkeleton";
 import CoverageLeadForm from "../../components/CoverageLeadForm";
 import { colors } from "../../constants/colors";
 import { TAB_SCREEN_BOTTOM_PADDING } from "../../constants/layout";
@@ -80,7 +81,7 @@ const MobileNearbyMiniCard = ({ restaurant, index, navigation }) => {
       activeOpacity={0.7}
       style={{ width: 76 }}
     >
-      <View style={{ width: 76, height: 76 }} className="overflow-hidden rounded-2xl bg-indigo-100 shadow-sm">
+      <View style={{ width: 76, height: 76 }} className="overflow-hidden rounded-2xl border border-white bg-white shadow-lg shadow-slate-200">
         {dishImage ? (
           <OptimizedImage source={{ uri: dishImage }} style={{ width: 76, height: 76 }} resizeMode="cover" onError={() => setImgFailed(true)} />
         ) : (
@@ -91,7 +92,7 @@ const MobileNearbyMiniCard = ({ restaurant, index, navigation }) => {
       </View>
       <Text
         style={{ width: 76 }}
-        className="mt-1 text-[10px] font-extrabold text-indigo-700 text-center truncate leading-tight"
+        className="mt-2 text-[10px] font-black text-slate-800 text-center truncate leading-tight"
         numberOfLines={1}
       >
         {labels[labelIndex]}
@@ -113,10 +114,8 @@ const PopularDishesSection = ({ restaurants, navigation }) => {
   const row2 = items.slice(10, 20);
 
   return (
-    <View className="py-3 border-b border-indigo-100">
-      <View className="px-4 mb-2">
-        <Text className="text-base font-bold text-indigo-700">Popular Dishes Nearby</Text>
-      </View>
+    <View className="py-5 border-b border-slate-100 bg-white">
+      <SectionHeading eyebrow="Trending nearby" title="Popular dishes" subtitle="Quick picks from restaurants around you" />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-4" contentContainerStyle={{ gap: 12 }}>
         {row1.map((restaurant, index) => (
           <MobileNearbyMiniCard key={`${restaurant.id}-${restaurant.dish?.id || "r"}-r1`} restaurant={restaurant} index={index} navigation={navigation} />
@@ -136,11 +135,19 @@ const NAVBAR_HEIGHT = 56;
 const SCROLL_THRESHOLD = PROMO_HEIGHT - NAVBAR_HEIGHT;
 
 const SkeletonBlock = ({ height, className }) => (
-  <View className={`rounded-2xl bg-slate-200 ${className}`} style={{ height }} />
+  <PremiumSkeleton className={`rounded-2xl bg-slate-200 ${className}`} style={{ height }} />
+);
+
+const SectionHeading = ({ eyebrow, title, subtitle }) => (
+  <View className="px-4 mb-3">
+    <Text className="text-[11px] font-black uppercase tracking-wider text-[#ff6b5f]">{eyebrow}</Text>
+    <Text className="mt-1 text-xl font-black text-slate-950">{title}</Text>
+    {subtitle ? <Text className="mt-1 text-xs font-bold text-slate-500">{subtitle}</Text> : null}
+  </View>
 );
 
 const RestaurantSkeleton = () => (
-  <View className="overflow-hidden rounded-3xl border-2 border-slate-100 bg-white shadow-sm">
+  <View className="overflow-hidden rounded-3xl border border-white bg-white shadow-lg shadow-slate-200/70">
     <SkeletonBlock height={176} className="w-full" />
     <View className="p-4 space-y-2">
       <SkeletonBlock height={20} className="w-2/3" />
@@ -360,26 +367,27 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      <View className="px-4 pb-2 pt-1">
+      <View className="px-4 pb-3 pt-1">
         <TouchableOpacity
           onPress={() => navigation.navigate("Referral")}
           activeOpacity={0.9}
-          className="flex-row h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-950 shadow-md shadow-indigo-950/15"
+          className="flex-row min-h-14 w-full items-center justify-between rounded-2xl bg-indigo-950 px-4 shadow-lg shadow-indigo-950/20"
         >
-          <Gift size={16} color="#fff" />
-          <Text className="text-sm font-black text-white">Dodago Refer & Earn</Text>
+          <View className="flex-row items-center gap-3">
+            <View className="h-9 w-9 items-center justify-center rounded-full bg-white/15">
+              <Gift size={17} color="#fff" />
+            </View>
+            <View>
+              <Text className="text-sm font-black text-white">Refer & Earn</Text>
+              <Text className="text-[11px] font-bold text-indigo-100">Invite friends and unlock rewards</Text>
+            </View>
+          </View>
+          <Text className="text-xs font-black text-white">Open</Text>
         </TouchableOpacity>
       </View>
 
-      <View className="py-3 border-b border-indigo-100">
-        <View className="px-4 mb-2">
-          <Text className="text-base font-bold text-indigo-700">
-            Eat what you love
-          </Text>
-          <Text className="text-xs font-semibold text-indigo-400">
-            Categories
-          </Text>
-        </View>
+      <View className="py-5 border-b border-slate-100 bg-white">
+        <SectionHeading eyebrow="Categories" title="Eat what you love" subtitle="Browse by craving" />
 <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -390,15 +398,15 @@ export default function HomeScreen({ navigation }) {
             <TouchableOpacity
               key={cat.name}
               onPress={() => navigation.navigate("DishScreen", { dishName: cat.name })}
-              className="items-center min-w-[65px]">
-              <View className="h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-indigo-50 shadow-md">
+              className="items-center min-w-[72px]">
+              <View className="h-[68px] w-[68px] items-center justify-center overflow-hidden rounded-2xl border border-white bg-white shadow-lg shadow-slate-200">
                 <OptimizedImage
                   source={{ uri: cat.image }}
                   className="h-full w-full"
                   resizeMode="cover"
                 />
               </View>
-              <Text className="mt-1 text-[9px] font-bold text-indigo-700">
+              <Text className="mt-2 text-[10px] font-black text-slate-700">
                 {cat.name}
               </Text>
             </TouchableOpacity>
@@ -409,22 +417,15 @@ export default function HomeScreen({ navigation }) {
             <View className="h-16 w-16 items-center justify-center rounded-2xl bg-indigo-200 shadow-md">
               <Text className="text-[10px] font-black text-indigo-900 text-center">See All</Text>
             </View>
-            <Text className="mt-1 text-[9px] font-bold text-indigo-700">All Dishes</Text>
+            <Text className="mt-2 text-[10px] font-black text-slate-700">All Dishes</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
 
       {restaurants.length > 0 && <PopularDishesSection restaurants={restaurants} navigation={navigation} />}
 
-      <View className="py-4">
-        <View className="px-4 mb-3">
-          <Text className="text-base font-bold text-indigo-700">
-            Nearby Restaurants
-          </Text>
-          <Text className="text-xs font-semibold text-indigo-400">
-            Fast delivery
-          </Text>
-        </View>
+      <View className="py-5">
+        <SectionHeading eyebrow="Nearby" title="Restaurants around you" subtitle="Fast delivery and fresh kitchens" />
         <View className="space-y-3 px-4">
           {loadError ? (
             <View className="mx-4 mb-3 bg-rose-50 rounded-2xl px-4 py-3 border-l-4 border-rose-400">
@@ -453,7 +454,7 @@ export default function HomeScreen({ navigation }) {
                 key={r.id}
                 onPress={() => navigation.navigate("RestaurantMenu", { restaurantId: r.id, restaurantName: r.name })}
                 activeOpacity={0.9}
-                className="overflow-hidden rounded-3xl border-2 border-indigo-200 bg-white shadow-md"
+                className="overflow-hidden rounded-3xl border border-white bg-white shadow-xl shadow-slate-200/80"
               >
                 <View className="relative h-44 w-full bg-slate-100">
                   {r.imageUrl ? (
@@ -463,27 +464,39 @@ export default function HomeScreen({ navigation }) {
                       <Text className="text-4xl font-black text-indigo-600">{r.name?.[0]}</Text>
                     </View>
                   )}
-                  <View className="absolute inset-x-0 bottom-0 h-20 bg-black/50" />
-                  <View className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 shadow-sm">
+                  <View className="absolute inset-x-0 bottom-0 h-24 bg-black/55" />
+                  <View className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1.5 shadow-sm">
                     <Text className="text-xs font-black text-indigo-950">Open now</Text>
                   </View>
-                  <View className="absolute bottom-3 left-3 flex-row items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1">
-                    <Star size={14} color="#fff" fill="#fff" />
-                    <Text className="text-xs font-black text-white">{r.rating || ""}</Text>
-                  </View>
+                  {r.hasRating ? (
+                    <View className="absolute bottom-3 left-3 flex-row items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1">
+                      <Star size={14} color="#fff" fill="#fff" />
+                      <Text className="text-xs font-black text-white">{r.rating}</Text>
+                    </View>
+                  ) : null}
                 </View>
                 <View className="p-4">
-                  <Text className="text-lg font-black text-slate-950" numberOfLines={1}>{r.name}</Text>
+                  <Text className="text-xl font-black text-slate-950" numberOfLines={1}>{r.name}</Text>
                   <Text className="mt-1 text-sm font-semibold text-slate-500" numberOfLines={1}>
                     {[r.cuisine, r.location || r.city].filter(Boolean).join(" - ")}
                   </Text>
                   <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
+                    {r.deliveryTime ? (
                     <View className="flex-row items-center gap-1">
                       <Clock3 size={16} color={colors.brand[700]} />
-                      <Text className="text-xs font-extrabold text-slate-700">{r.deliveryTime || ""}</Text>
+                      <Text className="text-xs font-extrabold text-slate-700">{r.deliveryTime}</Text>
                     </View>
-                    {r.distance ? (
-                      <Text className="text-xs font-extrabold text-slate-500">{r.distance}</Text>
+                    ) : null}
+                    {r.distanceLabel ? (
+                      <View className="flex-row items-center gap-1">
+                        <MapPin size={15} color={colors.slate[500]} />
+                        <Text className="text-xs font-extrabold text-slate-500">{r.distanceLabel}</Text>
+                      </View>
+                    ) : null}
+                    {r.startingDishPrice ? (
+                      <Text className="text-xs font-extrabold text-slate-700">
+                        Dishes start from <Text className="text-indigo-700">{"\u20b9"}{Math.floor(r.startingDishPrice)}</Text>
+                      </Text>
                     ) : null}
                   </View>
                 </View>

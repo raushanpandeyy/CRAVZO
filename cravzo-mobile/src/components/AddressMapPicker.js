@@ -226,6 +226,10 @@ export default function AddressMapPicker({ navigation, route }) {
             <FlatList
               data={searchResults}
               keyExtractor={(item) => String(item.osm_id || item.place_id)}
+              initialNumToRender={5}
+              maxToRenderPerBatch={5}
+              windowSize={3}
+              keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
                 <TouchableOpacity
                   onPress={() => handleSelectResult(item)}

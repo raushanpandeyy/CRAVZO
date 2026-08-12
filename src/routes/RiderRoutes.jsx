@@ -39,7 +39,7 @@ const RiderRoutes = () => {
 
       <PartnerMobileNav role="rider" />
 
-      <main className="min-h-0 flex-1 overflow-y-auto pt-16 pb-24 md:p-0">
+      <main className="min-h-0 flex-1 overflow-y-auto pt-16 mobile-safe-content-lg md:p-0">
         <Suspense
           fallback={
             <div className="flex items-center justify-center min-h-[60vh] text-slate-500 text-sm">
@@ -89,3 +89,4 @@ const RiderRoutes = () => {
 };
 
 export default RiderRoutes;
+

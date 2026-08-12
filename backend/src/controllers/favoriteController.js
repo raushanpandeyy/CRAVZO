@@ -33,13 +33,13 @@ const listFavorites = async (req, res) => {
 
   const [favorites, total] = await Promise.all([
     prisma.favorite.findMany({
-      where: { userId: req.user.sub },
+      where: { userId: req.user.sub, menuItemId: null },
       include: { restaurant: true },
       orderBy: { createdAt: "desc" },
       skip,
       take: limit,
     }),
-    prisma.favorite.count({ where: { userId: req.user.sub } }),
+    prisma.favorite.count({ where: { userId: req.user.sub, menuItemId: null } }),
   ]);
 
   res.status(200).json(
@@ -76,16 +76,14 @@ const createFavorite = async (req, res) => {
 
   const include = {
     restaurant: true,
-    menuItem: menuItemId
-      ? { select: { id: true, name: true, price: true, imageUrl: true } }
-      : false,
+    ...(menuItemId ? { menuItem: { select: { id: true, name: true, price: true, imageUrl: true } } } : {}),
   };
 
   const existingFavorite = await prisma.favorite.findFirst({
     where: {
       userId: req.user.sub,
       restaurantId,
-      menuItemId: menuItemId ?? null,
+      menuItemId: menuItemId || null,
     },
     include,
   });
@@ -94,7 +92,7 @@ const createFavorite = async (req, res) => {
     data: {
       userId: req.user.sub,
       restaurantId,
-      menuItemId: menuItemId ?? null,
+      menuItemId: menuItemId || null,
     },
     include,
   });
@@ -123,6 +121,7 @@ const deleteFavorite = async (req, res) => {
     where: {
       userId: req.user.sub,
       restaurantId: req.params.restaurantId,
+      menuItemId: null,
     },
   });
 
@@ -141,6 +140,7 @@ const deleteFavorite = async (req, res) => {
       message: "Restaurant removed from favorites",
       data: {
         restaurantId: req.params.restaurantId,
+        menuItemId: null,
       },
     }),
   );
@@ -154,10 +154,7 @@ const checkFavorite = async (req, res) => {
     return res.status(200).json(apiResponse({ message: "ok", data: { isFavorite: false } }));
   }
 
-  const where = { userId: req.user.sub, restaurantId };
-  if (menuItemId) {
-    where.menuItemId = menuItemId;
-  }
+  const where = { userId: req.user.sub, restaurantId, menuItemId: menuItemId || null };
 
   const favorite = await prisma.favorite.findFirst({
     where,
@@ -165,7 +162,7 @@ const checkFavorite = async (req, res) => {
   });
 
   res.status(200).json(
-    apiResponse({ message: "ok", data: { isFavorite: Boolean(favorite) } }),
+    apiResponse({ message: "ok", data: { isFavorite: Boolean(favorite), id: favorite?.id || null } }),
   );
 };
 

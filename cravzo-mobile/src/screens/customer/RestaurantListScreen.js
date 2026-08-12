@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity, ActivityIndicator, FlatList, Alert,
+  View, Text, TextInput, TouchableOpacity, ActivityIndicator, FlatList, Alert, Platform,
 } from "react-native";
 import * as Location from "expo-location";
 import { useSelector } from "react-redux";
@@ -31,7 +31,7 @@ const RestaurantCard = ({ restaurant, onPress }) => (
       )}
       <View className="absolute inset-x-0 bottom-0 h-20 bg-black/50" />
       <View className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 shadow-sm"><Text className="text-xs font-black text-indigo-950">Open now</Text></View>
-      {restaurant.rating != null ? (
+      {restaurant.hasRating ? (
         <View className="absolute bottom-3 left-3 flex-row items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-1">
           <Star size={14} color="#fff" fill="#fff" /><Text className="text-xs font-black text-white">{restaurant.rating}</Text>
         </View>
@@ -41,12 +41,17 @@ const RestaurantCard = ({ restaurant, onPress }) => (
       <Text className="text-lg font-black text-slate-950" numberOfLines={1}>{restaurant.name}</Text>
       {(restaurant.cuisine || restaurant.location || restaurant.city) ? (
         <Text className="mt-1 text-sm font-semibold text-slate-500" numberOfLines={1}>
-          {[restaurant.cuisine, restaurant.location || restaurant.city].filter(Boolean).join(" • ")}
+          {[restaurant.cuisine, restaurant.location || restaurant.city].filter(Boolean).join(" ï¿½ ")}
         </Text>
       ) : null}
       <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
         {restaurant.deliveryTime ? <View className="flex-row items-center gap-1"><Clock3 size={16} color={colors.brand[700]} /><Text className="text-xs font-extrabold text-slate-700">{restaurant.deliveryTime}</Text></View> : null}
-        {restaurant.distance ? <Text className="text-xs font-extrabold text-slate-500">{restaurant.distance}</Text> : null}
+        {restaurant.distanceLabel ? <View className="flex-row items-center gap-1"><MapPin size={15} color={colors.slate[500]} /><Text className="text-xs font-extrabold text-slate-500">{restaurant.distanceLabel}</Text></View> : null}
+        {restaurant.startingDishPrice ? (
+          <Text className="text-xs font-extrabold text-slate-700">
+            Dishes start from <Text className="text-indigo-700">{"\u20b9"}{Math.floor(restaurant.startingDishPrice)}</Text>
+          </Text>
+        ) : null}
       </View>
     </View>
   </TouchableOpacity>
@@ -137,7 +142,7 @@ export default function RestaurantListScreen({ navigation, route }) {
           {query ? <TouchableOpacity onPress={() => { setQuery(""); inputRef.current?.focus(); }} className="p-1"><X size={16} color="#94a3b8" /></TouchableOpacity> : null}
         </View>
         <View className="flex-row items-center justify-between mt-2">
-          <FlatList horizontal data={SUGGESTED_DISHES} keyExtractor={(item) => item} showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} renderItem={({ item }) => (
+          <FlatList horizontal data={SUGGESTED_DISHES} keyExtractor={(item) => item} showsHorizontalScrollIndicator={false} initialNumToRender={8} maxToRenderPerBatch={8} windowSize={3} contentContainerStyle={{ gap: 8 }} renderItem={({ item }) => (
             <TouchableOpacity onPress={() => setQuery(item)} className={`rounded-full px-3 py-1.5 border ${query === item ? "bg-[#ff6b5f] border-[#ff6b5f]" : "bg-slate-50 border-slate-200"}`}><Text className={`text-xs font-bold ${query === item ? "text-white" : "text-slate-700"}`}>{item}</Text></TouchableOpacity>
           )} />
           <TouchableOpacity onPress={toggleNearby} disabled={loading} className={`flex-row items-center gap-1 rounded-full px-3 py-1.5 ml-2 ${nearbyMode ? "bg-indigo-600" : "bg-slate-100"}`}>
@@ -157,6 +162,11 @@ export default function RestaurantListScreen({ navigation, route }) {
             <View className="flex-1 items-center justify-center py-20"><Search size={40} color="#94a3b8" /><Text className="mt-3 text-sm font-semibold text-slate-500">{query ? "No results found" : "Restaurants near you"}</Text></View>
           )
         ) : null}
+        initialNumToRender={8}
+        maxToRenderPerBatch={6}
+        updateCellsBatchingPeriod={50}
+        windowSize={7}
+        removeClippedSubviews={Platform.OS === "android"}
         renderItem={({ item: row, index }) => {
           const previousType = data[index - 1]?.type;
           return <View>{previousType !== row.type ? <View className="flex-row items-center gap-2 mb-2 mt-2">{row.type === "dish" ? <Utensils size={14} color={colors.brand[700]} /> : <MapPin size={14} color="#d97706" />}<Text className="text-xs font-black uppercase tracking-wider text-slate-700">{row.type === "dish" ? "Dishes" : "Restaurants"}</Text></View> : null}{row.type === "dish" ? <DishCard dish={row.item} onPress={() => navigation.navigate("DishScreen", { dishId: row.item.id, dishName: row.item.name, restaurantId: row.item.restaurantId })} /> : <RestaurantCard restaurant={row.item} onPress={() => navigation.navigate("RestaurantMenu", { restaurantId: row.item.id, restaurantName: row.item.name })} />}</View>;

@@ -51,7 +51,7 @@ const menuItems = [
   { icon: MapPin, label: "Addresses", color: "#4f46e5", screen: "Addresses" },
   { icon: Heart, label: "Favourites", color: "#f43f5e", screen: "Favorites" },
   { icon: Star, label: "Reviews", color: "#f59e0b", screen: "Reviews" },
-  { icon: MessageCircle, label: "Support Chat", color: "#8b5cf6", screen: "CustomerChat" },
+  { icon: MessageCircle, label: "Support Chat", color: "#8b5cf6", screen: "CustomerChat", params: { mode: "support", orderId: null } },
   { icon: CreditCard, label: "Payment Methods", color: "#0ea5e9", screen: "PaymentMethods" },
   { icon: Gift, label: "Refer & Earn", color: "#16a34a", screen: "Referral" },
 ];
@@ -487,7 +487,7 @@ export default function ProfileScreen({ navigation }) {
               key={item.label}
               onPress={() => {
                 if (item.screen) {
-                  navigation.navigate(item.screen);
+                  navigation.navigate(item.screen, item.params || undefined);
                 } else {
                   Alert.alert(item.label, "Coming soon");
                 }

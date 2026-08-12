@@ -8,9 +8,8 @@ import { canVendorManageRestaurant } from "../utils/restaurantAccess.js";
 const CLOSED_ORDER_STATUSES = ["DELIVERED", "CANCELLED", "REJECTED"];
 const MESSAGE_LIMIT_MAX = 50;
 const MESSAGE_LIMIT_DEFAULT = 30;
-const RATE_LIMIT_WINDOW_MS = 60_000;
 const CHAT_RATE_PREFIX = "rl:chat:";
-const CHAT_RATE_TTL_SECONDS = 60;
+const CHAT_RATE_TTL_SECONDS = 1;
 
 const sanitizeMessage = (message) => ({
   id: message.id,
@@ -275,7 +274,7 @@ const createRoomMessage = async (req, res) => {
   if (redis?.isOpen) {
     const exists = await redis.exists(rateKey);
     if (exists) {
-      throw new ApiError(429, "Please wait before sending another message");
+      throw new ApiError(429, "Please wait a second before sending another message");
     }
     await redis.setEx(rateKey, CHAT_RATE_TTL_SECONDS, "1");
   }
@@ -376,7 +375,7 @@ const createMessageForRoom = async ({ user, roomId, text: rawText = "", imageUrl
   if (redis?.isOpen) {
     const exists = await redis.exists(rateKey);
     if (exists) {
-      throw new ApiError(429, "Please wait before sending another message");
+      throw new ApiError(429, "Please wait a second before sending another message");
     }
     await redis.setEx(rateKey, CHAT_RATE_TTL_SECONDS, "1");
   }

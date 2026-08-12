@@ -51,7 +51,7 @@ const VendorRoutes = () => {
 
       <PartnerMobileNav role="vendor" />
 
-      <main className="min-h-0 flex-1 pt-16 pb-24 md:p-0">
+      <main className="min-h-0 flex-1 pt-16 mobile-safe-content-lg md:p-0">
         <Suspense
           fallback={
             <div className="flex items-center justify-center min-h-[60vh] text-slate-500 text-sm">
@@ -114,5 +114,6 @@ const VendorRoutes = () => {
 };
 
 export default VendorRoutes;
+
 
 

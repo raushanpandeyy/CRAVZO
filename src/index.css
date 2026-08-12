@@ -139,3 +139,30 @@ input[type="number"] {
     overflow-x: auto;
   }
 }
+/* Mobile browser/device navigation safe area spacing */
+@media (max-width: 767px) {
+  .mobile-safe-content {
+    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-safe-content-lg {
+    padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-safe-bottom-nav {
+    bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-safe-bottom-rail {
+    bottom: calc(4.35rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-safe-floating-cart {
+    bottom: calc(5.4rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .mobile-safe-action-bar {
+    bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+}

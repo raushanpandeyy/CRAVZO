@@ -36,8 +36,15 @@ export const leaveChatRoom = (roomId) => {
   socket?.emit("chat:leave", { roomId });
 };
 
+export const isSocketConnected = () => Boolean(socket?.connected);
+
 export const sendSocketMessage = (payload, callback) => {
-  socket?.emit("chat:send", payload, callback);
+  if (!socket?.connected) {
+    callback?.({ ok: false, message: "Chat connection unavailable" });
+    return false;
+  }
+  socket.emit("chat:send", payload, callback);
+  return true;
 };
 
 export const onSocketMessage = (handler) => {

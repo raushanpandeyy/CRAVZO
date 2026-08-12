@@ -1,5 +1,10 @@
 import { apiRequest } from "./api";
 
+export const getSupportChatRoom = async () => {
+  const response = await apiRequest("/api/chats/support");
+  return response.data;
+};
+
 export const getOrderChatRoom = async (orderId) => {
   const response = await apiRequest(`/api/chats/orders/${orderId}`);
   return response.data;

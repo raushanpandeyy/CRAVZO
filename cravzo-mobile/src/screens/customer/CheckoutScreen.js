@@ -11,6 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { useSelector, useDispatch } from "react-redux";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   MapPin,
   Plus,
@@ -27,10 +28,12 @@ import {
   MessageSquare,
   Bike,
   Gift,
+  Navigation,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
-import { ACTION_BAR_BOTTOM_PADDING } from "../../constants/layout";
+import { ACTION_BAR_BOTTOM_PADDING, MIN_BOTTOM_BAR_PADDING, MIN_DEVICE_NAV_GAP } from "../../constants/layout";
 import CouponInput from "../../components/CouponInput";
+import PressableScale from "../../components/PressableScale";
 import { clearCart, selectCartItemCount } from "../../store/slices/cartSlice";
 import { getAddresses, addAddress } from "../../services/addressService";
 import { getProfile } from "../../services/userService";
@@ -45,6 +48,9 @@ import {
 } from "../../services/paymentService";
 import { getAppConfig } from "../../services/configService";
 import { quoteOrder } from "../../services/orderService";
+import { getCurrentAddress } from "../../services/locationAddressService";
+import { explainPermission, permissionMessages } from "../../services/permissionNotice";
+import { updatePrivacyConsent } from "../../services/privacyConsent";
 
 const emptyAddress = {
   fullName: "",
@@ -249,6 +255,8 @@ const PricingSummary = ({
 };
 
 export default function CheckoutScreen({ navigation, route }) {
+  const insets = useSafeAreaInsets();
+  const bottomBarPadding = Math.max(insets.bottom + MIN_DEVICE_NAV_GAP, MIN_BOTTOM_BAR_PADDING);
   const dispatch = useDispatch();
   const cartItems = useSelector((state) => state.cart.items);
   const cartCount = useSelector(selectCartItemCount);
@@ -259,6 +267,7 @@ export default function CheckoutScreen({ navigation, route }) {
   const [saveForLater, setSaveForLater] = useState(false);
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(true);
+  const [isPickingCurrentAddress, setIsPickingCurrentAddress] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponCode, setCouponCode] = useState("");
   const [referralVoucherCode, setReferralVoucherCode] = useState("");
@@ -346,7 +355,7 @@ export default function CheckoutScreen({ navigation, route }) {
       const loc = route.params.pickedLocation;
       setAddress((prev) => ({
         ...prev,
-        line1: loc.line1 || prev.line1,
+        line1: loc.line1 || loc.displayName || prev.line1,
         line2: loc.line2 || prev.line2,
         city: loc.city || prev.city,
         state: loc.state || prev.state,
@@ -384,6 +393,40 @@ export default function CheckoutScreen({ navigation, route }) {
     setSelectedAddressId("");
     setAddress((prev) => ({ ...prev, [field]: value }));
   }, []);
+
+  const applyPickedAddress = useCallback((loc) => {
+    setAddress((prev) => ({
+      ...prev,
+      line1: loc.line1 || loc.displayName || prev.line1,
+      line2: loc.line2 || prev.line2,
+      city: loc.city || prev.city,
+      state: loc.state || prev.state,
+      postalCode: loc.postalCode || prev.postalCode,
+      latitude: loc.latitude,
+      longitude: loc.longitude,
+    }));
+    setSelectedAddressId("");
+    setShowNewAddressForm(true);
+  }, []);
+
+  const handleUseCurrentAddress = useCallback(async () => {
+    setMessage("");
+    setError("");
+    try {
+      const shouldAsk = await explainPermission({ title: "Location permission", message: permissionMessages.location });
+      if (!shouldAsk) return;
+      setIsPickingCurrentAddress(true);
+      updatePrivacyConsent({ location: true });
+      const loc = await getCurrentAddress();
+      applyPickedAddress(loc);
+      setMessage("Current address picked. Add house/flat details if needed.");
+      setTimeout(() => setMessage(""), 3000);
+    } catch (err) {
+      Alert.alert("Location unavailable", err.message || "Could not pick your current address.");
+    } finally {
+      setIsPickingCurrentAddress(false);
+    }
+  }, [applyPickedAddress]);
 
   const handleApplyCoupon = async (code) => {
     try {
@@ -656,12 +699,12 @@ const {
         <Text className="text-5xl mb-6">Cart</Text>
         <Text className="text-2xl font-bold text-slate-900">Your cart is empty</Text>
         <Text className="mt-2 text-slate-500">Add some delicious items to get started!</Text>
-        <TouchableOpacity
+        <PressableScale
           onPress={() => navigation.navigate("MainTabs", { screen: "Home" })}
           className="mt-6 rounded-2xl bg-indigo-600 px-8 py-3 shadow-lg shadow-indigo-200"
         >
           <Text className="font-bold text-white">Browse Restaurants</Text>
-        </TouchableOpacity>
+        </PressableScale>
       </View>
     );
   }
@@ -671,7 +714,7 @@ const {
       className="flex-1 bg-slate-50"
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View className="bg-white shadow-sm pt-14 pb-4">
+      <View className="bg-white shadow-lg shadow-slate-200/60 pt-14 pb-4">
         <View className="flex-row items-center gap-4 px-4">
           <TouchableOpacity
             onPress={() => navigation.goBack()}
@@ -697,12 +740,43 @@ const {
           </View>
         ) : null}
 
-        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+        <View className="rounded-3xl border border-white bg-white p-5 shadow-xl shadow-slate-200/70 mb-4">
           <View className="flex-row items-center gap-3 mb-4">
             <View className="h-8 w-8 items-center justify-center rounded-xl bg-indigo-100">
               <MapPin size={16} color={colors.brand[600]} />
             </View>
-            <Text className="text-lg font-bold text-slate-900">Delivery Address</Text>
+            <View>
+              <Text className="text-lg font-black text-slate-900">Delivery Address</Text>
+              <Text className="text-xs font-bold text-slate-500">Choose where this order should arrive</Text>
+            </View>
+          </View>
+
+          <View className="mb-4 flex-row gap-3">
+            <TouchableOpacity
+              onPress={handleUseCurrentAddress}
+              disabled={isPickingCurrentAddress}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl bg-indigo-600 py-3 disabled:bg-slate-300"
+            >
+              {isPickingCurrentAddress ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Navigation size={18} color="#fff" />
+              )}
+              <Text className="text-sm font-black text-white">
+                {isPickingCurrentAddress ? "Picking..." : "Current"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                setShowNewAddressForm(true);
+                setSelectedAddressId("");
+                navigation.navigate("AddressMapPicker", { returnRoute: "Checkout" });
+              }}
+              className="flex-1 flex-row items-center justify-center gap-2 rounded-2xl border-2 border-indigo-200 bg-indigo-50 py-3"
+            >
+              <MapPin size={18} color={colors.brand[600]} />
+              <Text className="text-sm font-black text-indigo-700">Pick on Map</Text>
+            </TouchableOpacity>
           </View>
 
           {isLoadingAddresses ? (
@@ -838,7 +912,7 @@ const {
           ) : null}
         </View>
 
-        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+        <View className="rounded-3xl border border-white bg-white p-5 shadow-xl shadow-slate-200/70 mb-4">
           <View className="flex-row items-center gap-3">
             <View className="h-8 w-8 items-center justify-center rounded-xl bg-indigo-100">
               <Clock size={16} color={colors.brand[600]} />
@@ -849,7 +923,7 @@ const {
             </View>
           </View>
         </View>
-        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+        <View className="rounded-3xl border border-white bg-white p-5 shadow-xl shadow-slate-200/70 mb-4">
           <View className="mb-4 flex-row items-center gap-3">
             <View className="h-8 w-8 items-center justify-center rounded-xl bg-amber-100"><MessageSquare size={16} color="#b45309" /></View>
             <View className="flex-1"><Text className="text-lg font-bold text-slate-900">Instructions for restaurant</Text><Text className="text-xs text-slate-500">Preparation, allergy or packing requests</Text></View>
@@ -857,7 +931,7 @@ const {
           <TextInput value={restaurantInstructions} onChangeText={setRestaurantInstructions} maxLength={500} multiline placeholder="Example: Less spicy, no onion, pack sauce separately" placeholderTextColor={colors.slate[400]} className="min-h-24 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900" textAlignVertical="top" />
         </View>
 
-        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+        <View className="rounded-3xl border border-white bg-white p-5 shadow-xl shadow-slate-200/70 mb-4">
           <View className="mb-4 flex-row items-center gap-3">
             <View className="h-8 w-8 items-center justify-center rounded-xl bg-emerald-100"><Bike size={16} color="#059669" /></View>
             <View className="flex-1"><Text className="text-lg font-bold text-slate-900">Delivery instructions</Text><Text className="text-xs text-slate-500">Shown only to the assigned rider</Text></View>
@@ -871,7 +945,7 @@ const {
           <TextInput value={customDeliveryInstruction} onChangeText={setCustomDeliveryInstruction} maxLength={500} multiline placeholder="Other delivery instruction or landmark" placeholderTextColor={colors.slate[400]} className="mt-3 min-h-20 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900" textAlignVertical="top" />
         </View>
 
-        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+        <View className="rounded-3xl border border-white bg-white p-5 shadow-xl shadow-slate-200/70 mb-4">
           <View className="mb-4 flex-row items-center gap-3">
             <View className="h-8 w-8 items-center justify-center rounded-xl bg-indigo-100"><Gift size={16} color={colors.brand[600]} /></View>
             <View className="flex-1"><Text className="text-lg font-bold text-slate-900">Tip your rider</Text><Text className="text-xs text-slate-500">Recorded separately for rider payout</Text></View>
@@ -880,12 +954,15 @@ const {
             {TIP_OPTIONS.map((amount) => <TouchableOpacity key={amount} onPress={() => setTipAmount(amount)} className={`min-w-14 rounded-xl border px-4 py-3 ${tipAmount === amount ? "border-indigo-600 bg-indigo-600" : "border-slate-200 bg-white"}`}><Text className={`text-center text-sm font-black ${tipAmount === amount ? "text-white" : "text-slate-700"}`}>{amount === 0 ? "No tip" : formatCurrency(amount)}</Text></TouchableOpacity>)}
           </View>
         </View>
-        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+        <View className="rounded-3xl border border-white bg-white p-5 shadow-xl shadow-slate-200/70 mb-4">
           <View className="flex-row items-center gap-3 mb-4">
             <View className="h-8 w-8 items-center justify-center rounded-xl bg-indigo-100">
               <Wallet size={16} color={colors.brand[600]} />
             </View>
-            <Text className="text-lg font-bold text-slate-900">Payment Method</Text>
+            <View>
+              <Text className="text-lg font-black text-slate-900">Payment Method</Text>
+              <Text className="text-xs font-bold text-slate-500">Secure checkout with COD or online payment</Text>
+            </View>
           </View>
           {selectedPayment === "UPI" && savedUpiIds.length > 0 ? (
             <View className="mb-3 rounded-2xl bg-violet-50 px-4 py-3">
@@ -928,7 +1005,7 @@ const {
           </View>
         </View>
 
-        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+        <View className="rounded-3xl border border-white bg-white p-5 shadow-xl shadow-slate-200/70 mb-4">
           <View className="flex-row items-center gap-3 mb-4">
             <View className="h-8 w-8 items-center justify-center rounded-xl bg-indigo-100">
               <Tag size={16} color={colors.brand[600]} />
@@ -942,7 +1019,7 @@ const {
           />
         </View>
 
-        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+        <View className="rounded-3xl border border-white bg-white p-5 shadow-xl shadow-slate-200/70 mb-4">
           <View className="flex-row items-center gap-3 mb-4">
             <View className="h-8 w-8 items-center justify-center rounded-xl bg-indigo-100">
               <Gift size={16} color={colors.brand[600]} />
@@ -961,9 +1038,12 @@ const {
             className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900"
           />
         </View>
-        <View className="rounded-3xl bg-white p-6 shadow-sm mb-4">
+        <View className="rounded-3xl border border-white bg-white p-5 shadow-xl shadow-slate-200/70 mb-4">
           <View className="flex-row items-center justify-between mb-4">
-            <Text className="text-lg font-bold text-slate-900">Order Summary</Text>
+            <View>
+              <Text className="text-lg font-black text-slate-900">Order Summary</Text>
+              <Text className="text-xs font-bold text-slate-500">Final bill before placing order</Text>
+            </View>
             <View className="rounded-full bg-slate-100 px-3 py-1">
               <Text className="text-sm font-medium text-slate-600">{cartCount} items</Text>
             </View>
@@ -989,11 +1069,11 @@ const {
         </View>
       </ScrollView>
 
-      <View className="border-t border-slate-200 bg-white px-4 pt-4 pb-8 shadow-lg">
-        <TouchableOpacity
+      <View className="border-t border-slate-200 bg-white px-4 pt-4 shadow-lg" style={{ paddingBottom: bottomBarPadding }}>
+        <PressableScale
           disabled={isSubmitting || !pricingConfig || (!selectedAddressId && !address.line1)}
           onPress={handlePlaceOrder}
-          className="rounded-2xl bg-indigo-600 py-4 shadow-lg shadow-indigo-200 items-center justify-center disabled:bg-slate-300 disabled:shadow-none"
+          className="rounded-2xl bg-indigo-950 py-4 shadow-xl shadow-indigo-300/50 items-center justify-center disabled:bg-slate-300 disabled:shadow-none"
         >
           {isSubmitting ? (
             <View className="flex-row items-center gap-2">
@@ -1005,10 +1085,8 @@ const {
               {`Place Order - ${formatCurrency(displayFinalTotal)}${quoteLoading ? " (checking)" : ""}`}
             </Text>
           )}
-        </TouchableOpacity>
+        </PressableScale>
       </View>
     </KeyboardAvoidingView>
   );
 }
-
-

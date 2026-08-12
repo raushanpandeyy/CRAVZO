@@ -627,7 +627,7 @@ const RestaurantPage = () => {
       </div>
 
       {cartItemCount > 0 ? (
-        <div className="fixed inset-x-0 bottom-20 z-40 mx-auto w-[calc(100%-1.5rem)] max-w-md rounded-t-3xl rounded-b-2xl bg-white p-4 shadow-xl shadow-slate-900/20 lg:hidden">
+        <div className="fixed inset-x-0 z-40 mobile-safe-floating-cart mx-auto w-[calc(100%-1.5rem)] max-w-md rounded-t-3xl rounded-b-2xl bg-white p-4 shadow-xl shadow-slate-900/20 lg:hidden">
           <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold text-slate-500">Cart total</p>
@@ -650,5 +650,6 @@ const RestaurantPage = () => {
 };
 
 export default RestaurantPage;
+
 
 
