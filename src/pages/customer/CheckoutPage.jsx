@@ -462,7 +462,7 @@ const CheckoutPage = () => {
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("UPI");
+  const [paymentMethod, setPaymentMethod] = useState("COD");
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [referralVoucherCode, setReferralVoucherCode] = useState("");
   const [distanceKm, setDistanceKm] = useState(3);
@@ -1083,14 +1083,15 @@ const CheckoutPage = () => {
               </h2>
 
               <div className="space-y-3">
-                <PaymentOption
+                {/* <PaymentOption
                   icon={CreditCard}
                   title="Online (UPI/Card)"
                   subtitle={preferredUpiId ? `Pay with ${preferredUpiId}` : "Pay using any UPI app or card"}
                   isSelected={paymentMethod === "UPI"}
                   onSelect={() => setPaymentMethod("UPI")}
                   badge="Recommended"
-                />
+                // /> */} 
+
                 <PaymentOption
                   icon={svgCashIcon}
                   title="Cash on Delivery"
