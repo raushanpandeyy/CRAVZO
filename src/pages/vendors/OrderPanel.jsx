@@ -44,7 +44,7 @@ const OrderPanel = () => {
     setError("");
 
     try {
-      const data = await getVendorOrders();
+      const data = await getVendorOrders({ skipCache: true });
       setOrders(Array.isArray(data?.orders) ? data.orders : []);
     } catch (requestError) {
       setError(requestError.message || "Failed to load vendor orders");

@@ -1,15 +1,13 @@
-import React, { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Clock, IndianRupee, ShoppingBag, Store } from "lucide-react";
 
-import { getVendorOrders, updateOrderStatus } from "../../services/orderService.js";
+import { getVendorOrders } from "../../services/orderService.js";
 import { getMyRestaurant, updateRestaurantAvailability, updateRestaurantHours } from "../../services/vendorService.js";
 import { VerifiedBadge, ProfileProgress } from "../../components/vendors/VerifiedBadge.jsx";
 import { Skeleton, SkeletonCard, SkeletonRow } from "../../components/Skeleton.jsx";
 import { onNewOrder, onOrderStatusUpdate } from "../../services/chatSocket.js";
 import VendorHoursAlert from "../../components/vendors/VendorHoursAlert.jsx";
 import { getExtendedClosingTime, getRestaurantHoursStatus } from "../../utils/restaurantHours.js";
-
-const OrderRequestPopup = lazy(() => import("../../components/OrderRequestPopup.jsx"));
 
 const HOURS_ALERT_CHECK_MS = 60 * 1000;
 const HOURS_ALERT_SNOOZE_MS = 10 * 60 * 1000;
@@ -22,8 +20,6 @@ const VendorDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [orderRequest, setOrderRequest] = useState(null);
-  const [showRequest, setShowRequest] = useState(false);
   const [hoursAlert, setHoursAlert] = useState(null);
   const [hoursSaving, setHoursSaving] = useState(false);
   const [hoursSnoozedUntil, setHoursSnoozedUntil] = useState(0);
@@ -36,14 +32,6 @@ const VendorDashboard = () => {
       const [restaurantData, vendorData] = await Promise.all([getMyRestaurant(), getVendorOrders({ skipCache: true })]);
       const orderData = Array.isArray(vendorData?.orders) ? vendorData.orders : [];
 
-      const pendingOrders = orderData.filter((order) => order.status === "PENDING");
-
-      if (pendingOrders.length > 0) {
-        setOrderRequest(pendingOrders[0]);
-        setShowRequest(true);
-        triggerNotification(pendingOrders[0]);
-      }
-
       setRestaurant(restaurantData);
       setOrders(orderData);
       setLoading(false);
@@ -54,64 +42,21 @@ const VendorDashboard = () => {
     }
   };
 
-  const triggerNotification = (order) => {
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification("Dodago - New Order!", {
-        body: `Order from ${order.customer?.name || "Customer"} - ₹${Math.floor(order.totalAmount || 0)}`,
-        icon: "/dodagologo.png",
-        tag: "new-order",
-        requireInteraction: true,
-      });
-    }
-  };
-
-  const handleAcceptOrder = async (orderId) => {
-    try {
-      await updateOrderStatus(orderId, "ACCEPTED");
-      setMessage("Order accepted!");
-      setShowRequest(false);
-      setOrderRequest(null);
-      await loadDashboard();
-    } catch (err) {
-      setError(err.message || "Failed to accept order");
-    }
-  };
-
-  const handleRejectOrder = async (orderId) => {
-    try {
-      await updateOrderStatus(orderId, "REJECTED");
-      setMessage("Order rejected.");
-      setShowRequest(false);
-      setOrderRequest(null);
-      await loadDashboard();
-    } catch (err) {
-      setError(err.message || "Failed to reject order");
-    }
-  };
-
   useEffect(() => {
     loadDashboard();
-    // Socket payloads are intentionally small, so refresh the full vendor order
-    // list before showing the restaurant popup.
     const cleanups = [
       onNewOrder(() => {
         loadDashboard();
       }),
       onOrderStatusUpdate(({ orderId, status }) => {
         setOrders((prev) =>
-          prev.map((o) => (o.id === orderId ? { ...o, status } : o)),
+          prev.map((order) => (order.id === orderId ? { ...order, status } : order)),
         );
-        setOrderRequest(null);
       }),
     ];
-    return () => cleanups.forEach((fn) => fn());
+    return () => cleanups.forEach((cleanup) => cleanup());
   }, []);
 
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission().catch(() => { });
-    }
-  }, []);
   useEffect(() => {
     if (!restaurant?.id || !restaurant.openingTime || !restaurant.closingTime) return undefined;
 
@@ -410,17 +355,6 @@ const VendorDashboard = () => {
         onSnooze={handleHoursSnooze}
         onClose={() => setHoursAlert(null)}
       />
-      {showRequest && orderRequest ? (
-        <Suspense fallback={null}>
-          <OrderRequestPopup
-            order={orderRequest}
-            type="vendor"
-            onAccept={handleAcceptOrder}
-            onReject={handleRejectOrder}
-            onClose={() => { setShowRequest(false); setOrderRequest(null); }}
-          />
-        </Suspense>
-      ) : null}
     </div>
   );
 };

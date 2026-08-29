@@ -4,6 +4,7 @@ import { Routes, Route } from "react-router-dom";
 import ErrorBoundary from "../components/common/ErrorBoundary.jsx";
 import Navbar from "../components/common/Navbar.jsx";
 import PartnerMobileNav from "../components/common/PartnerMobileNav.jsx";
+import VendorOrderAlertHost from "../components/vendors/VendorOrderAlertHost.jsx";
 
 // Lazy Loaded Vendor Pages
 const VendorAccount = lazy(() =>
@@ -50,6 +51,7 @@ const VendorRoutes = () => {
       </div>
 
       <PartnerMobileNav role="vendor" />
+      <VendorOrderAlertHost />
 
       <main className="min-h-0 flex-1 pt-16 mobile-safe-content-lg md:p-0">
         <Suspense

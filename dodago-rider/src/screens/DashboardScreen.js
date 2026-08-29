@@ -33,6 +33,7 @@ export default function DashboardScreen({ navigation }) {
   const [locationStatus, setLocationStatus] = useState("pending");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderRequest, setOrderRequest] = useState(null);
+  const [requestCountdown, setRequestCountdown] = useState(30);
   const [otp, setOtp] = useState("");
   const dismissedRequestsRef = useRef(new Set());
   const locationSub = useRef(null);

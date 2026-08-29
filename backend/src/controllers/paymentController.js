@@ -4,6 +4,7 @@ import { env } from "../config/env.js";
 import { createPersistedOrder, prepareOrderDraft, serializeOrder } from "../services/orderCheckoutService.js";
 import { notifyAdminOrderCreated } from "../services/adminOrderAlertService.js";
 import { notifyRiderNewOrder, notifyVendorNewOrder } from "../services/notificationService.js";
+import { emitNewOrderToVendor } from "../services/orderSocketService.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { logger } from "../utils/logger.js";
@@ -92,6 +93,7 @@ const createCODOrder = async (req, res) => {
 
   runNotificationTask(notifyVendorNewOrder(order), "notifyVendorNewOrder");
   runNotificationTask(notifyRiderNewOrder(order), "notifyRiderNewOrder");
+  emitNewOrderToVendor(order);
   notifyAdminOrderCreated(order);
 
   res.status(201).json({
@@ -236,6 +238,7 @@ const verifyAndCreatePaidOrder = async (req, res) => {
 
   runNotificationTask(notifyVendorNewOrder(order), "notifyVendorNewOrder");
   runNotificationTask(notifyRiderNewOrder(order), "notifyRiderNewOrder");
+  emitNewOrderToVendor(order);
   notifyAdminOrderCreated(order);
 
   res.status(201).json(
