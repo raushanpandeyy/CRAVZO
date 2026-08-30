@@ -151,7 +151,7 @@ const serializeOrder = (order) => ({
       }
     : null,
   address: order.address,
-    items: order.items?.map((item) => ({
+  items: order.items?.map((item) => ({
     id: item.id,
     quantity: item.quantity,
     unitPrice: Number(item.unitPrice),

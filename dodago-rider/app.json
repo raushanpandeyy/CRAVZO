@@ -22,7 +22,7 @@
     "android": {
       "package": "shop.dodago.rider",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/dodagologo.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [

@@ -5,6 +5,7 @@ import { onNewOrder, onOrderStatusUpdate } from "../../services/chatSocket.js";
 import { unlockAlertSound } from "../../utils/alertSound.js";
 
 const OrderRequestPopup = lazy(() => import("../OrderRequestPopup.jsx"));
+const ORDER_ALERT_POLL_MS = 5000;
 
 const getLatestPendingOrder = (orders, orderId = null) => {
   const pendingOrders = (orders || []).filter((order) => order.status === "PENDING");
@@ -85,8 +86,24 @@ const VendorOrderAlertHost = () => {
         });
       }),
     ];
+    const pollInterval = window.setInterval(() => {
+      showOrderPopup();
+    }, ORDER_ALERT_POLL_MS);
 
-    return () => cleanups.forEach((cleanup) => cleanup());
+    const handleFocus = () => showOrderPopup();
+    const handleVisibilityChange = () => {
+      if (!document.hidden) showOrderPopup();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cleanups.forEach((cleanup) => cleanup());
+      window.clearInterval(pollInterval);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [showOrderPopup]);
 
   const handleAcceptOrder = async (orderId) => {

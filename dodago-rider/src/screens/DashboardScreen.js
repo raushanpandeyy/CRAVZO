@@ -11,6 +11,7 @@ import { updateRiderLocation, updateRiderStatus } from "../services/riderService
 import { onNewOrder, onOrderStatusUpdate } from "../services/socketService";
 import { formatCurrency, formatCustomerAddress, formatDistance, formatRestaurantAddress, openNavigation } from "../utils/formatters";
 import { useAuth } from "../services/AuthContext";
+import { playAlertSound, stopAlertSound } from "../utils/alertSound";
 
 const ACTIVE_STATUSES = ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
 
@@ -128,6 +129,26 @@ export default function DashboardScreen({ navigation }) {
     return () => clearInterval(timer);
   }, [orderRequest?.id]);
 
+  // Auto-dismiss the popup when the 30-second countdown expires.
+  useEffect(() => {
+    if (requestCountdown === 0 && orderRequest) {
+      stopAlertSound();
+      if (orderRequest?.id) dismissedRequestsRef.current.add(orderRequest.id);
+      setOrderRequest(null);
+    }
+  }, [requestCountdown, orderRequest]);
+
+  // Play alert sound + vibration when a new order popup appears, stop when it clears.
+  useEffect(() => {
+    if (orderRequest) {
+      playAlertSound();
+    } else {
+      stopAlertSound();
+    }
+    // Always stop on unmount (e.g. rider navigates away mid-alert).
+    return () => { stopAlertSound(); };
+  }, [orderRequest?.id]);
+
   const toggleOnline = useCallback(async () => {
     try {
       const next = !isOnline;
@@ -147,6 +168,7 @@ export default function DashboardScreen({ navigation }) {
 
   const acceptOrder = useCallback(async (order) => {
     try {
+      stopAlertSound();
       await updateOrderStatus(order.id, order.status);
       setOrderRequest((current) => current?.id === order.id ? null : current);
       await loadOrders({ silent: true });
@@ -157,6 +179,7 @@ export default function DashboardScreen({ navigation }) {
 
   const rejectOrder = useCallback(async (order) => {
     try {
+      stopAlertSound();
       await updateOrderStatus(order.id, "REJECTED");
       dismissedRequestsRef.current.add(order.id);
       setOrderRequest((current) => current?.id === order.id ? null : current);
@@ -264,53 +287,91 @@ export default function DashboardScreen({ navigation }) {
         contentContainerStyle={styles.content}
       />
 
-      <Modal visible={Boolean(orderRequest)} transparent animationType="fade" hardwareAccelerated statusBarTranslucent onRequestClose={() => setOrderRequest(null)}>
+      <Modal visible={Boolean(orderRequest)} transparent animationType="slide" hardwareAccelerated statusBarTranslucent onRequestClose={() => { stopAlertSound(); setOrderRequest(null); }}>
         <View style={styles.requestShade}>
           <View style={styles.requestCard}>
-            <View style={styles.requestHandle} />
-            <View style={styles.requestTopRow}>
-              <View style={styles.requestTitleWrap}>
-                <Text style={styles.requestEyebrow}>New order request</Text>
-                <Text style={styles.requestSubcopy}>Review pickup distance and earnings before accepting.</Text>
-                <View style={styles.countdownTrack}><View style={[styles.countdownFill, { width: `${Math.max(0, Math.min(100, (requestCountdown / 30) * 100))}%` }]} /></View>
-                <Text numberOfLines={1} style={styles.requestTitle}>{orderRequest?.restaurant?.name || "Restaurant"}</Text>
+
+            {/* ── Red alert header ── */}
+            <View style={styles.requestHeader}>
+              <View style={styles.requestHeaderLeft}>
+                <Text style={styles.requestHeaderEyebrow}>🔔  New Delivery Request</Text>
+                <Text numberOfLines={1} style={styles.requestHeaderTitle}>
+                  {orderRequest?.restaurant?.name || "Restaurant"}
+                </Text>
               </View>
               <TouchableOpacity
                 style={styles.requestClose}
                 onPress={() => {
+                  stopAlertSound();
                   if (orderRequest?.id) dismissedRequestsRef.current.add(orderRequest.id);
                   setOrderRequest(null);
                 }}
               >
-                <X size={20} color={colors.ink} />
+                <X size={20} color="#fff" />
               </TouchableOpacity>
             </View>
 
+            {/* ── Countdown bar ── */}
+            <View style={styles.countdownTrack}>
+              <View style={[styles.countdownFill, { width: `${Math.max(0, Math.min(100, (requestCountdown / 30) * 100))}%` }]} />
+            </View>
+            <Text style={styles.countdownText}>Auto-dismiss in {requestCountdown}s</Text>
+
+            {/* ── Earnings + distance stats ── */}
             <View style={styles.requestStats}>
-              <View style={styles.requestStatPrimary}>
-                <Text style={styles.requestStatLabel}>You earn</Text>
-                <Text style={styles.requestStatValue}>{formatCurrency(getOrderEarning(orderRequest))}</Text>
-                <Text style={styles.requestStatHint}>Delivery charge{Number(orderRequest?.tipAmount || 0) > 0 ? " + tip" : ""}</Text>
+              <View style={styles.requestStatEarn}>
+                <Text style={styles.requestStatLabel}>💰  You Earn</Text>
+                <Text style={styles.requestStatEarnValue}>{formatCurrency(getOrderEarning(orderRequest))}</Text>
+                <Text style={styles.requestStatHint}>
+                  Delivery fee{Number(orderRequest?.tipAmount || 0) > 0 ? " + tip" : ""}
+                </Text>
               </View>
-              <View style={styles.requestStatSecondary}>
-                <Text style={styles.requestStatLabel}>Restaurant distance</Text>
-                <Text style={styles.requestStatValue}>{formatDistance(getRestaurantDistance(orderRequest))}</Text>
-                <Text style={styles.requestStatHint}>Pickup distance</Text>
+              <View style={styles.requestStatDist}>
+                <Text style={styles.requestStatLabel}>📍  Pickup Distance</Text>
+                <Text style={styles.requestStatDistValue}>{formatDistance(getRestaurantDistance(orderRequest))}</Text>
+                <Text style={styles.requestStatHint}>From your location</Text>
               </View>
             </View>
 
+            {/* ── Pickup address ── */}
             <View style={styles.requestAddressBox}>
-              <MapPin size={18} color={colors.primaryDark} />
-              <View style={styles.requestAddressTextWrap}>
-                <Text style={styles.requestAddressTitle}>Pickup from</Text>
-                <Text numberOfLines={2} style={styles.requestAddressText}>{formatRestaurantAddress(orderRequest?.restaurant)}</Text>
+              <View style={styles.requestAddressRow}>
+                <View style={styles.requestAddressDot} />
+                <View style={styles.requestAddressTextWrap}>
+                  <Text style={styles.requestAddressLabel}>PICKUP FROM</Text>
+                  <Text numberOfLines={2} style={styles.requestAddressText}>
+                    {formatRestaurantAddress(orderRequest?.restaurant)}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.requestAddressDivider} />
+              <View style={styles.requestAddressRow}>
+                <View style={[styles.requestAddressDot, styles.requestAddressDotDrop]} />
+                <View style={styles.requestAddressTextWrap}>
+                  <Text style={styles.requestAddressLabel}>DELIVER TO</Text>
+                  <Text numberOfLines={2} style={styles.requestAddressText}>
+                    {formatCustomerAddress(orderRequest?.address)}
+                  </Text>
+                </View>
               </View>
             </View>
 
+            {/* ── Accept / Reject buttons ── */}
             <View style={styles.requestActions}>
-              <PrimaryButton title="Reject" tone="danger" onPress={() => rejectOrder(orderRequest)} style={styles.flex} />
-              <PrimaryButton title="Accept Order" tone="success" onPress={() => acceptOrder(orderRequest)} style={styles.flex} />
+              <PrimaryButton
+                title="✕  Reject"
+                tone="muted"
+                onPress={() => rejectOrder(orderRequest)}
+                style={styles.flex}
+              />
+              <PrimaryButton
+                title="✓  Accept"
+                tone="success"
+                onPress={() => acceptOrder(orderRequest)}
+                style={[styles.flex, styles.requestAcceptBtn]}
+              />
             </View>
+
           </View>
         </View>
       </Modal>
@@ -376,28 +437,43 @@ const styles = StyleSheet.create({
   missionRoute: { flexDirection: "row", gap: 9, alignItems: "flex-start", borderRadius: 18, backgroundColor: colors.primarySoft, padding: 12 },
   missionAddress: { flex: 1, color: colors.primaryDark, fontWeight: "800", lineHeight: 19 },
   missionActions: { flexDirection: "row", gap: 10 },
-  requestShade: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.68)", justifyContent: "center", padding: 18 },
-  requestCard: { borderRadius: 30, backgroundColor: "#fff", padding: 18, gap: 15, shadowColor: "#0f172a", shadowOpacity: 0.28, shadowRadius: 28, shadowOffset: { width: 0, height: 16 }, elevation: 14 },
-  requestHandle: { alignSelf: "center", width: 44, height: 5, borderRadius: 999, backgroundColor: "#e2e8f0", marginBottom: 2 },
-  requestTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
-  requestTitleWrap: { flex: 1, minWidth: 0 },
-  requestEyebrow: { color: colors.accent, fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
-  requestSubcopy: { color: colors.muted, fontSize: 12, fontWeight: "700", marginTop: 4, lineHeight: 17 },
-  requestTitle: { color: colors.ink, fontSize: 24, fontWeight: "900", marginTop: 8 },
-  countdownTrack: { height: 6, borderRadius: 999, backgroundColor: "#f1f5f9", overflow: "hidden", marginTop: 10 },
-  countdownFill: { height: "100%", borderRadius: 999, backgroundColor: colors.accent },
-  requestClose: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#f8fafc", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.line },
-  requestStats: { flexDirection: "row", gap: 10 },
-  requestStatPrimary: { flex: 1, borderRadius: 22, backgroundColor: colors.accentSoft, padding: 15, borderWidth: 1, borderColor: "#bbf7d0" },
-  requestStatSecondary: { flex: 1, borderRadius: 22, backgroundColor: colors.primarySoft, padding: 15, borderWidth: 1, borderColor: "#dbeafe" },
-  requestStatLabel: { color: colors.muted, fontSize: 12, fontWeight: "900" },
-  requestStatValue: { color: colors.ink, fontSize: 24, fontWeight: "900", marginTop: 5 },
-  requestStatHint: { color: colors.muted, fontSize: 11, fontWeight: "800", marginTop: 2 },
-  requestAddressBox: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderRadius: 20, backgroundColor: "#f8fafc", padding: 13, borderWidth: 1, borderColor: "#e2e8f0" },
+  requestShade: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.75)", justifyContent: "center", padding: 16 },
+  requestCard: { borderRadius: 28, backgroundColor: "#fff", overflow: "hidden", shadowColor: "#0f172a", shadowOpacity: 0.32, shadowRadius: 30, shadowOffset: { width: 0, height: 18 }, elevation: 16 },
+
+  // Red alert header
+  requestHeader: { backgroundColor: colors.danger, padding: 18, paddingBottom: 16, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
+  requestHeaderLeft: { flex: 1, minWidth: 0 },
+  requestHeaderEyebrow: { color: "rgba(255,255,255,0.85)", fontSize: 12, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.8 },
+  requestHeaderTitle: { color: "#fff", fontSize: 22, fontWeight: "900", marginTop: 4 },
+  requestClose: { width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center" },
+
+  // Countdown
+  countdownTrack: { height: 5, backgroundColor: "#fee2e2", overflow: "hidden" },
+  countdownFill: { height: "100%", backgroundColor: colors.danger },
+  countdownText: { color: colors.muted, fontSize: 11, fontWeight: "800", textAlign: "right", paddingHorizontal: 16, paddingTop: 5 },
+
+  // Stats row
+  requestStats: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 14 },
+  requestStatEarn: { flex: 1, borderRadius: 18, backgroundColor: "#ecfdf5", padding: 14, borderWidth: 1, borderColor: "#6ee7b7" },
+  requestStatDist: { flex: 1, borderRadius: 18, backgroundColor: "#eef2ff", padding: 14, borderWidth: 1, borderColor: "#c7d2fe" },
+  requestStatLabel: { color: colors.muted, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
+  requestStatEarnValue: { color: "#065f46", fontSize: 26, fontWeight: "900", marginTop: 4 },
+  requestStatDistValue: { color: colors.primaryDark, fontSize: 26, fontWeight: "900", marginTop: 4 },
+  requestStatHint: { color: colors.muted, fontSize: 11, fontWeight: "700", marginTop: 2 },
+
+  // Address box — pickup + drop
+  requestAddressBox: { marginHorizontal: 16, marginTop: 14, borderRadius: 18, backgroundColor: "#f8fafc", padding: 14, borderWidth: 1, borderColor: "#e2e8f0", gap: 10 },
+  requestAddressRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  requestAddressDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent, marginTop: 3 },
+  requestAddressDotDrop: { backgroundColor: colors.danger },
+  requestAddressDivider: { height: 1, backgroundColor: "#e2e8f0", marginLeft: 22 },
   requestAddressTextWrap: { flex: 1, minWidth: 0 },
-  requestAddressTitle: { color: colors.ink, fontWeight: "900" },
-  requestAddressText: { color: colors.muted, fontWeight: "700", lineHeight: 19, marginTop: 3 },
-  requestActions: { flexDirection: "row", gap: 10 },  modalShade: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.62)", justifyContent: "flex-end", paddingHorizontal: 10, paddingBottom: 112 },
+  requestAddressLabel: { color: colors.muted, fontSize: 10, fontWeight: "900", textTransform: "uppercase", letterSpacing: 0.6 },
+  requestAddressText: { color: colors.ink, fontWeight: "700", lineHeight: 19, marginTop: 2 },
+
+  // Action buttons
+  requestActions: { flexDirection: "row", gap: 10, padding: 16, paddingTop: 14 },
+  requestAcceptBtn: { shadowColor: colors.accent, shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 4 },  modalShade: { flex: 1, backgroundColor: "rgba(15, 23, 42, 0.62)", justifyContent: "flex-end", paddingHorizontal: 10, paddingBottom: 112 },
   modalCard: { maxHeight: "72%", backgroundColor: "#fff", borderRadius: 28, paddingHorizontal: 20, paddingTop: 14, shadowColor: "#0f172a", shadowOpacity: 0.22, shadowRadius: 22, shadowOffset: { width: 0, height: 12 }, elevation: 10 },
   modalContent: { gap: 12, paddingBottom: 20 },
   close: { alignSelf: "flex-end", padding: 4 },

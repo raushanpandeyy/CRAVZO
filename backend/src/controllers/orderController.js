@@ -162,8 +162,8 @@ const createOrder = async (req, res) => {
   // Riders are alerted after the restaurant accepts the order.
   queueNotification("vendor-new-order", { order });
 
-  // Real-time socket push replaces frontend polling for new orders.
-  emitNewOrderToVendor(order);
+  // Real-time socket push -- fire-and-forget; never block the 201 response if socket fails.
+  emitNewOrderToVendor(order).catch(() => {});
 
   res.status(201).json(
     apiResponse({

@@ -5,6 +5,7 @@ import { getRiderOrders, updateOrderStatus, verifyDeliveryOtp } from "../../serv
 import { updateRiderLocation, updateRiderStatus } from "../../services/riderService.js";
 import { getProfile } from "../../services/userService.js";
 import { onNewOrder, onOrderStatusUpdate } from "../../services/chatSocket.js";
+import { unlockAlertSound } from "../../utils/alertSound.js";
 
 const OrderRequestPopup = lazy(() => import("../../components/OrderRequestPopup.jsx"));
 const RiderMap = lazy(() => import("./LazyRiderMap.jsx"));
@@ -91,20 +92,10 @@ const RiderDashboard = () => {
 
       if (currentAvailableIds.length > 0) {
         if (firstLoadRef.current) {
-          const latestOrder = data.find(o => o.isAvailable);
-          if (latestOrder) {
-            setOrderRequest(latestOrder);
-            setShowRequest(true);
-
-            if ("Notification" in window && Notification.permission === "granted") {
-              new Notification("Dodago - New Order!", {
-                body: `${latestOrder.restaurant?.name || "New order"} - Earn Rs ${Math.floor(latestOrder.deliveryFee || 0)}`,
-                icon: "/dodagologo.png",
-                tag: "new-order",
-                requireInteraction: true,
-              });
-            }
-          }
+          // On first load, seed the baseline without showing a popup.
+          // This prevents stale/old available orders from triggering alerts
+          // every time the rider opens the dashboard.
+          // The popup will only fire for orders that arrive AFTER this load.
         } else {
           const previousAvailableIds = previousAvailableOrdersRef.current;
           const newAvailableOrders = data.filter(
@@ -195,6 +186,18 @@ const RiderDashboard = () => {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission().catch(() => { });
     }
+  }, []);
+
+  // Unlock Web Audio API on first user interaction so alert sound plays
+  // when a new order popup appears (browser autoplay policy requirement).
+  useEffect(() => {
+    const unlock = () => { unlockAlertSound(); };
+    window.addEventListener("pointerdown", unlock, { once: true, passive: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
   }, []);
 
   useEffect(() => {

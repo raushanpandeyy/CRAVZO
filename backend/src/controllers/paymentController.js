@@ -2,6 +2,7 @@ import crypto from "crypto";
 
 import { env } from "../config/env.js";
 import { createPersistedOrder, prepareOrderDraft, serializeOrder } from "../services/orderCheckoutService.js";
+import { ApiError } from "../utils/apiError.js";
 import { notifyAdminOrderCreated } from "../services/adminOrderAlertService.js";
 import { notifyRiderNewOrder, notifyVendorNewOrder } from "../services/notificationService.js";
 import { emitNewOrderToVendor } from "../services/orderSocketService.js";
@@ -216,25 +217,34 @@ const verifyAndCreatePaidOrder = async (req, res) => {
     throw new ApiError(400, "Payment amount does not match order total");
   }
 
-  const order = await createPersistedOrder({
-    customerId: req.user.sub,
-    restaurantId,
-    items,
-    address,
-    addressId,
-    paymentMethod,
-    paymentStatus: "PAID",
-    notes,
-    restaurantInstructions,
-    deliveryInstructions,
-    tipAmount,
-    couponCode,
-    referralVoucherCode,
-    gatewayProvider: "RAZORPAY",
-    gatewayOrderId: razorpayOrderId,
-    gatewayPaymentId: razorpayPaymentId,
-    gatewaySignature: razorpaySignature,
-  });
+  let order;
+  try {
+    order = await createPersistedOrder({
+      customerId: req.user.sub,
+      restaurantId,
+      items,
+      address,
+      addressId,
+      paymentMethod,
+      paymentStatus: "PAID",
+      notes,
+      restaurantInstructions,
+      deliveryInstructions,
+      tipAmount,
+      couponCode,
+      referralVoucherCode,
+      gatewayProvider: "RAZORPAY",
+      gatewayOrderId: razorpayOrderId,
+      gatewayPaymentId: razorpayPaymentId,
+      gatewaySignature: razorpaySignature,
+    });
+  } catch (err) {
+    // P2002 = unique constraint violation — order already created for this payment (duplicate submission)
+    if (err?.code === "P2002") {
+      throw new ApiError(409, "This payment has already been processed. Check your orders.");
+    }
+    throw err;
+  }
 
   runNotificationTask(notifyVendorNewOrder(order), "notifyVendorNewOrder");
   runNotificationTask(notifyRiderNewOrder(order), "notifyRiderNewOrder");
