@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "340045264237",
+    "project_id": "cravzo-de18f",
+    "storage_bucket": "cravzo-de18f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:340045264237:android:57a67fd314205291655664",
+        "android_client_info": {
+          "package_name": "shop.dodago.vendor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCB9a-car9dMJ6611PWP0JcLwqnE6Fv93k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
