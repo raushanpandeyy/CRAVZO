@@ -3,3 +3,7 @@ node_modules
 .env.*
 *.log
 dist
+
+# Firebase service account keys - never commit
+*firebase-adminsdk*.json
+cravzo-de18f-*.json

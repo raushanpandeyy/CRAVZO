@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Dodago Rider",
-    "slug": "dodago-rider",
+    "name": "Dodago Vendor",
+    "slug": "dodago-vendor",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,22 +13,23 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "shop.dodago.rider",
+      "bundleIdentifier": "shop.dodago.vendor",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Dodago Rider needs your location to assign orders and share live delivery updates.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Dodago Rider needs location while you deliver active orders."
+        "NSCameraUsageDescription": "Dodago Vendor uses your camera to upload menu item photos.",
+        "NSPhotoLibraryUsageDescription": "Dodago Vendor accesses your photo library to upload menu item photos."
       }
     },
     "android": {
-      "package": "shop.dodago.rider",
+      "package": "shop.dodago.vendor",
       "googleServicesFile": "./android/app/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/dodagologo.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "ACCESS_NETWORK_STATE"
@@ -36,10 +37,17 @@
     },
     "plugins": [
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Dodago Vendor accesses photos to upload menu images.",
+          "cameraPermission": "Dodago Vendor uses the camera to capture menu images."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#059669",
+          "color": "#4f46e5",
           "sounds": ["./assets/alert.wav"],
           "androidMode": "default",
           "androidCollapsedTitle": "New Order"
@@ -47,13 +55,10 @@
       ],
       "expo-location"
     ],
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
     "extra": {
       "apiBaseUrl": "https://api.dodago.shop",
       "eas": {
-        "projectId": "dc842aa9-48b2-4ecf-9c9d-17b0c927bc9c"
+        "projectId": ""
       }
     }
   }

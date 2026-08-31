@@ -76,9 +76,11 @@ export function ContactUsScreen({ navigation }) {
 
         <Card style={styles.card}>
           <Text style={styles.sectionTitle}>Grievance Officer</Text>
-          <Text style={styles.copy}>Name: Raushanpandey</Text>
+          <Text style={styles.copy}>Name: Raushan Pandey</Text>
           <Text style={styles.copy}>Contact: +91 9984185916</Text>
           <Text style={styles.copy}>Email: yushpandey3@gmail.com</Text>
+          <Text style={styles.copy}>Alternate: +91 8527879902 (Yash Chauhan)</Text>
+          <Text style={styles.copy}>Response within 30 days as per DPDP Act, 2023.</Text>
         </Card>
       </ScrollView>
     </ScreenWithHeader>
@@ -94,7 +96,7 @@ const privacySections = [
   ["Sharing", "We share only what is needed with restaurants, delivery partners, payment processors, cloud/hosting providers, analytics or notification providers, support tools, and legal authorities when required. We do not sell your personal data."],
   ["Cookies & Similar Technologies", "We use cookies, local storage, session storage, and similar technologies for login, cart, OTP flow, referral code capture, app preferences, security, and performance. You can control cookies in your browser, but disabling essential storage may break account or checkout features."],
   ["Your Rights & Account Deletion", "You can request access, correction, update, consent withdrawal, grievance redressal, and deletion of your account data. Some records may be retained where required for tax, fraud prevention, disputes, or legal compliance."],
-  ["Grievance Contact", "For privacy requests, account deletion help, or grievances, email yushpandey3@gmail.com or call Grievance Officer Raushanpandey at +91 9984185916, or support contact +91 8527879902. We aim to respond within 30 days. This policy is intended to align with India's Digital Personal Data Protection Act, 2023 and related rules as applicable."],
+  ["Grievance Contact", "For privacy requests, account deletion help, or grievances, email yushpandey3@gmail.com or call Grievance Officer Raushan Pandey at +91 9984185916, or alternate contact Yash Chauhan at +91 8527879902. We aim to respond within 30 days. This policy is intended to align with India's Digital Personal Data Protection Act, 2023 and related rules as applicable."],
 ];
 
 export function PrivacyScreen({ navigation }) {

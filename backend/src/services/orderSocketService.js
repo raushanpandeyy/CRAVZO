@@ -36,15 +36,19 @@ export const emitOrderStatusUpdate = async (order, actorRole) => {
 export const emitNewOrderToVendor = async (order) => {
   if (!ioInstance) return;
 
-  const vendorIds = await getRestaurantNotificationVendorIds(order.restaurant);
-  if (vendorIds.length) {
-    emitToUsers(vendorIds, "order:new", {
-      orderId: order.id,
-      status: order.status,
-      customerName: order.customer?.name,
-      totalAmount: order.totalAmount,
-      createdAt: new Date().toISOString(),
-    });
+  try {
+    const vendorIds = await getRestaurantNotificationVendorIds(order.restaurant);
+    if (vendorIds.length) {
+      emitToUsers(vendorIds, "order:new", {
+        orderId: order.id,
+        status: order.status,
+        customerName: order.customer?.name,
+        totalAmount: order.totalAmount,
+        createdAt: new Date().toISOString(),
+      });
+    }
+  } catch (error) {
+    console.error("New order socket emit failed:", error.message);
   }
 };
 

@@ -58,9 +58,9 @@ function BottomTabs() {
           tabBarActiveTintColor: colors.brand.dark,
           tabBarInactiveTintColor: colors.slate[500],
           tabBarStyle: {
-            height: Math.max(insets.bottom + MIN_DEVICE_NAV_GAP + 72, 104),
+            height: Math.max(insets.bottom + MIN_DEVICE_NAV_GAP + 56, 72),
             paddingTop: 10,
-            paddingBottom: Math.max(insets.bottom + MIN_DEVICE_NAV_GAP, 36),
+            paddingBottom: Math.max(insets.bottom + MIN_DEVICE_NAV_GAP, 16),
             borderTopWidth: 0,
             elevation: 12,
           },

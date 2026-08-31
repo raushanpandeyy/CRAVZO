@@ -4,7 +4,7 @@ import { API_ENDPOINTS } from "../constants/apiEndpoints";
 export const updateRiderStatus = async (isOnline) => {
   const response = await apiRequest(API_ENDPOINTS.rider.status, {
     method: "PATCH",
-    data: { isOnline },
+    data: { isOnline: Boolean(isOnline) },
   });
   return response.data;
 };
@@ -15,9 +15,9 @@ export const updateRiderLocation = async (latitude, longitude, metadata = {}) =>
     data: {
       latitude,
       longitude,
-      accuracy: metadata.accuracy,
-      heading: metadata.heading,
-      speed: metadata.speed,
+      accuracy:  metadata.accuracy,
+      heading:   metadata.heading,
+      speed:     metadata.speed,
       timestamp: metadata.timestamp,
     },
   });

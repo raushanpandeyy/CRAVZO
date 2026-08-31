@@ -88,9 +88,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'shop.dodago.rider'
+    namespace 'shop.dodago.vendor'
     defaultConfig {
-        applicationId 'shop.dodago.rider'
+        applicationId 'shop.dodago.vendor'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -156,9 +156,6 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-
-    // kotlin-reflect required by expo-av 16.x type system (LazyKType)
-    implementation("org.jetbrains.kotlin:kotlin-reflect:2.1.20")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";

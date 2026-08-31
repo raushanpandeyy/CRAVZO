@@ -1,17 +1,24 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { loadCurrentUser, login as loginRequest, logout as logoutRequest } from "../services/authService";
 import { setUnauthorizedHandler } from "../services/api";
+import { registerForPushNotifications, deregisterPushNotifications } from "./notificationService";
 
 const AuthContext = createContext(null);
 
-export const AuthProvider = ({ children }) => {
+export const AuthProvider = ({ children, navigationRef }) => {
   const [user, setUser] = useState(null);
   const [booting, setBooting] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     loadCurrentUser().then((currentUser) => {
-      if (mounted) setUser(currentUser);
+      if (mounted) {
+        setUser(currentUser);
+        if (currentUser) {
+          // Register push token for existing session
+          registerForPushNotifications(navigationRef);
+        }
+      }
     }).finally(() => {
       if (mounted) setBooting(false);
     });
@@ -26,10 +33,13 @@ export const AuthProvider = ({ children }) => {
   const login = useCallback(async (payload) => {
     const result = await loginRequest(payload);
     setUser(result.user);
+    // Register push token after login
+    registerForPushNotifications(navigationRef);
     return result.user;
   }, []);
 
   const logout = useCallback(async () => {
+    await deregisterPushNotifications();
     await logoutRequest();
     setUser(null);
   }, []);

@@ -53,7 +53,7 @@ const sections = [
   {
     title: "Grievance Officer",
     content:
-      "Name: Dodago Grievance Officer (Privacy). Email: privacy@dodago.shop. Alternate contact: support@dodago.shop. Include your registered email/phone and a short description of the request.",
+      "Name: Raushan Pandey. Contact: +91 9984185916. Email: yushpandey3@gmail.com. Alternate contact: +91 8527879902 (Yash Chauhan). Include your registered email or phone and a short description of your request. We aim to respond within 30 days as required under India's Digital Personal Data Protection Act, 2023.",
   },
 ];
 

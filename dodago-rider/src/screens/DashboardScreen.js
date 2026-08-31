@@ -169,7 +169,7 @@ export default function DashboardScreen({ navigation }) {
   const acceptOrder = useCallback(async (order) => {
     try {
       stopAlertSound();
-      await updateOrderStatus(order.id, order.status);
+      await updateOrderStatus(order.id, "ACCEPTED");
       setOrderRequest((current) => current?.id === order.id ? null : current);
       await loadOrders({ silent: true });
     } catch (error) {
