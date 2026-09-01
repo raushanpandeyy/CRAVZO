@@ -256,9 +256,10 @@ export default function DashboardScreen({ navigation }) {
       onReject={rejectOrder}
       onPickup={pickupOrder}
       onReachedDestination={setSelectedOrder}
+      onCancel={openCancelModal}
       onChat={openChat}
     />
-  ), [acceptOrder, openChat, pickupOrder, rejectOrder]);
+  ), [acceptOrder, openChat, pickupOrder, rejectOrder, openCancelModal]);
   return (
     <ScreenWithHeader title="Home" subtitle="Rider" navigation={navigation}>
       <FlatList

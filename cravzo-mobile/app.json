@@ -7,6 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "dodago",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1e1b4b"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.dodago.app",
@@ -40,7 +45,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/android-icon-foreground.png",
+          "icon": "./assets/icon.png",
           "color": "#4f46e5"
         }
       ],

@@ -108,8 +108,8 @@ export default function ChatScreen({ route, navigation }) {
   return (
     <ScreenWithHeader title="Chat" subtitle="Rider" navigation={navigation}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 92 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 92 : 80}
         style={styles.wrap}
       >
         <View style={styles.header}>

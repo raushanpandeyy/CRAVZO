@@ -1,13 +1,14 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { MapPin, MessageCircle, PackageCheck } from "./Icons";
 import { Card, PrimaryButton } from "./Primitives";
 import { colors } from "../constants/colors";
-import { formatCurrency, formatCustomerAddress, formatDistance, formatRestaurantAddress } from "../utils/formatters";
+import { formatCurrency, formatCustomerAddress, formatDistance, formatRestaurantAddress, openNavigation } from "../utils/formatters";
 
-const OrderCardComponent = ({ order, onView, onAccept, onReject, onPickup, onReachedDestination, onChat, compact = false }) => {
+const OrderCardComponent = ({ order, onView, onAccept, onReject, onPickup, onReachedDestination, onCancel, onChat, compact = false }) => {
   const pickedUp    = order.status === "OUT_FOR_DELIVERY";
   const isAvailable = Boolean(order.isAvailable);
+  const isActive    = !isAvailable && ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(order.status);
   const destinationText = pickedUp
     ? formatCustomerAddress(order.address)
     : formatRestaurantAddress(order.restaurant);
@@ -83,6 +84,13 @@ const OrderCardComponent = ({ order, onView, onAccept, onReject, onPickup, onRea
           </>
         )}
       </View>
+
+      {/* ── Cancel link — only for active assigned orders ── */}
+      {isActive && onCancel ? (
+        <TouchableOpacity style={styles.cancelLink} onPress={() => onCancel(order)}>
+          <Text style={styles.cancelLinkText}>Having trouble? Cancel order</Text>
+        </TouchableOpacity>
+      ) : null}
     </Card>
   );
 };
@@ -110,6 +118,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   actionButton: { flex: 1, minWidth: 88, minHeight: 46, borderRadius: 15 },
   actionButtonWide: { flex: 1.25, minWidth: 98, minHeight: 46, borderRadius: 15 },
+  cancelLink:     { alignSelf: "center", paddingVertical: 4, paddingHorizontal: 8 },
+  cancelLinkText: { color: colors.danger, fontSize: 12, fontWeight: "800", textDecorationLine: "underline" },
 });
 
 

@@ -7,9 +7,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#059669"
     },
     "ios": {
       "supportsTablet": false,
@@ -24,7 +24,7 @@
       "googleServicesFile": "./android/app/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#059669"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
@@ -35,6 +35,7 @@
       ]
     },
     "plugins": [
+      "expo-splash-screen",
       [
         "expo-notifications",
         {

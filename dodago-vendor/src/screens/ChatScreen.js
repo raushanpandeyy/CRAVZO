@@ -182,7 +182,7 @@ export default function ChatScreen({ route, navigation }) {
 
   // ── UI ───────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -205,8 +205,8 @@ export default function ChatScreen({ route, navigation }) {
 
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 24}
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 80}
       >
         {/* Messages list */}
         {loading ? (
