@@ -115,6 +115,23 @@ const sendNotificationToUsers = async ({ userIds = [], title, body, data = {} })
     data: Object.fromEntries(
       Object.entries(data).map(([key, value]) => [key, value === undefined || value === null ? "" : String(value)]),
     ),
+    android: {
+      notification: {
+        icon: "ic_notification",   // drawable resource name (white icon for status bar)
+        color: "#4f46e5",          // notification accent color
+        channelId: "orders",       // must match the channel created in the app
+        sound: "alert",            // matches alert.wav bundled in the app
+        priority: "high",
+      },
+    },
+    apns: {
+      payload: {
+        aps: {
+          sound: "alert.wav",      // matches the sound bundled in iOS app
+          badge: 1,
+        },
+      },
+    },
     webpush: {
       fcmOptions: {
         link: data.clickUrl || "/",

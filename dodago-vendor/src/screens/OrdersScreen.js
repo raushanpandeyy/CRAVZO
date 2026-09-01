@@ -239,6 +239,7 @@ export default function OrdersScreen({ navigation }) {
           />
         }
         contentContainerStyle={styles.list}
+        style={styles.flatList}
         ListEmptyComponent={
           !loading
             ? <EmptyState icon="📋" title="No orders" body={filter === "all" ? "Orders will appear here in real time." : `No ${filter.toLowerCase()} orders.`} />
@@ -398,6 +399,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: "#fff" },
 
   list: { padding: 16, paddingTop: 4, gap: 12, paddingBottom: 32 },
+  flatList: { flex: 1 },
   loadingWrap: { padding: 32, alignItems: "center" },
   loadingText: { color: colors.muted, fontWeight: "700" },
 

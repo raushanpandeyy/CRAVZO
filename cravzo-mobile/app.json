@@ -21,10 +21,8 @@
     "android": {
       "package": "com.dodago.app",
       "adaptiveIcon": {
-        "backgroundColor": "#1e1b4b",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#1e1b4b"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",

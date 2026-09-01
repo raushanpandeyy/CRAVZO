@@ -49,7 +49,7 @@ export const registerForPushNotifications = async (navigationRef) => {
         importance:       Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 350, 120, 350],
         lightColor:       "#4f46e5",
-        sound:            "default",
+        sound:            "alert",   // matches alert.wav in app.json sounds array
         enableVibrate:    true,
         showBadge:        true,
       });
