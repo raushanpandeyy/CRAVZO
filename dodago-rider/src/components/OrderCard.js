@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Linking, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { MapPin, MessageCircle, PackageCheck } from "./Icons";
 import { Card, PrimaryButton } from "./Primitives";
 import { colors } from "../constants/colors";
@@ -58,6 +58,14 @@ const OrderCardComponent = ({ order, onView, onAccept, onReject, onPickup, onRea
             />
             {onChat ? (
               <PrimaryButton title="Chat" tone="dark" onPress={() => onChat(order)} style={styles.actionButton} />
+            ) : null}
+            {order.restaurant?.phone ? (
+              <PrimaryButton
+                title="📞 Call"
+                tone="success"
+                onPress={() => Linking.openURL(`tel:${order.restaurant.phone}`)}
+                style={styles.actionButton}
+              />
             ) : null}
             {order.status === "READY_FOR_PICKUP" ? (
               <PrimaryButton title="Picked Up" tone="primary" onPress={() => onPickup?.(order)} style={styles.actionButtonWide} />

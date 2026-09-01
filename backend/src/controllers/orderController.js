@@ -459,6 +459,7 @@ const getRiderOrders = async (req, res) => {
             name: true,
             imageUrl: true,
             city: true,
+            phone: true,
             addressLine1: true,
             latitude: true,
             longitude: true,
@@ -991,7 +992,7 @@ const getOrderTracking = async (req, res) => {
     include: {
       address: true,
       restaurant: { include: { operatorAccesses: { where: { vendorId: req.user.sub }, select: { vendorId: true } } } },
-      rider: { select: { id: true, name: true, phone: true, avatarUrl: true, latitude: true, longitude: true, updatedAt: true } },
+      rider: { select: { id: true, name: true, phone: true, avatarUrl: true, vehicleDetails: true, latitude: true, longitude: true, updatedAt: true } },
     },
   });
   if (!order) throw new ApiError(404, "Order not found");

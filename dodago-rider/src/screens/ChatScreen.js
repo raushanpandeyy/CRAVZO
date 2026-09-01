@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Send } from "../components/Icons";
 import { Card } from "../components/Primitives";
-import { ScreenWithHeader } from "../components/RiderChrome";
+import { RiderHeader } from "../components/RiderChrome";
 import { colors } from "../constants/colors";
 import { getChatMessages, getOrderChatRoom, getSupportChatRoom } from "../services/chatService";
 import { joinChatRoom, leaveChatRoom, onSocketMessage, sendSocketMessage } from "../services/socketService";
@@ -106,11 +106,12 @@ export default function ChatScreen({ route, navigation }) {
   const isOrderChat = Boolean(order?.id);
 
   return (
-    <ScreenWithHeader title="Chat" subtitle="Rider" navigation={navigation}>
+    <SafeAreaView style={styles.safe}>
+      <RiderHeader title="Chat" subtitle="Rider" navigation={navigation} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "padding"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 92 : 80}
         style={styles.wrap}
+        keyboardVerticalOffset={0}
       >
         <View style={styles.header}>
           <Text style={styles.title}>{isOrderChat ? "Customer Chat" : "Dodago Support"}</Text>
@@ -155,11 +156,12 @@ export default function ChatScreen({ route, navigation }) {
           <TouchableOpacity onPress={send} disabled={!room?.id || !text.trim()} style={[styles.send, (!room?.id || !text.trim()) && styles.sendDisabled]}><Send size={20} color="#fff" /></TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </ScreenWithHeader>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.bg },
   wrap: { flex: 1 },
   header: { padding: 16, backgroundColor: "#fff", borderBottomWidth: 1, borderBottomColor: colors.line },
   title: { fontSize: 22, fontWeight: "900", color: colors.ink },

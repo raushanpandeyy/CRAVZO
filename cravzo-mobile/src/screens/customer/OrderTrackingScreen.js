@@ -173,6 +173,15 @@ export default function OrderTrackingScreen({ navigation, route }) {
               </Text>
             </View>
           </View>
+          {/* Bike registration number */}
+          {tracking?.rider?.vehicleDetails?.registrationNumber ? (
+            <View className="mt-3 flex-row items-center gap-2 rounded-2xl bg-indigo-50 px-4 py-2.5">
+              <Bike size={15} color="#4f46e5" />
+              <Text className="text-sm font-black text-indigo-800">
+                Bike: {tracking.rider.vehicleDetails.registrationNumber}
+              </Text>
+            </View>
+          ) : null}
           <View className="mt-4 flex-row gap-3">
             <PressableScale
               onPress={openMap}
