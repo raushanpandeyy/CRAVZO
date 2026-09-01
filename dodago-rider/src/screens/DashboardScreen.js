@@ -245,7 +245,7 @@ export default function DashboardScreen({ navigation }) {
               </View>
               <TouchableOpacity style={[styles.statusButton, isOnline ? styles.online : styles.offline]} onPress={toggleOnline}>
                 <Power size={18} color="#fff" />
-                <Text style={styles.statusText}>{isOnline ? "Online" : "Offline"}</Text>
+                <Text style={styles.statusText}>{isOnline ? "Go Offline" : "Go Online"}</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.summaryGrid}>

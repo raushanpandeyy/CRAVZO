@@ -751,7 +751,14 @@ const updateOrderStatus = async (req, res) => {
       ) > 0;
 
     if (!req.user.isOnline) {
-      throw new ApiError(403, "Go online before accepting orders");
+      // req.user.isOnline comes from JWT which may be stale — verify from DB
+      const liveRider = await prisma.user.findUnique({
+        where: { id: req.user.sub },
+        select: { isOnline: true },
+      });
+      if (!liveRider?.isOnline) {
+        throw new ApiError(403, "Go online before accepting orders");
+      }
     }
 
     if (hasAnotherActiveOrder) {
