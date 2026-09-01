@@ -6,7 +6,6 @@ import { ApiError } from "../utils/apiError.js";
 import { notifyAdminOrderCreated } from "../services/adminOrderAlertService.js";
 import { notifyRiderNewOrder, notifyVendorNewOrder } from "../services/notificationService.js";
 import { emitNewOrderToVendor } from "../services/orderSocketService.js";
-import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { logger } from "../utils/logger.js";
 import { createCheckoutOrderSchema, createOrderSchema, verifyPaymentOrderSchema } from "../validators/orderValidators.js";
