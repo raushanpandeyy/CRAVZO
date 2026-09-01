@@ -15,6 +15,15 @@ import { playAlertSound, stopAlertSound } from "../utils/alertSound";
 
 const ACTIVE_STATUSES = ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
 
+const CANCEL_REASONS = [
+  "Restaurant not responding",
+  "Cannot reach pickup location",
+  "Cannot reach delivery location",
+  "Personal emergency",
+  "Vehicle breakdown",
+  "Other",
+];
+
 const getOrderEarning = (order) => Number(order?.deliveryFee || 0) + Number(order?.tipAmount || 0);
 
 const getRestaurantDistance = (order) =>
@@ -36,6 +45,10 @@ export default function DashboardScreen({ navigation }) {
   const [orderRequest, setOrderRequest] = useState(null);
   const [requestCountdown, setRequestCountdown] = useState(30);
   const [otp, setOtp] = useState("");
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelNote,   setCancelNote]   = useState("");
+  const [cancelling,   setCancelling]   = useState(false);
   const dismissedRequestsRef = useRef(new Set());
   const locationSub = useRef(null);
   const isOnlineRef = useRef(Boolean(user?.isOnline));
@@ -198,6 +211,29 @@ export default function DashboardScreen({ navigation }) {
     }
   }, [loadOrders]);
 
+  const openCancelModal = useCallback((order) => {
+    setCancelTarget(order);
+    setCancelReason("");
+    setCancelNote("");
+    setSelectedOrder(null);
+  }, []);
+
+  const confirmCancelOrder = useCallback(async () => {
+    if (!cancelTarget || !cancelReason) return;
+    setCancelling(true);
+    try {
+      await updateOrderStatus(cancelTarget.id, "CANCELLED");
+      setCancelTarget(null);
+      setCancelReason("");
+      setCancelNote("");
+      await loadOrders({ silent: true });
+    } catch (err) {
+      Alert.alert("Cancel failed", err.message || "Could not cancel order.");
+    } finally {
+      setCancelling(false);
+    }
+  }, [cancelTarget, cancelReason, loadOrders]);
+
   const completeWithOtp = useCallback(async () => {
     if (!selectedOrder || otp.length !== 4) return;
     try {
@@ -216,10 +252,10 @@ export default function DashboardScreen({ navigation }) {
   const renderOrder = useCallback(({ item }) => (
     <OrderCard
       order={item}
-      onView={setSelectedOrder}
       onAccept={acceptOrder}
       onReject={rejectOrder}
       onPickup={pickupOrder}
+      onReachedDestination={setSelectedOrder}
       onChat={openChat}
     />
   ), [acceptOrder, openChat, pickupOrder, rejectOrder]);
@@ -376,7 +412,7 @@ export default function DashboardScreen({ navigation }) {
         </View>
       </Modal>
 
-            <Modal visible={Boolean(selectedOrder)} transparent animationType="slide" hardwareAccelerated statusBarTranslucent onRequestClose={() => setSelectedOrder(null)}>
+      <Modal visible={Boolean(selectedOrder)} transparent animationType="slide" hardwareAccelerated statusBarTranslucent onRequestClose={() => setSelectedOrder(null)}>
         <View style={styles.modalShade}>
           <View style={styles.modalCard}>
             <TouchableOpacity style={styles.close} onPress={() => setSelectedOrder(null)}><X size={22} color={colors.ink} /></TouchableOpacity>
@@ -388,22 +424,129 @@ export default function DashboardScreen({ navigation }) {
                   <Card style={styles.modalStat}><Text style={styles.summaryLabel}>Delivery km</Text><Text style={styles.summaryValue}>{formatDistance(selectedOrder.deliveryDistance)}</Text></Card>
                   <Card style={styles.modalStat}><Text style={styles.summaryLabel}>Earning</Text><Text style={styles.summaryValue}>{formatCurrency(Number(selectedOrder.deliveryFee || 0) + Number(selectedOrder.tipAmount || 0))}</Text></Card>
                 </View>
-                <Text style={styles.addressTitle}>Pickup</Text>
-                <Text style={styles.addressText}>{formatRestaurantAddress(selectedOrder.restaurant)}</Text>
-                <Text style={styles.addressTitle}>Drop</Text>
-                <Text style={styles.addressText}>{selectedOrder.status === "OUT_FOR_DELIVERY" ? formatCustomerAddress(selectedOrder.address) : "Customer address unlocks after pickup."}</Text>
-                <View style={styles.modalActions}>
-                  <PrimaryButton title="Navigate Pickup" tone="dark" onPress={() => openNavigation(selectedOrder.restaurant, formatRestaurantAddress(selectedOrder.restaurant))} style={styles.flex} />
-                  {selectedOrder.status === "OUT_FOR_DELIVERY" ? <PrimaryButton title="Navigate Drop" onPress={() => openNavigation(selectedOrder.address, formatCustomerAddress(selectedOrder.address))} style={styles.flex} /> : null}
-                </View>
+
+                {/* ── OTP completion section (OUT_FOR_DELIVERY only) ── */}
                 {selectedOrder.status === "OUT_FOR_DELIVERY" ? (
-                  <View style={styles.otpRow}>
-                    <TextInput value={otp} onChangeText={(value) => setOtp(value.replace(/\D/g, "").slice(0, 4))} keyboardType="number-pad" maxLength={4} placeholder="OTP" style={styles.otpInput} />
-                    <PrimaryButton title="Complete" tone="success" disabled={otp.length !== 4} onPress={completeWithOtp} style={styles.flex} />
+                  <View style={styles.otpSection}>
+                    <Text style={styles.otpTitle}>🔐 Enter Delivery OTP</Text>
+                    <Text style={styles.otpHint}>Ask the customer for the 4-digit OTP to complete this delivery.</Text>
+                    <View style={styles.otpRow}>
+                      <TextInput
+                        value={otp}
+                        onChangeText={(value) => setOtp(value.replace(/\D/g, "").slice(0, 4))}
+                        keyboardType="number-pad"
+                        maxLength={4}
+                        placeholder="_ _ _ _"
+                        placeholderTextColor={colors.muted}
+                        style={styles.otpInput}
+                        autoFocus
+                      />
+                      <PrimaryButton
+                        title="Complete Delivery"
+                        tone="success"
+                        disabled={otp.length !== 4}
+                        onPress={completeWithOtp}
+                        style={styles.flex}
+                      />
+                    </View>
                   </View>
+                ) : (
+                  <>
+                    <Text style={styles.addressTitle}>Pickup</Text>
+                    <Text style={styles.addressText}>{formatRestaurantAddress(selectedOrder.restaurant)}</Text>
+                    <Text style={styles.addressTitle}>Drop</Text>
+                    <Text style={styles.addressText}>{formatCustomerAddress(selectedOrder.address)}</Text>
+                  </>
+                )}
+
+                {/* ── Cancel button (only for active non-delivered orders) ── */}
+                {["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(selectedOrder.status) ? (
+                  <TouchableOpacity
+                    style={styles.cancelTrigger}
+                    onPress={() => openCancelModal(selectedOrder)}
+                  >
+                    <Text style={styles.cancelTriggerText}>Having trouble? Cancel order</Text>
+                  </TouchableOpacity>
                 ) : null}
               </ScrollView>
             ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Cancel Order Modal (3-step: reason → note → confirm) ── */}
+      <Modal
+        visible={Boolean(cancelTarget)}
+        transparent
+        animationType="slide"
+        hardwareAccelerated
+        statusBarTranslucent
+        onRequestClose={() => { if (!cancelling) setCancelTarget(null); }}
+      >
+        <View style={styles.modalShade}>
+          <View style={styles.cancelCard}>
+            {/* Header */}
+            <View style={styles.cancelHeader}>
+              <Text style={styles.cancelHeaderTitle}>⚠️  Cancel Order</Text>
+              <TouchableOpacity onPress={() => { if (!cancelling) setCancelTarget(null); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X size={22} color={colors.ink} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.cancelSubtitle}>
+              Order #{cancelTarget?.id?.slice(-6)} · {cancelTarget?.restaurant?.name}
+            </Text>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.cancelBody}>
+              {/* Step 1: Reason */}
+              <Text style={styles.cancelLabel}>Select a reason <Text style={styles.cancelRequired}>*</Text></Text>
+              <View style={styles.cancelReasons}>
+                {CANCEL_REASONS.map((reason) => (
+                  <TouchableOpacity
+                    key={reason}
+                    style={[styles.cancelReasonChip, cancelReason === reason && styles.cancelReasonChipActive]}
+                    onPress={() => setCancelReason(reason)}
+                  >
+                    <Text style={[styles.cancelReasonText, cancelReason === reason && styles.cancelReasonTextActive]}>
+                      {reason}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Step 2: Note (visible after reason selected) */}
+              {cancelReason ? (
+                <>
+                  <Text style={[styles.cancelLabel, { marginTop: 16 }]}>Additional details <Text style={styles.cancelOptional}>(optional)</Text></Text>
+                  <TextInput
+                    value={cancelNote}
+                    onChangeText={setCancelNote}
+                    placeholder="Describe the issue briefly…"
+                    placeholderTextColor={colors.muted}
+                    multiline
+                    numberOfLines={3}
+                    style={styles.cancelNoteInput}
+                  />
+                </>
+              ) : null}
+
+              {/* Step 3: Confirm button (only enabled when reason selected) */}
+              <View style={styles.cancelActions}>
+                <PrimaryButton
+                  title="Keep Order"
+                  tone="outline"
+                  onPress={() => setCancelTarget(null)}
+                  style={styles.flex}
+                />
+                <PrimaryButton
+                  title="Yes, Cancel"
+                  tone="danger"
+                  disabled={!cancelReason || cancelling}
+                  loading={cancelling}
+                  onPress={confirmCancelOrder}
+                  style={styles.flex}
+                />
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -485,7 +628,32 @@ const styles = StyleSheet.create({
   addressText: { color: colors.muted, lineHeight: 20 },
   modalActions: { flexDirection: "row", gap: 10 },
   otpRow: { flexDirection: "row", gap: 10, alignItems: "center" },
-  otpInput: { width: 94, minHeight: 50, borderWidth: 1, borderColor: colors.line, borderRadius: 14, textAlign: "center", fontSize: 20, fontWeight: "900", letterSpacing: 4 },
+  otpInput: { flex: 1, backgroundColor: "#fff", borderRadius: 14, borderWidth: 2, borderColor: colors.primary, paddingHorizontal: 16, paddingVertical: 14, fontSize: 24, fontWeight: "900", color: colors.ink, textAlign: "center", letterSpacing: 8 },
+  otpSection: { backgroundColor: "#f0fdf4", borderRadius: 20, padding: 20, gap: 12, borderWidth: 1, borderColor: "#bbf7d0" },
+  otpTitle:   { fontSize: 18, fontWeight: "900", color: colors.ink, textAlign: "center" },
+  otpHint:    { fontSize: 13, color: colors.muted, fontWeight: "700", textAlign: "center", lineHeight: 20 },
+
+  // Cancel trigger (subtle link at bottom of order modal)
+  cancelTrigger:     { alignSelf: "center", marginTop: 8, paddingVertical: 8, paddingHorizontal: 12 },
+  cancelTriggerText: { color: colors.danger, fontSize: 13, fontWeight: "800", textDecorationLine: "underline" },
+
+  // Cancel modal
+  cancelCard:        { backgroundColor: "#fff", borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: "85%", paddingBottom: 24 },
+  cancelHeader:      { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 20, paddingBottom: 4 },
+  cancelHeaderTitle: { fontSize: 20, fontWeight: "900", color: colors.ink },
+  cancelSubtitle:    { paddingHorizontal: 20, fontSize: 13, color: colors.muted, fontWeight: "700", marginBottom: 4 },
+  cancelBody:        { paddingHorizontal: 20, paddingTop: 12, gap: 6, paddingBottom: 8 },
+  cancelLabel:       { fontSize: 13, fontWeight: "900", color: colors.ink, textTransform: "uppercase", letterSpacing: 0.5 },
+  cancelRequired:    { color: colors.danger },
+  cancelOptional:    { color: colors.muted, fontWeight: "700", textTransform: "none" },
+  cancelReasons:     { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  cancelReasonChip:       { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, backgroundColor: "#f1f5f9", borderWidth: 1.5, borderColor: "#e2e8f0" },
+  cancelReasonChipActive: { backgroundColor: "#fef2f2", borderColor: colors.danger },
+  cancelReasonText:       { fontSize: 13, fontWeight: "800", color: colors.muted },
+  cancelReasonTextActive: { color: colors.danger },
+  cancelNoteInput:   { backgroundColor: "#f8fafc", borderRadius: 14, borderWidth: 1.5, borderColor: "#e2e8f0", padding: 14, fontSize: 14, color: colors.ink, minHeight: 80, textAlignVertical: "top", marginTop: 8 },
+  cancelActions:     { flexDirection: "row", gap: 10, marginTop: 20 },
+
   flex: { flex: 1 },
 });
 

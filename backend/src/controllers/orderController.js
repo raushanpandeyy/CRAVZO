@@ -328,6 +328,13 @@ const getVendorOrders = async (req, res) => {
     where.restaurantId = req.query.restaurantId;
   }
 
+  // today=true → only orders from today (local IST midnight → now)
+  if (req.query.today === "true") {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    where.createdAt = { gte: startOfDay };
+  }
+
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
       where,
@@ -412,6 +419,11 @@ const getRiderOrders = async (req, res) => {
 
   const riderCity = rider.riderOnboarding?.city?.trim();
 
+  // today=true → only today's orders for the rider (active/available for today's dashboard)
+  const todayFilter = req.query.today === "true"
+    ? (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return { createdAt: { gte: d } }; })()
+    : {};
+
   // Run both queries in parallel; saves ~50% of latency vs sequential.
   const [orders, engagedRiderRows] = await Promise.all([
     prisma.order.findMany({
@@ -420,11 +432,13 @@ const getRiderOrders = async (req, res) => {
           {
             riderId: req.user.sub,
             status: { notIn: ["CANCELLED", "REJECTED"] },
+            ...todayFilter,
           },
           {
             cancelledRiderId: req.user.sub,
             status: "CANCELLED",
             riderCancellationEarning: { gt: 0 },
+            ...todayFilter,
           },
           {
             riderId: null,
@@ -434,6 +448,7 @@ const getRiderOrders = async (req, res) => {
             ...(riderCity
               ? { restaurant: { city: { equals: riderCity, mode: "insensitive" } } }
               : {}),
+            ...todayFilter,
           },
         ],
       },
@@ -1135,5 +1150,106 @@ const reorderOrder = async (req, res) => {
   );
 };
 
-export { assertVendorStatusTransition, createDeliveryOtp, createOrder, getMyOrders, getOrderTracking, getRiderCancellationEarning, getRiderOrderSuggestions, getRiderOrders, getVendorOrders, getVendorPayouts, quoteOrder, reorderOrder, requestVendorPayout, updateOrderStatus, verifyDeliveryOtp };
+// ── Rider Order History ──────────────────────────────────────────────────────
+// GET /api/v1/orders/rider/history?range=week|month|6months|year&cursor=...
+const HISTORY_PAGE_SIZE = 50;
 
+const getRangeStart = (range) => {
+  const d = new Date();
+  switch (range) {
+    case "week":    d.setDate(d.getDate() - 7);   break;
+    case "month":   d.setMonth(d.getMonth() - 1); break;
+    case "6months": d.setMonth(d.getMonth() - 6); break;
+    case "year":    d.setFullYear(d.getFullYear() - 1); break;
+    default:        d.setDate(d.getDate() - 7);   break;
+  }
+  return d;
+};
+
+const getRiderOrderHistory = async (req, res) => {
+  const range  = req.query.range || "week";
+  const cursor = req.query.cursor?.trim() || null;
+
+  const rangeStart = getRangeStart(range);
+
+  const where = {
+    OR: [
+      { riderId: req.user.sub },
+      { cancelledRiderId: req.user.sub, status: "CANCELLED", riderCancellationEarning: { gt: 0 } },
+    ],
+    createdAt: { gte: rangeStart },
+  };
+
+  const paginationArgs = cursor
+    ? { take: HISTORY_PAGE_SIZE, skip: 1, cursor: { id: cursor } }
+    : { take: HISTORY_PAGE_SIZE };
+
+  const orders = await prisma.order.findMany({
+    where,
+    include: {
+      restaurant: { select: { id: true, name: true, city: true, addressLine1: true } },
+      address: true,
+      items: { include: { menuItem: { select: { id: true, name: true } } } },
+    },
+    orderBy: { createdAt: "desc" },
+    ...paginationArgs,
+  });
+
+  const nextCursor = orders.length === HISTORY_PAGE_SIZE ? orders[orders.length - 1].id : null;
+
+  res.status(200).json(
+    apiResponse({
+      message: "Rider order history fetched",
+      data: orders.map((o) => serializeOrder(o)),
+      meta: { nextCursor, hasMore: nextCursor !== null, range },
+    }),
+  );
+};
+
+// ── Vendor Order History ─────────────────────────────────────────────────────
+// GET /api/v1/orders/vendor/history?range=week|month|6months|year&cursor=...
+const getVendorOrderHistory = async (req, res) => {
+  const range  = req.query.range || "week";
+  const cursor = req.query.cursor?.trim() || null;
+
+  const rangeStart = getRangeStart(range);
+  const where = {
+    ...buildVendorOrderAccessWhere(req.user.sub),
+    createdAt: { gte: rangeStart },
+  };
+
+  if (req.query.restaurantId) {
+    where.restaurantId = req.query.restaurantId;
+  }
+
+  const paginationArgs = cursor
+    ? { take: HISTORY_PAGE_SIZE, skip: 1, cursor: { id: cursor } }
+    : { take: HISTORY_PAGE_SIZE };
+
+  const orders = await prisma.order.findMany({
+    where,
+    include: {
+      restaurant: { select: { id: true, name: true } },
+      address: true,
+      customer: { select: { id: true, name: true, phone: true } },
+      items: { include: { menuItem: { select: { id: true, name: true } } } },
+    },
+    orderBy: { createdAt: "desc" },
+    ...paginationArgs,
+  });
+
+  const nextCursor = orders.length === HISTORY_PAGE_SIZE ? orders[orders.length - 1].id : null;
+
+  res.status(200).json(
+    apiResponse({
+      message: "Vendor order history fetched",
+      data: orders.map((o) => ({
+        ...serializeOrder(o),
+        customer: sanitizeCustomerForNonAdmin(o.customer, req.user.role),
+      })),
+      meta: { nextCursor, hasMore: nextCursor !== null, range },
+    }),
+  );
+};
+
+export { assertVendorStatusTransition, createDeliveryOtp, createOrder, getMyOrders, getOrderTracking, getRiderCancellationEarning, getRiderOrderHistory, getRiderOrderSuggestions, getRiderOrders, getVendorOrderHistory, getVendorOrders, getVendorPayouts, quoteOrder, reorderOrder, requestVendorPayout, updateOrderStatus, verifyDeliveryOtp };

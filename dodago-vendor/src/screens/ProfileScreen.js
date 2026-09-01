@@ -436,6 +436,9 @@ export default function ProfileScreen({ navigation }) {
 
           {/* ── Quick links ── */}
           <View style={styles.quickLinksRow}>
+            <TouchableOpacity style={styles.quickLink} onPress={() => navigation.navigate("OrderHistory")}>
+              <Text style={styles.quickLinkText}>📋  Order History</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.quickLink} onPress={() => navigation.navigate("Reviews")}>
               <Text style={styles.quickLinkText}>⭐  Reviews</Text>
             </TouchableOpacity>

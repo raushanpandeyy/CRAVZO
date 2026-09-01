@@ -20,10 +20,11 @@ export const API_ENDPOINTS = {
     stats:    "/api/v1/rider/stats",
   },
   orders: {
-    rider:               "/api/v1/orders/rider",
-    status:         (id) => `/api/v1/orders/${id}/status`,
+    rider:                "/api/v1/orders/rider",
+    riderHistory:         "/api/v1/orders/rider/history",
+    status:          (id) => `/api/v1/orders/${id}/status`,
     verifyDeliveryOtp:(id) => `/api/v1/orders/${id}/verify-delivery-otp`,
-    tracking:       (id) => `/api/v1/orders/${id}/tracking`,
+    tracking:        (id) => `/api/v1/orders/${id}/tracking`,
   },
   chat: {
     orderRoom: (id) => `/api/v1/chats/orders/${id}`,

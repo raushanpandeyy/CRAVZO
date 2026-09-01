@@ -16,6 +16,7 @@ import ChatScreen    from "../screens/ChatScreen";
 import SupportScreen from "../screens/SupportScreen";
 import ReviewsScreen from "../screens/ReviewsScreen";
 import ReportsScreen from "../screens/ReportsScreen";
+import OrderHistoryScreen from "../screens/OrderHistoryScreen";
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -95,6 +96,7 @@ export default function MainTabs() {
       <Stack.Screen name="Support"   component={SupportScreen} />
       <Stack.Screen name="Reviews"   component={ReviewsScreen} />
       <Stack.Screen name="Reports"   component={ReportsScreen} />
+      <Stack.Screen name="OrderHistory" component={OrderHistoryScreen} />
     </Stack.Navigator>
   );
 }

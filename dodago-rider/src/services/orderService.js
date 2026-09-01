@@ -2,8 +2,15 @@ import { apiRequest } from "./api";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
 
 export const getRiderOrders = async () => {
-  const response = await apiRequest(API_ENDPOINTS.orders.rider);
+  const response = await apiRequest(`${API_ENDPOINTS.orders.rider}?today=true`);
   return response.data || [];
+};
+
+export const getRiderOrderHistory = async ({ range = "week", cursor = null } = {}) => {
+  const params = new URLSearchParams({ range });
+  if (cursor) params.set("cursor", cursor);
+  const response = await apiRequest(`${API_ENDPOINTS.orders.riderHistory}?${params.toString()}`);
+  return response;
 };
 
 export const updateOrderStatus = async (orderId, status) => {

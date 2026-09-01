@@ -5,10 +5,12 @@ import { Card, PrimaryButton } from "./Primitives";
 import { colors } from "../constants/colors";
 import { formatCurrency, formatCustomerAddress, formatDistance, formatRestaurantAddress } from "../utils/formatters";
 
-const OrderCardComponent = ({ order, onView, onAccept, onReject, onPickup, onChat, compact = false }) => {
-  const pickedUp = order.status === "OUT_FOR_DELIVERY";
+const OrderCardComponent = ({ order, onView, onAccept, onReject, onPickup, onReachedDestination, onChat, compact = false }) => {
+  const pickedUp    = order.status === "OUT_FOR_DELIVERY";
   const isAvailable = Boolean(order.isAvailable);
-  const destinationText = pickedUp ? formatCustomerAddress(order.address) : formatRestaurantAddress(order.restaurant);
+  const destinationText = pickedUp
+    ? formatCustomerAddress(order.address)
+    : formatRestaurantAddress(order.restaurant);
   const statusLabel = isAvailable ? "New request" : order.status?.replaceAll?.("_", " ") || "Order";
 
   return (
@@ -38,16 +40,46 @@ const OrderCardComponent = ({ order, onView, onAccept, onReject, onPickup, onCha
       ) : null}
 
       <View style={styles.actions}>
-        <PrimaryButton title="View" tone="dark" onPress={() => onView?.(order)} style={styles.actionButton} />
         {isAvailable ? (
+          /* ── New request: Reject + Accept ── */
           <>
-            <PrimaryButton title="Reject" tone="danger" onPress={() => onReject?.(order)} style={styles.actionButton} />
-            <PrimaryButton title="Accept" tone="success" onPress={() => onAccept?.(order)} style={styles.actionButtonWide} />
+            <PrimaryButton title="Reject"  tone="danger"   onPress={() => onReject?.(order)}  style={styles.actionButton} />
+            <PrimaryButton title="Accept"  tone="success"  onPress={() => onAccept?.(order)}  style={styles.actionButtonWide} />
+          </>
+        ) : !pickedUp ? (
+          /* ── Phase 1: going to restaurant (ACCEPTED / PREPARING / READY_FOR_PICKUP) ── */
+          <>
+            <PrimaryButton
+              title="Navigate"
+              tone="dark"
+              onPress={() => openNavigation(order.restaurant, formatRestaurantAddress(order.restaurant))}
+              style={styles.actionButton}
+            />
+            {onChat ? (
+              <PrimaryButton title="Chat" tone="dark" onPress={() => onChat(order)} style={styles.actionButton} />
+            ) : null}
+            {order.status === "READY_FOR_PICKUP" ? (
+              <PrimaryButton title="Picked Up" tone="primary" onPress={() => onPickup?.(order)} style={styles.actionButtonWide} />
+            ) : null}
           </>
         ) : (
+          /* ── Phase 2: going to customer (OUT_FOR_DELIVERY) ── */
           <>
-            {onChat ? <PrimaryButton title="Chat" tone="dark" onPress={() => onChat(order)} style={styles.actionButton} /> : null}
-            {order.status === "READY_FOR_PICKUP" ? <PrimaryButton title="Picked Up" onPress={() => onPickup?.(order)} style={styles.actionButtonWide} /> : null}
+            <PrimaryButton
+              title="Navigate"
+              tone="dark"
+              onPress={() => openNavigation(order.address, formatCustomerAddress(order.address))}
+              style={styles.actionButton}
+            />
+            {onChat ? (
+              <PrimaryButton title="Chat" tone="dark" onPress={() => onChat(order)} style={styles.actionButton} />
+            ) : null}
+            <PrimaryButton
+              title="Reached Destination"
+              tone="success"
+              onPress={() => onReachedDestination?.(order)}
+              style={styles.actionButtonWide}
+            />
           </>
         )}
       </View>

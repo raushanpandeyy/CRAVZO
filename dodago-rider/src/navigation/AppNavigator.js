@@ -24,6 +24,7 @@ const visibleTabs = {
 const lazyTabScreens = {
   Reviews: () => require("../screens/ReviewsScreen").default,
   Support: () => require("../screens/SupportScreen").default,
+  OrderHistory: () => require("../screens/OrderHistoryScreen").default,
   About: () => require("../screens/LegalScreens").AboutScreen,
   ContactUs: () => require("../screens/LegalScreens").ContactUsScreen,
   Privacy: () => require("../screens/LegalScreens").PrivacyScreen,

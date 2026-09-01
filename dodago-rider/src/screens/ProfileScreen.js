@@ -98,10 +98,11 @@ export default function ProfileScreen({ navigation }) {
         </View>
 
         <View style={styles.quickGrid}>
+          <QuickLink icon={ClipboardList} label="Order History" onPress={() => navigation.navigate("OrderHistory")} />
           <QuickLink icon={ClipboardList} label="Analytics" onPress={() => navigation.navigate("Orders")} />
           <QuickLink icon={Star} label="Reviews" onPress={() => navigation.navigate("Reviews")} />
           <QuickLink icon={MessageCircle} label="Support" onPress={() => navigation.navigate("Support")} />
-                </View>
+        </View>
 
         <Card style={styles.card}>
           <Text style={styles.sectionTitle}>Legal & Help</Text>

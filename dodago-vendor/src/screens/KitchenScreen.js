@@ -140,6 +140,7 @@ export default function KitchenScreen() {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.board}
+          style={styles.boardScroll}
           snapToInterval={300}
           decelerationRate="fast"
         >
@@ -156,8 +157,8 @@ export default function KitchenScreen() {
                 <FlatList
                   data={colOrders}
                   keyExtractor={(item) => item.id}
-                  scrollEnabled={false}
                   contentContainerStyle={styles.colList}
+                  showsVerticalScrollIndicator={false}
                   ListEmptyComponent={
                     <View style={styles.colEmpty}>
                       <Text style={styles.colEmptyText}>No orders</Text>
@@ -275,8 +276,9 @@ const styles = StyleSheet.create({
   loadingText: { color: colors.muted, fontWeight: "700" },
   emptyWrap:   { flex: 1, padding: 24 },
 
-  board:   { paddingHorizontal: 12, paddingBottom: 32, gap: 12, alignItems: "flex-start" },
-  column:  { width: 280, borderTopWidth: 3, borderRadius: 20, backgroundColor: "#fff", overflow: "hidden", shadowColor: "#0f172a", shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+  boardScroll: { flex: 1 },
+  board:   { paddingHorizontal: 12, paddingBottom: 32, gap: 12, alignItems: "stretch" },
+  column:  { width: 280, flex: 1, borderTopWidth: 3, borderRadius: 20, backgroundColor: "#fff", shadowColor: "#0f172a", shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
   columnTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, paddingVertical: 10 },
   columnTitle: { fontSize: 14, fontWeight: "900" },
   columnCount: { fontSize: 14, fontWeight: "900" },

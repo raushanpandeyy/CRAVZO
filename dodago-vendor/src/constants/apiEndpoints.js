@@ -34,6 +34,7 @@ export const API_ENDPOINTS = {
   },
   orders: {
     vendor:               `${BASE}/orders/vendor`,
+    vendorHistory:        `${BASE}/orders/vendor/history`,
     updateStatus:    (id) => `${BASE}/orders/${id}/status`,
   },
   chat: {
