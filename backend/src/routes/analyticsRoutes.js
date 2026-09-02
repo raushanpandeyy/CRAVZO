@@ -1,6 +1,4 @@
 import { Router } from "express";
-
-import { Router } from "express";
 import { getVendorAnalytics, getVendorReports } from "../controllers/analyticsController.js";
 import { authorize, authenticate } from "../middleware/authMiddleware.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
