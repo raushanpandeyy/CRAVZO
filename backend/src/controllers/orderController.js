@@ -751,7 +751,7 @@ const updateOrderStatus = async (req, res) => {
     const canClaimOrder =
       !order.riderId &&
       ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP"].includes(order.status) &&
-      status === "OUT_FOR_DELIVERY";
+      ["ACCEPTED", "OUT_FOR_DELIVERY"].includes(status);
     const ownsOrder = order.riderId === req.user.sub;
     const hasAnotherActiveOrder =
       !ownsOrder &&

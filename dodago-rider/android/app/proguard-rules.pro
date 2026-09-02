@@ -12,10 +12,3 @@
 -keep class com.facebook.react.turbomodule.** { *; }
 
 # Add any project specific keep options here:
-
-# expo-modules-core: keep all Kotlin type system classes used by expo-av
--keep class expo.modules.kotlin.** { *; }
--keep class expo.modules.core.** { *; }
--keep class expo.modules.adapters.** { *; }
--dontwarn expo.modules.kotlin.**
--dontwarn expo.modules.core.**
