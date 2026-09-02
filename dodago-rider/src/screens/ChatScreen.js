@@ -111,7 +111,7 @@ export default function ChatScreen({ route, navigation }) {
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "padding"}
         style={styles.wrap}
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 100}
       >
         <View style={styles.header}>
           <Text style={styles.title}>{isOrderChat ? "Customer Chat" : "Dodago Support"}</Text>
@@ -143,7 +143,7 @@ export default function ChatScreen({ route, navigation }) {
             keyboardShouldPersistTaps="handled"
           />
         )}
-        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom + 12, 18) }]}>
+        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom + 80, 90) }]}>
           <TextInput
             value={text}
             onChangeText={setText}

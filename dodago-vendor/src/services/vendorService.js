@@ -140,7 +140,7 @@ export const getChatMessages = async (roomId, cursor) => {
 export const sendChatMessage = async (roomId, text) => {
   const res = await apiRequest(API_ENDPOINTS.chat.roomMessages(roomId), {
     method: "POST",
-    body: JSON.stringify({ content: text }),
+    body: JSON.stringify({ text }),
   });
   return res.data;
 };
