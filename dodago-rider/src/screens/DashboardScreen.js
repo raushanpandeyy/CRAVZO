@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Alert, AppState, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 import { BatteryWarning, MapPin, Power, X } from "../components/Icons";
 import { Card, EmptyState, PrimaryButton } from "../components/Primitives";
 import { ScreenWithHeader } from "../components/RiderChrome";
@@ -14,6 +15,7 @@ import { useAuth } from "../services/AuthContext";
 import { playAlertSound, stopAlertSound } from "../utils/alertSound";
 
 const ACTIVE_STATUSES = ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"];
+const POLL_INTERVAL_MS = 30000; // 30 seconds polling fallback
 
 const CANCEL_REASONS = [
   "Restaurant not responding",
@@ -106,9 +108,43 @@ export default function DashboardScreen({ navigation }) {
       onNewOrder(() => loadOrders({ silent: true })),
       onOrderStatusUpdate(() => loadOrders({ silent: true })),
     ];
-    return () => cleanups.forEach((fn) => fn?.());
-  }, [loadOrders]);
 
+    // Polling fallback — in case socket misses an event (app backgrounded, reconnect etc.)
+    const pollTimer = setInterval(() => {
+      loadOrders({ silent: true });
+    }, POLL_INTERVAL_MS);
+
+    // When app comes back to foreground — immediately refresh
+    const appStateSub = AppState.addEventListener("change", (nextState) => {
+      if (nextState === "active") {
+        loadOrders({ silent: true });
+      }
+    });
+
+    // FCM notification tap handler — when rider taps notification, reload orders
+    const notifResponseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const type = response?.notification?.request?.content?.data?.type;
+      if (type === "RIDER_NEW_ORDER") {
+        loadOrders({ silent: true });
+      }
+    });
+
+    // FCM foreground handler — when notification arrives while app is open
+    const notifSub = Notifications.addNotificationReceivedListener((notification) => {
+      const type = notification?.request?.content?.data?.type;
+      if (type === "RIDER_NEW_ORDER") {
+        loadOrders({ silent: true });
+      }
+    });
+
+    return () => {
+      cleanups.forEach((fn) => fn?.());
+      clearInterval(pollTimer);
+      appStateSub.remove();
+      notifResponseSub.remove();
+      notifSub.remove();
+    };
+  }, [loadOrders]);
   useEffect(() => {
     isOnlineRef.current = isOnline;
   }, [isOnline]);
@@ -117,21 +153,34 @@ export default function DashboardScreen({ navigation }) {
   const activeOrders = useMemo(() => orders.filter((order) => !order.isAvailable && ACTIVE_STATUSES.includes(order.status)), [orders]);
   const deliveredOrders = useMemo(() => orders.filter((order) => order.status === "DELIVERED"), [orders]);
   const deliveredKm = useMemo(() => deliveredOrders.reduce((sum, order) => sum + Number(order.deliveryDistance || 0), 0), [deliveredOrders]);
-  const dashboardOrders = useMemo(() => [...activeOrders, ...availableOrders], [activeOrders, availableOrders]);
-  const activeFocusOrder = activeOrders[0] || null;
+
+  // Agar rider ke paas active assigned order hai toh available orders mat dikhao — confusion avoid karne ke liye
+  const hasActiveAssignedOrder = useMemo(() =>
+    activeOrders.some((o) => o.riderId),
+  [activeOrders]);
+
+  const visibleAvailableOrders = useMemo(() =>
+    hasActiveAssignedOrder ? [] : availableOrders,
+  [hasActiveAssignedOrder, availableOrders]);
+
+  const dashboardOrders = useMemo(() => [...activeOrders, ...visibleAvailableOrders], [activeOrders, visibleAvailableOrders]);
+  // Current delivery — only show the order the rider is currently delivering (assigned + not delivered/cancelled)
+  const activeFocusOrder = useMemo(() =>
+    activeOrders.find((o) => o.riderId && ["ACCEPTED", "PREPARING", "READY_FOR_PICKUP", "OUT_FOR_DELIVERY"].includes(o.status)) || null,
+  [activeOrders]);
   const requestOrderId = orderRequest?.id;
 
   useEffect(() => {
-    if (!isOnline) {
+    if (!isOnline || hasActiveAssignedOrder) {
       setOrderRequest(null);
       return;
     }
 
-    const nextRequest = availableOrders.find((order) => !dismissedRequestsRef.current.has(order.id));
+    const nextRequest = visibleAvailableOrders.find((order) => !dismissedRequestsRef.current.has(order.id));
     if (nextRequest && nextRequest.id !== requestOrderId) {
       setOrderRequest(nextRequest);
     }
-  }, [availableOrders, isOnline, requestOrderId]);
+  }, [visibleAvailableOrders, isOnline, requestOrderId, hasActiveAssignedOrder]);
 
   useEffect(() => {
     if (!orderRequest) return;
@@ -241,7 +290,7 @@ export default function DashboardScreen({ navigation }) {
       setOtp("");
       setSelectedOrder(null);
       await loadOrders({ silent: true });
-      Alert.alert("Delivered", "Order completed successfully.");
+      Alert.alert("🎉 Delivered!", `Order completed. Earnings added to your account.`);
     } catch (error) {
       Alert.alert("OTP failed", error.message || "Could not verify OTP.");
     }
@@ -286,7 +335,7 @@ export default function DashboardScreen({ navigation }) {
               </TouchableOpacity>
             </View>
             <View style={styles.summaryGrid}>
-              <Card style={styles.summaryCard}><Text style={styles.summaryLabel}>Available</Text><Text style={styles.summaryValue}>{availableOrders.length}</Text></Card>
+              <Card style={styles.summaryCard}><Text style={styles.summaryLabel}>Available</Text><Text style={styles.summaryValue}>{visibleAvailableOrders.length}</Text></Card>
               <Card style={styles.summaryCard}><Text style={styles.summaryLabel}>Active</Text><Text style={styles.summaryValue}>{activeOrders.length}</Text></Card>
               <Card style={styles.summaryCard}><Text style={styles.summaryLabel}>Delivered</Text><Text style={styles.summaryValue}>{deliveredOrders.length}</Text></Card>
               <Card style={styles.summaryCard}><Text style={styles.summaryLabel}>Km</Text><Text style={styles.summaryValue}>{formatDistance(deliveredKm)}</Text></Card>

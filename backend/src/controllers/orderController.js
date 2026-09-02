@@ -419,7 +419,8 @@ const getRiderOrders = async (req, res) => {
 
   const riderCity = rider.riderOnboarding?.city?.trim();
 
-  // today=true → only today's orders for the rider (active/available for today's dashboard)
+  // today=true → only today's orders for available/unassigned orders
+  // BUT always show rider's own assigned active orders regardless of date
   const todayFilter = req.query.today === "true"
     ? (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return { createdAt: { gte: d } }; })()
     : {};
@@ -430,9 +431,9 @@ const getRiderOrders = async (req, res) => {
       where: {
         OR: [
           {
+            // Always show rider's own assigned orders — no date filter
             riderId: req.user.sub,
             status: { notIn: ["CANCELLED", "REJECTED"] },
-            ...todayFilter,
           },
           {
             cancelledRiderId: req.user.sub,
