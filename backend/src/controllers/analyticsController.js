@@ -357,52 +357,13 @@ const getVendorReports = async (req, res) => {
     };
     current.unitsSold += Number(row.quantity || 0);
     current.revenue += Number(row.totalPrice || 0);
-    // payout per item = basePriceAtOrder × quantity (fallback to unitPrice if null)
-    const basePriceAtOrder = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
-    current.payout += basePriceAtOrder * Number(row.quantity || 0);
+    const bpao = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
+    current.payout += bpao * Number(row.quantity || 0);
     current.orderLines += 1;
     popularityMap.set(key, current);
   }
 
-  // Calculate payout for selected range
-  const rangePayout = payoutAgg.reduce((sum, row) => {
-    const base = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
-    return sum + base * Number(row.quantity || 0);
-  }, 0);
-
-  // Calculate all-time total payout
-  const totalPayout = totalPayoutAgg.reduce((sum, row) => {
-    const base = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
-    return sum + base * Number(row.quantity || 0);
-  }, 0);
-
-  // Daily/weekly/monthly payout breakdowns
-  const today = startOfDay(new Date());
-  const weekStart = addDays(today, -7);
-  const monthStart = addDays(today, -30);
-
-  const dailyPayout = totalPayoutAgg
-    .filter((row) => {
-  // Cleanup incomplete code — recalculate properly
-  const cleanPopularityMap = new Map();
-  for (const row of itemRows) {
-    const key = row.menuItemId;
-    const cur = cleanPopularityMap.get(key) || {
-      menuItemId: key,
-      name: row.menuItem?.name || "Menu item",
-      category: row.menuItem?.category || "",
-      imageUrl: row.menuItem?.imageUrl || null,
-      unitsSold: 0, revenue: 0, payout: 0, orderLines: 0,
-    };
-    cur.unitsSold  += Number(row.quantity || 0);
-    cur.revenue    += Number(row.totalPrice || 0);
-    const bpao      = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
-    cur.payout     += bpao * Number(row.quantity || 0);
-    cur.orderLines += 1;
-    cleanPopularityMap.set(key, cur);
-  }
-
-  const menuPopularity = [...cleanPopularityMap.values()]
+  const menuPopularity = [...popularityMap.values()]
     .map((item) => ({
       ...item,
       revenue: Math.round(item.revenue * 100) / 100,
@@ -410,13 +371,11 @@ const getVendorReports = async (req, res) => {
     }))
     .sort((a, b) => b.unitsSold - a.unitsSold || b.revenue - a.revenue);
 
-  // Payout for selected range
   const rangePayout = payoutAgg.reduce((sum, row) => {
     const base = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
     return sum + base * Number(row.quantity || 0);
   }, 0);
 
-  // All-time total payout
   const totalAllTimePayout = totalPayoutAgg.reduce((sum, row) => {
     const base = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
     return sum + base * Number(row.quantity || 0);

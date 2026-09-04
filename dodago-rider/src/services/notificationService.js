@@ -7,6 +7,7 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { apiRequest } from "./api";
+import { playAlertSound, stopAlertSound } from "../utils/alertSound";
 
 const BASE = "/api/v1";
 
@@ -59,10 +60,20 @@ export const registerForPushNotifications = async (navigationRef) => {
     });
 
     if (_foregroundSub) _foregroundSub.remove();
-    _foregroundSub = Notifications.addNotificationReceivedListener(() => {});
+    _foregroundSub = Notifications.addNotificationReceivedListener((notification) => {
+      const type = notification?.request?.content?.data?.type;
+      // Play loud alert when a new order notification arrives while app is open.
+      // DashboardScreen's orderRequest useEffect will call stopAlertSound()
+      // once the rider accepts / rejects / the countdown expires.
+      if (type === "RIDER_NEW_ORDER" || !type) {
+        playAlertSound();
+      }
+    });
 
     if (_responseSub) _responseSub.remove();
     _responseSub = Notifications.addNotificationResponseReceivedListener(() => {
+      // Rider tapped the notification banner — stop alert and open dashboard
+      stopAlertSound();
       try {
         navigationRef?.current?.navigate("Dashboard");
       } catch {}
@@ -75,6 +86,7 @@ export const registerForPushNotifications = async (navigationRef) => {
 };
 
 export const deregisterPushNotifications = async () => {
+  stopAlertSound();
   try {
     if (_registeredToken) {
       await apiRequest(`${BASE}/notifications/fcm-token`, {

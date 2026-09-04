@@ -11,6 +11,7 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { apiRequest } from "./api";
+import { playAlertSound, stopAlertSound } from "../utils/alertSound";
 
 const BASE = "/api/v1";
 
@@ -71,15 +72,22 @@ export const registerForPushNotifications = async (navigationRef) => {
       }),
     });
 
-    // Foreground notification listener
+    // Foreground notification listener — play loud alert when notification
+    // arrives while the vendor app is open (e.g. new order comes in)
     if (_foregroundSub) _foregroundSub.remove();
-    _foregroundSub = Notifications.addNotificationReceivedListener(() => {
-      // setNotificationHandler above handles display
+    _foregroundSub = Notifications.addNotificationReceivedListener((notification) => {
+      const type = notification?.request?.content?.data?.type;
+      // Play alert for new order notifications; the OrderAlertModal will call
+      // stopAlertSound() once the vendor accepts / rejects / dismisses
+      if (type === "NEW_ORDER" || type === "VENDOR_NEW_ORDER" || !type) {
+        playAlertSound();
+      }
     });
 
-    // Notification tap → navigate to Orders
+    // Notification tap → navigate to Orders; also stop any playing alert
     if (_responseSub) _responseSub.remove();
     _responseSub = Notifications.addNotificationResponseReceivedListener(() => {
+      stopAlertSound();
       try {
         navigationRef?.current?.navigate("Tabs", { screen: "Orders" });
       } catch {
@@ -94,6 +102,7 @@ export const registerForPushNotifications = async (navigationRef) => {
 
 // ── Deregister on logout ────────────────────────────────────────
 export const deregisterPushNotifications = async () => {
+  stopAlertSound();
   try {
     if (_registeredToken) {
       await apiRequest(`${BASE}/notifications/fcm-token`, {

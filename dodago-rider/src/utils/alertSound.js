@@ -1,48 +1,69 @@
 import { Vibration } from "react-native";
 
 /**
- * Alert sound + vibration using expo-audio (SDK 56).
- * Uses createAudioPlayer() — the correct non-hook API for use outside React components.
+ * Alert sound + vibration for rider app (expo-audio SDK 56).
+ *
+ * The alert.wav is a 10-second loud beep-beep-pause loop.
+ * We play it once fully (it IS 10 seconds) and then replay from
+ * the start so the sound keeps going until explicitly stopped.
+ *
+ * Volume is set to maximum (1.0) and playsInSilentModeIOS is
+ * enabled so the sound cuts through even on silent/vibrate mode.
  */
 
-const VIBRATION_PATTERN = [0, 350, 120, 350, 120, 500];
+// Vibration pattern: urgent repeating pulses
+const VIBRATION_PATTERN = [0, 300, 100, 300, 100, 300, 200, 500];
+
+// How long the WAV is — we restart just before it ends to avoid silence gaps
+const WAV_DURATION_MS = 10_000;
+const RESTART_BEFORE_END_MS = 200; // restart 200ms before WAV finishes
 
 let player         = null;
-let loopIntervalId = null;
+let loopTimerId    = null;
 let isPlaying      = false;
 
 export const playAlertSound = async () => {
   if (isPlaying) return;
   isPlaying = true;
 
-  // Vibration works even in silent mode
+  // Vibration works even in silent mode — repeat=true keeps it going
   Vibration.vibrate(VIBRATION_PATTERN, true);
 
   try {
     const { createAudioPlayer, setAudioModeAsync } = require("expo-audio");
 
+    // Force audio to play through the main speaker at full volume,
+    // even when the device is on silent/vibrate mode
     await setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      shouldRouteThroughEarpiece: false,
+      playsInSilentModeIOS:       true,
+      shouldRouteThroughEarpiece: false,   // use speaker, not earpiece
+      allowsRecordingIOS:         false,
     });
 
-    // createAudioPlayer is the correct imperative API (not a hook)
+    // Create player at full volume
     player = createAudioPlayer(require("../../assets/alert.wav"));
+    player.volume = 1.0;   // max volume
     player.play();
 
-    // Replay every 1.2s for looping effect
-    loopIntervalId = setInterval(() => {
-      try {
-        if (player) {
-          player.seekTo(0);
+    // Schedule restart loop — replay the full 10s WAV over and over
+    const scheduleRestart = () => {
+      loopTimerId = setTimeout(async () => {
+        if (!isPlaying || !player) return;
+        try {
+          await player.seekTo(0);
           player.play();
+        } catch {
+          // Player may have been released — stop cleanly
+          stopAlertSound();
+          return;
         }
-      } catch {
-        stopAlertSound();
-      }
-    }, 1200);
+        scheduleRestart(); // schedule next restart
+      }, WAV_DURATION_MS - RESTART_BEFORE_END_MS);
+    };
+
+    scheduleRestart();
   } catch {
-    // Audio unavailable — vibration still runs
+    // expo-audio unavailable — vibration still runs
   }
 };
 
@@ -50,9 +71,9 @@ export const stopAlertSound = async () => {
   isPlaying = false;
   Vibration.cancel();
 
-  if (loopIntervalId) {
-    clearInterval(loopIntervalId);
-    loopIntervalId = null;
+  if (loopTimerId) {
+    clearTimeout(loopTimerId);
+    loopTimerId = null;
   }
 
   if (player) {
@@ -60,7 +81,7 @@ export const stopAlertSound = async () => {
       player.pause();
       player.remove();
     } catch {
-      // Already released
+      // Already released — ignore
     }
     player = null;
   }
