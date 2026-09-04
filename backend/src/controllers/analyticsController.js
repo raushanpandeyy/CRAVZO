@@ -179,6 +179,11 @@ const resolveReportWindow = (range = "daily") => {
   const now = new Date();
   const endDate = addDays(startOfDay(now), 1);
 
+  if (range === "total") {
+    // All time — use a very early start date
+    return { startDate: new Date("2020-01-01T00:00:00.000Z"), endDate, bucket: "month" };
+  }
+
   if (range === "monthly") {
     const startDate = new Date(endDate);
     startDate.setMonth(startDate.getMonth() - 12);
@@ -237,7 +242,7 @@ const getVendorReports = async (req, res) => {
     throw new ApiError(404, "No restaurant found for this vendor");
   }
 
-  const range = ["daily", "weekly", "monthly"].includes(req.query.range)
+  const range = ["daily", "weekly", "monthly", "total"].includes(req.query.range)
     ? req.query.range
     : "daily";
   const { startDate, endDate, bucket } = resolveReportWindow(range);
@@ -248,7 +253,7 @@ const getVendorReports = async (req, res) => {
   };
   const deliveredWhere = { ...where, status: "DELIVERED" };
 
-  const [orders, summary, statusCounts, itemRows] = await Promise.all([
+  const [orders, summary, statusCounts, itemRows, payoutAgg, totalPayoutAgg] = await Promise.all([
     prisma.order.findMany({
       where,
       select: {
@@ -295,10 +300,26 @@ const getVendorReports = async (req, res) => {
         menuItemId: true,
         quantity: true,
         totalPrice: true,
+        basePriceAtOrder: true,
         menuItem: {
           select: { id: true, name: true, category: true, imageUrl: true },
         },
       },
+    }),
+    // Payout for this range — sum of basePriceAtOrder × quantity
+    prisma.orderItem.findMany({
+      where: { order: deliveredWhere },
+      select: { quantity: true, basePriceAtOrder: true, unitPrice: true },
+    }),
+    // Total all-time payout — always since beginning regardless of range
+    prisma.orderItem.findMany({
+      where: {
+        order: {
+          restaurantId: restaurant.id,
+          status: "DELIVERED",
+        },
+      },
+      select: { quantity: true, basePriceAtOrder: true, unitPrice: true },
     }),
   ]);
 
@@ -327,21 +348,79 @@ const getVendorReports = async (req, res) => {
     const current = popularityMap.get(key) || {
       menuItemId: key,
       name: row.menuItem?.name || "Menu item",
-      category: row.menuItem?.category || "Uncategorized",
+      category: row.menuItem?.category || "",
       imageUrl: row.menuItem?.imageUrl || null,
       unitsSold: 0,
       revenue: 0,
+      payout: 0,
       orderLines: 0,
     };
     current.unitsSold += Number(row.quantity || 0);
     current.revenue += Number(row.totalPrice || 0);
+    // payout per item = basePriceAtOrder × quantity (fallback to unitPrice if null)
+    const basePriceAtOrder = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
+    current.payout += basePriceAtOrder * Number(row.quantity || 0);
     current.orderLines += 1;
     popularityMap.set(key, current);
   }
 
-  const menuPopularity = [...popularityMap.values()]
-    .map((item) => ({ ...item, revenue: Math.round(item.revenue * 100) / 100 }))
+  // Calculate payout for selected range
+  const rangePayout = payoutAgg.reduce((sum, row) => {
+    const base = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
+    return sum + base * Number(row.quantity || 0);
+  }, 0);
+
+  // Calculate all-time total payout
+  const totalPayout = totalPayoutAgg.reduce((sum, row) => {
+    const base = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
+    return sum + base * Number(row.quantity || 0);
+  }, 0);
+
+  // Daily/weekly/monthly payout breakdowns
+  const today = startOfDay(new Date());
+  const weekStart = addDays(today, -7);
+  const monthStart = addDays(today, -30);
+
+  const dailyPayout = totalPayoutAgg
+    .filter((row) => {
+  // Cleanup incomplete code — recalculate properly
+  const cleanPopularityMap = new Map();
+  for (const row of itemRows) {
+    const key = row.menuItemId;
+    const cur = cleanPopularityMap.get(key) || {
+      menuItemId: key,
+      name: row.menuItem?.name || "Menu item",
+      category: row.menuItem?.category || "",
+      imageUrl: row.menuItem?.imageUrl || null,
+      unitsSold: 0, revenue: 0, payout: 0, orderLines: 0,
+    };
+    cur.unitsSold  += Number(row.quantity || 0);
+    cur.revenue    += Number(row.totalPrice || 0);
+    const bpao      = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
+    cur.payout     += bpao * Number(row.quantity || 0);
+    cur.orderLines += 1;
+    cleanPopularityMap.set(key, cur);
+  }
+
+  const menuPopularity = [...cleanPopularityMap.values()]
+    .map((item) => ({
+      ...item,
+      revenue: Math.round(item.revenue * 100) / 100,
+      payout:  Math.round(item.payout  * 100) / 100,
+    }))
     .sort((a, b) => b.unitsSold - a.unitsSold || b.revenue - a.revenue);
+
+  // Payout for selected range
+  const rangePayout = payoutAgg.reduce((sum, row) => {
+    const base = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
+    return sum + base * Number(row.quantity || 0);
+  }, 0);
+
+  // All-time total payout
+  const totalAllTimePayout = totalPayoutAgg.reduce((sum, row) => {
+    const base = row.basePriceAtOrder != null ? Number(row.basePriceAtOrder) : Number(row.unitPrice || 0);
+    return sum + base * Number(row.quantity || 0);
+  }, 0);
 
   const statusBreakdown = Object.fromEntries(
     statusCounts.map((entry) => [entry.status, entry._count.id]),
@@ -365,15 +444,18 @@ const getVendorReports = async (req, res) => {
           deliveredOrders: deliveredCount,
           totalOrders: orders.length,
           averageOrderValue: deliveredCount ? Math.round((totalSales / deliveredCount) * 100) / 100 : 0,
-          subtotal: Number(summary._sum.subtotal || 0),
-          packagingFee: Number(summary._sum.packagingFee || 0),
+          subtotal:    Number(summary._sum.subtotal    || 0),
+          packagingFee:Number(summary._sum.packagingFee|| 0),
           deliveryFee: Number(summary._sum.deliveryFee || 0),
           platformFee: Number(summary._sum.platformFee || 0),
-          gatewayFee: Number(summary._sum.gatewayFee || 0),
-          codCharge: Number(summary._sum.codCharge || 0),
-          discount: Number(summary._sum.discount || 0),
-          tax: Number(summary._sum.totalTax || 0),
-          tips: Number(summary._sum.tipAmount || 0),
+          gatewayFee:  Number(summary._sum.gatewayFee  || 0),
+          codCharge:   Number(summary._sum.codCharge   || 0),
+          discount:    Number(summary._sum.discount    || 0),
+          tax:         Number(summary._sum.totalTax    || 0),
+          tips:        Number(summary._sum.tipAmount   || 0),
+          // Payout = what restaurant earns (basePriceAtOrder based)
+          rangePayout:          Math.round(rangePayout          * 100) / 100,
+          totalAllTimePayout:   Math.round(totalAllTimePayout   * 100) / 100,
         },
         salesTrend: [...bucketMap.values()].map((entry) => ({
           ...entry,

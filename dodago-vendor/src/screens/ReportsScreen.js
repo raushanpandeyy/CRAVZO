@@ -23,6 +23,7 @@ const RANGES = [
   { key: "daily",   label: "Today" },
   { key: "weekly",  label: "This Week" },
   { key: "monthly", label: "This Month" },
+  { key: "total",   label: "All Time" },
 ];
 
 const StatCard = ({ label, value, icon: Icon, tone = "primary" }) => {
@@ -167,7 +168,7 @@ export default function ReportsScreen({ navigation }) {
           <View style={styles.statsGrid}>
             <StatCard
               label="Total Revenue"
-              value={fmt(summary.totalRevenue ?? summary.revenue)}
+              value={fmt(summary.totalRevenue ?? summary.revenue ?? summary.totalSales)}
               icon={IndianRupee}
               tone="success"
             />
@@ -180,7 +181,7 @@ export default function ReportsScreen({ navigation }) {
             <StatCard
               label="Avg Order Value"
               value={fmt(
-                summary.avgOrderValue ??
+                summary.avgOrderValue ?? summary.averageOrderValue ??
                 (summary.totalOrders > 0
                   ? (summary.totalRevenue || 0) / summary.totalOrders
                   : 0)
@@ -190,11 +191,32 @@ export default function ReportsScreen({ navigation }) {
             />
             <StatCard
               label="Completed"
-              value={fmtN(summary.completedOrders ?? summary.delivered)}
+              value={fmtN(summary.completedOrders ?? summary.delivered ?? summary.deliveredOrders)}
               icon={Package}
               tone="success"
             />
           </View>
+
+          {/* ── Payout summary ── */}
+          <Card style={styles.payoutBox}>
+            <Text style={styles.payoutTitle}>💰 Your Earnings (Payout)</Text>
+            <Text style={styles.payoutSub}>Based on your base price — what Dodago will pay you</Text>
+            <View style={styles.payoutRow}>
+              <View style={styles.payoutItem}>
+                <Text style={styles.payoutLabel}>{
+                  range === "daily" ? "Today" :
+                  range === "weekly" ? "This Week" :
+                  range === "monthly" ? "This Month" : "All Time"
+                }</Text>
+                <Text style={styles.payoutAmount}>{fmt(summary.rangePayout ?? 0)}</Text>
+              </View>
+              <View style={styles.payoutDivider} />
+              <View style={styles.payoutItem}>
+                <Text style={styles.payoutLabel}>Total (Since Joining)</Text>
+                <Text style={[styles.payoutAmount, { color: colors.accent }]}>{fmt(summary.totalAllTimePayout ?? 0)}</Text>
+              </View>
+            </View>
+          </Card>
 
           {/* ── Fee breakdown ── */}
           <Card style={styles.section}>
@@ -310,4 +332,13 @@ const styles = StyleSheet.create({
   barTrack:    { flex: 1, height: 10, backgroundColor: "#f1f5f9", borderRadius: 5, overflow: "hidden" },
   barFill:     { height: "100%", backgroundColor: colors.primary, borderRadius: 5 },
   barValue:    { fontSize: 11, color: colors.ink, fontWeight: "800", width: 60, textAlign: "right" },
+
+  payoutBox:     { gap: 10 },
+  payoutTitle:   { fontSize: 16, fontWeight: "900", color: colors.ink },
+  payoutSub:     { fontSize: 12, color: colors.muted, fontWeight: "700" },
+  payoutRow:     { flexDirection: "row", gap: 12, marginTop: 4 },
+  payoutItem:    { flex: 1, gap: 4 },
+  payoutDivider: { width: 1, backgroundColor: colors.line },
+  payoutLabel:   { fontSize: 12, color: colors.muted, fontWeight: "800" },
+  payoutAmount:  { fontSize: 20, fontWeight: "900", color: colors.primaryDark },
 });

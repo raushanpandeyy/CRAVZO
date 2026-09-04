@@ -447,13 +447,19 @@ db = prisma,
     totalAmount: Number(totalAmount.toFixed(2)),
     deliveryDistance,
     resolvedAddressId,
-    itemRows: resolvedItems.map(({ item, sideDishes, basePrice, sideDishTotal }) => {
+    itemRows: resolvedItems.map(({ item, menuItem, sideDishes, basePrice, sideDishTotal }) => {
       const unitPrice = basePrice + sideDishTotal;
+      // basePriceAtOrder = menuItem's basePrice (what restaurant earns) at order time
+      // Falls back to unitPrice if basePrice not set (old items without markup)
+      const basePriceAtOrder = menuItem.basePrice != null
+        ? Number(menuItem.basePrice)
+        : unitPrice;
       return {
         menuItemId: item.menuItemId,
         quantity: item.quantity,
         unitPrice,
         totalPrice: unitPrice * item.quantity,
+        basePriceAtOrder,
         size: item.size || null,
         notes: item.notes || null,
         selectedSideDishes: sideDishes.length ? sideDishes : undefined,

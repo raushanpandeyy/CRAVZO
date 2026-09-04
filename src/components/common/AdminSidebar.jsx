@@ -4,6 +4,7 @@ import {
   BarChart3,
   Headphones,
   Image,
+  IndianRupee,
   ShoppingBag,
   Star,
   Store,
@@ -20,6 +21,7 @@ const navItems = [
   { path: "/admin/support", icon: Headphones, label: "Support" },
   { path: "/admin/analytics", icon: BarChart3, label: "Analytics" },
   { path: "/admin/promotions", icon: Image, label: "Promotions" },
+  { path: "/admin/markup-settings", icon: IndianRupee, label: "Markup Settings" },
 ];
 
 const AdminSidebar = () => {

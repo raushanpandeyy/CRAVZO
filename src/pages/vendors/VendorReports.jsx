@@ -9,6 +9,7 @@ const rangeOptions = [
   { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
   { value: "monthly", label: "Monthly" },
+  { value: "total", label: "All Time" },
 ];
 
 const formatCurrency = (amount) => `Rs ${Number(amount || 0).toFixed(0)}`;
@@ -123,6 +124,24 @@ const VendorReports = () => {
             <SummaryCard title="Delivered Orders" value={formatNumber(report.summary.deliveredOrders)} subtitle={`${formatNumber(report.summary.totalOrders)} total orders`} icon={ReceiptText} />
             <SummaryCard title="Average Order" value={formatCurrency(report.summary.averageOrderValue)} subtitle="AOV for delivered orders" icon={TrendingUp} tone="amber" />
             <SummaryCard title="Menu Sold" value={formatNumber(report.menuPopularity.reduce((sum, item) => sum + item.unitsSold, 0))} subtitle={`${report.menuPopularity.length} selling items`} icon={Package} tone="slate" />
+          </div>
+
+          {/* ── Payout Summary ── */}
+          <div className="mt-6 rounded-3xl bg-emerald-50 border border-emerald-200 p-5">
+            <h2 className="text-xl font-black text-emerald-900 mb-1">💰 Your Earnings (Payout)</h2>
+            <p className="text-sm text-emerald-700 font-semibold mb-4">Based on your base price — what Dodago will pay you for delivered orders</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded-2xl bg-white border border-emerald-200 p-4">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                  {range === "daily" ? "Today" : range === "weekly" ? "This Week" : range === "monthly" ? "This Month" : "All Time"} Payout
+                </p>
+                <p className="mt-2 text-2xl font-black text-emerald-700">{formatCurrency(report.summary.rangePayout ?? 0)}</p>
+              </div>
+              <div className="rounded-2xl bg-white border border-emerald-200 p-4">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Since Joining</p>
+                <p className="mt-2 text-2xl font-black text-indigo-700">{formatCurrency(report.summary.totalAllTimePayout ?? 0)}</p>
+              </div>
+            </div>
           </div>
 
           <div className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">

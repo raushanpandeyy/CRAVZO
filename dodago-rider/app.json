@@ -23,7 +23,8 @@
       "package": "shop.dodago.rider",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/icon.png",
         "backgroundColor": "#059669"
       },
       "permissions": [

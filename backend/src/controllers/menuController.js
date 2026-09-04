@@ -8,6 +8,25 @@ import { MENU_ITEMS_CACHE_TTL_SECONDS, invalidatePublicRestaurantCache } from ".
 import { assertVendorCanManageRestaurant, buildVendorRestaurantAccessWhere } from "../utils/restaurantAccess.js";
 import { createMenuItemSchema, updateMenuItemSchema } from "../validators/menuValidators.js";
 
+// ── Category markup lookup ────────────────────────────────────────
+const getMarkupForCategory = async (category, snackSize = null) => {
+  // Snacks with size → lookup "Snacks-half" or "Snacks-full" from DB
+  if (category === "Snacks" && snackSize) {
+    const sizeKey = `Snacks-${snackSize.toLowerCase()}`;
+    const record = await prisma.platformMarkup.findUnique({
+      where: { category: sizeKey },
+      select: { markup: true },
+    });
+    if (record) return Number(record.markup);
+    // fallback to generic Snacks markup
+  }
+  const record = await prisma.platformMarkup.findUnique({
+    where: { category },
+    select: { markup: true },
+  });
+  return record ? Number(record.markup) : 0;
+};
+
 const serializeMenuItem = (item) => ({
   id: item.id,
   restaurantId: item.restaurantId,
@@ -16,6 +35,9 @@ const serializeMenuItem = (item) => ({
   category: item.category,
   imageUrl: item.imageUrl,
   price: Number(item.price),
+  basePrice: item.basePrice != null ? Number(item.basePrice) : null,
+  platformMarkup: Number(item.platformMarkup ?? 0),
+  snackSize: item.snackSize ?? null,
   sizes: item.sizes,
   sideDishes: item.sideDishes,
   isVeg: item.isVeg,
@@ -47,6 +69,9 @@ const listMenuItems = async (req, res) => {
       category: true,
       imageUrl: true,
       price: true,
+      basePrice: true,
+      platformMarkup: true,
+      snackSize: true,
       sizes: true,
       sideDishes: true,
       isVeg: true,
@@ -83,6 +108,12 @@ const createMenuItem = async (req, res) => {
     throw new ApiError(404, "Restaurant not found");
   }
 
+  // Calculate markup and projected price
+  const snackSize = payload.snackSize || null;
+  const markup = await getMarkupForCategory(payload.category, snackSize);
+  const basePrice = payload.basePrice ?? payload.price;
+  const projectedPrice = Number(basePrice) + markup;
+
   const item = await prisma.menuItem.create({
     data: {
       restaurantId: payload.restaurantId,
@@ -90,7 +121,10 @@ const createMenuItem = async (req, res) => {
       description: payload.description || null,
       category: payload.category,
       imageUrl: payload.imageUrl || null,
-      price: payload.price,
+      price: projectedPrice,
+      basePrice: basePrice,
+      platformMarkup: markup,
+      snackSize: snackSize,
       sizes: payload.sizes || undefined,
       sideDishes: payload.sideDishes || undefined,
       isVeg: Boolean(payload.isVeg),
@@ -127,14 +161,27 @@ const updateMenuItem = async (req, res) => {
     throw new ApiError(403, "You do not have permission to update this menu item");
   }
 
+  // Recalculate markup if category or basePrice or snackSize changed
+  const newCategory = payload.category ?? existingItem.category;
+  const newSnackSize = payload.snackSize !== undefined ? payload.snackSize : (existingItem.snackSize ?? null);
+  const newBasePrice = payload.basePrice !== undefined
+    ? payload.basePrice
+    : (existingItem.basePrice != null ? Number(existingItem.basePrice) : Number(existingItem.price));
+
+  const markup = await getMarkupForCategory(newCategory, newSnackSize);
+  const projectedPrice = Number(newBasePrice) + markup;
+
   const item = await prisma.menuItem.update({
     where: { id: req.params.menuItemId },
     data: {
       name: payload.name ?? existingItem.name,
       description: payload.description ?? existingItem.description,
-      category: payload.category ?? existingItem.category,
+      category: newCategory,
       imageUrl: payload.imageUrl ?? existingItem.imageUrl,
-      price: payload.price ?? existingItem.price,
+      price: projectedPrice,
+      basePrice: newBasePrice,
+      platformMarkup: markup,
+      snackSize: newSnackSize,
       sizes: payload.sizes !== undefined ? payload.sizes : existingItem.sizes,
       sideDishes: payload.sideDishes !== undefined ? payload.sideDishes : existingItem.sideDishes,
       isVeg: typeof payload.isVeg === "boolean" ? payload.isVeg : existingItem.isVeg,

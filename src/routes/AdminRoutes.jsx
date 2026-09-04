@@ -18,6 +18,8 @@ const AdminAnalytics = lazy(() => import("../pages/admin/AdminAnalytics.jsx"));
 const AdminChatInbox = lazy(() => import("../components/AdminChatInbox.jsx"));
 const AdminPromotions = lazy(() => import("../pages/admin/AdminPromotions.jsx"));
 
+const AdminMarkupSettings = lazy(() => import("../pages/admin/AdminMarkupSettings.jsx"));
+
 const AdminRoutes = () => {
   const navigate = useNavigate();
   const [orderAlert, setOrderAlert] = useState(null);
@@ -112,6 +114,7 @@ const AdminRoutes = () => {
             <Route path="/admin/support" element={<AdminChatInbox />} />
             <Route path="/admin/analytics" element={<AdminAnalytics />} />
             <Route path="/admin/promotions" element={<AdminPromotions />} />
+            <Route path="/admin/markup-settings" element={<AdminMarkupSettings />} />
             <Route path="*" element={<Navigate to="/admin/featured" replace />} />
           </Routes>
         </Suspense>

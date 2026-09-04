@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { CheckSquare, Edit, Filter, ImagePlus, Menu, Plus, Save, Search, Trash2, X } from "lucide-react";
+import { CheckSquare, Edit, Filter, ImagePlus, IndianRupee, Menu, Plus, Save, Search, Trash2, X } from "lucide-react";
 
 import {
   createVendorMenuItem,
@@ -10,9 +10,14 @@ import {
 import { uploadImage } from "../../services/userService.js";
 import { Skeleton, SkeletonCard } from "../../components/Skeleton.jsx";
 import { getCloudinaryUrl } from "../../utils/cloudinary.js";
+import { apiRequest } from "../../services/api.js";
 
-const categories = ["Main Course", "Starters", "Thali", "Beverages", "Desserts", "Biryani", "Sides"];
+const CATEGORIES = [
+  "Main Course", "Starters", "Biryani", "Thali",
+  "Beverages", "Desserts", "Sides", "Snacks", "Breads", "Other",
+];
 const ALL_SIZES = ["S", "M", "L"];
+const SNACK_SIZES = ["half", "full"];
 
 const FALLBACK_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'%3E%3Crect fill='%23f1f5f9' width='150' height='150'/%3E%3Ctext fill='%2394a3b8' font-family='Arial' font-size='14' x='50%25' y='50%25' text-anchor='middle' dominant-baseline='middle'%3ENo Image%3C/text%3E%3C/svg%3E";
 
@@ -35,16 +40,18 @@ const ManageMenu = () => {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [markupMap, setMarkupMap] = useState({});
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    price: "",
+    basePrice: "",
     category: "",
     imageUrl: "",
     sizes: [],
     sideDishes: [],
     isVeg: false,
     status: "ACTIVE",
+    snackSize: "",
   });
 
   const selectedRestaurant = useMemo(
@@ -75,6 +82,30 @@ const ManageMenu = () => {
   useEffect(() => {
     loadRestaurants();
   }, [loadRestaurants]);
+
+  // ── Load platform markups ────────────────────────────────────────
+  useEffect(() => {
+    apiRequest("/api/v1/platform-markup")
+      .then((res) => {
+        const map = {};
+        (res.data || []).forEach((m) => { map[m.category] = Number(m.markup); });
+        setMarkupMap(map);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── Projected price ──────────────────────────────────────────────
+  const projectedPrice = useMemo(() => {
+    const base = Number(formData.basePrice);
+    if (!formData.category || !base || isNaN(base) || base <= 0) return null;
+    let markup = 0;
+    if (formData.category === "Snacks" && formData.snackSize) {
+      markup = markupMap[`Snacks-${formData.snackSize}`] ?? markupMap["Snacks"] ?? 0;
+    } else {
+      markup = markupMap[formData.category] ?? 0;
+    }
+    return base + markup;
+  }, [formData.basePrice, formData.category, formData.snackSize, markupMap]);
 
   const filteredMenuItems = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -121,13 +152,14 @@ const ManageMenu = () => {
     setFormData({
       name: "",
       description: "",
-      price: "",
+      basePrice: "",
       category: "",
       imageUrl: "",
       sizes: [],
       sideDishes: [],
       isVeg: false,
       status: "ACTIVE",
+      snackSize: "",
     });
   }, []);
 
@@ -173,8 +205,12 @@ const ManageMenu = () => {
       return;
     }
 
-    if (!formData.name || !formData.price || !formData.category) {
+    if (!formData.name || !formData.basePrice || !formData.category) {
       setError("Please fill in all required fields.");
+      return;
+    }
+    if (formData.category === "Snacks" && !formData.snackSize) {
+      setError("Please select half or full size for Snacks.");
       return;
     }
 
@@ -186,8 +222,9 @@ const ManageMenu = () => {
         restaurantId: selectedRestaurant.id,
         name: formData.name,
         description: formData.description,
-        price: Number(formData.price),
+        basePrice: Number(formData.basePrice),
         category: formData.category,
+        snackSize: formData.snackSize || undefined,
         imageUrl: formData.imageUrl || null,
         sizes: formData.sizes.length > 0 ? formData.sizes : undefined,
         sideDishes: formData.sideDishes.length > 0 ? formData.sideDishes : undefined,
@@ -208,13 +245,14 @@ const ManageMenu = () => {
     setFormData({
       name: item.name,
       description: item.description || "",
-      price: item.price.toString(),
+      basePrice: String(item.basePrice ?? item.price ?? ""),
       category: item.category,
       imageUrl: item.imageUrl || "",
       sizes: item.sizes || [],
       sideDishes: item.sideDishes || [],
       isVeg: item.isVeg,
       status: item.status,
+      snackSize: item.snackSize || "",
     });
   }, []);
 
@@ -223,8 +261,12 @@ const ManageMenu = () => {
       return;
     }
 
-    if (!formData.name || !formData.price || !formData.category) {
+    if (!formData.name || !formData.basePrice || !formData.category) {
       setError("Please fill in all required fields.");
+      return;
+    }
+    if (formData.category === "Snacks" && !formData.snackSize) {
+      setError("Please select half or full size for Snacks.");
       return;
     }
 
@@ -235,8 +277,9 @@ const ManageMenu = () => {
       await updateVendorMenuItem(editingItem, {
         name: formData.name,
         description: formData.description,
-        price: Number(formData.price),
+        basePrice: Number(formData.basePrice),
         category: formData.category,
+        snackSize: formData.snackSize || undefined,
         imageUrl: formData.imageUrl || null,
         sizes: formData.sizes.length > 0 ? formData.sizes : undefined,
         sideDishes: formData.sideDishes.length > 0 ? formData.sideDishes : undefined,
@@ -502,19 +545,63 @@ const ManageMenu = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Price (Rs) *</label>
-                <input type="number" name="price" value={formData.price} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" min="0" step="0.01" />
+                <label className="block text-xs font-medium text-gray-700 mb-1">Your Price (Rs) * <span className="text-gray-400 font-normal">(what you earn)</span></label>
+                <input type="number" name="basePrice" value={formData.basePrice} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500" min="0" step="1" placeholder="e.g. 169" />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Category *</label>
                 <select name="category" value={formData.category} onChange={handleInputChange} className="w-full px-3 py-2 border rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500">
                   <option value="">Select category</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>{category}</option>
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
               </div>
+
+              {/* Snack size — only for Snacks */}
+              {formData.category === "Snacks" && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Snack Size *</label>
+                  <div className="flex gap-2">
+                    {SNACK_SIZES.map((s) => {
+                      const snackMarkup = markupMap[`Snacks-${s}`] ?? (s === "half" ? 20 : 30);
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, snackSize: s }))}
+                          className={`flex-1 px-3 py-2 rounded-lg border text-sm font-semibold transition ${formData.snackSize === s ? "border-indigo-600 bg-indigo-600 text-white" : "border-gray-200 bg-white text-gray-700 hover:border-indigo-300"}`}
+                        >
+                          {s === "half" ? `Half (+Rs ${snackMarkup})` : `Full (+Rs ${snackMarkup})`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Projected price preview */}
+              {projectedPrice !== null && (
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
+                  <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide flex items-center gap-1">
+                    <IndianRupee className="h-3.5 w-3.5" />
+                    Price Breakdown
+                  </p>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Your earnings (base price)</span>
+                    <span className="font-bold text-gray-900">Rs {Math.floor(Number(formData.basePrice))}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Dodago markup</span>
+                    <span className="font-bold text-amber-700">+ Rs {Math.floor(projectedPrice - Number(formData.basePrice))}</span>
+                  </div>
+                  <div className="flex justify-between text-sm border-t border-emerald-200 pt-2">
+                    <span className="font-bold text-emerald-800">Customer sees (projected price)</span>
+                    <span className="font-black text-emerald-700 text-base">Rs {Math.floor(projectedPrice)}</span>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Sizes &amp; Prices (optional)</label>
@@ -713,7 +800,12 @@ const ManageMenu = () => {
                   <p className="text-gray-500 text-xs md:text-sm mb-3 line-clamp-2 min-h-[2rem]">{item.description || "No description provided."}</p>
                   
                   <div className="flex justify-between items-center mb-4">
-                    <span className="font-extrabold text-base md:text-lg text-indigo-600">Rs {item.price}</span>
+                    <div>
+                      {item.basePrice != null && (
+                        <p className="text-xs text-gray-400 font-semibold">You earn: Rs {item.basePrice}</p>
+                      )}
+                      <span className="font-extrabold text-base md:text-lg text-indigo-600">Customer: Rs {item.price}</span>
+                    </div>
                     <div className="flex items-center gap-1.5">
                       {item.sizes && item.sizes.length > 0 ? (
                         <span className="text-[11px] font-bold text-indigo-500 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md">

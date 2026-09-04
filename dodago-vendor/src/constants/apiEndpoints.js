@@ -37,6 +37,7 @@ export const API_ENDPOINTS = {
     vendorHistory:        `${BASE}/orders/vendor/history`,
     updateStatus:    (id) => `${BASE}/orders/${id}/status`,
   },
+  platformMarkup:        `${BASE}/platform-markup`,
   chat: {
     support:              `${BASE}/chats/support`,
     orderVendorRoom: (id) => `${BASE}/chats/orders/${id}/vendor`,

@@ -8,7 +8,12 @@ const menuItemPayloadSchema = z.object({
   description: z.string().trim().max(1000).optional().nullable(),
   category: z.string().trim().min(2).max(80),
   imageUrl: z.string().trim().url().optional().nullable(),
-  price: z.coerce.number().positive().max(100000),
+  // price is now optional — it will be auto-calculated from basePrice + markup
+  price: z.coerce.number().positive().max(100000).optional(),
+  // basePrice: what restaurant wants to earn (before platform markup)
+  basePrice: z.coerce.number().positive().max(100000).optional().nullable(),
+  // snackSize: only for Snacks category — affects markup amount
+  snackSize: z.enum(["half", "full"]).optional().nullable(),
   sizes: z
     .array(
       z.object({

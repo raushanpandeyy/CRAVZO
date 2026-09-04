@@ -16,19 +16,23 @@ import {
   createMenuItem, deleteMenuItem,
   getMyRestaurants, updateMenuItem, uploadImage,
 } from "../services/vendorService";
+import { apiRequest } from "../services/api";
+import { API_ENDPOINTS } from "../constants/apiEndpoints";
 
 // ── Constants ─────────────────────────────────────────────────────
 const CATEGORIES = [
-  "Main Course","Starters","Biryani","Thali",
-  "Beverages","Desserts","Sides","Snacks","Breads",
+  "Main Course", "Starters", "Biryani", "Thali",
+  "Beverages", "Desserts", "Sides", "Snacks", "Breads",
 ];
 const SIZES = ["S", "M", "L"];
+const SNACK_SIZES = ["half", "full"];
 
 const EMPTY_FORM = {
-  name: "", description: "", price: "",
+  name: "", description: "", basePrice: "",
   category: "", imageUrl: "",
   isVeg: false, status: "ACTIVE",
   sizes: [], sideDishes: "",
+  snackSize: null,
 };
 
 const fmt = (v) => `Rs ${Math.floor(v || 0)}`;
@@ -67,16 +71,42 @@ export default function MenuScreen() {
   const [loading,       setLoading]       = useState(true);
   const [refreshing,    setRefreshing]    = useState(false);
   const [modalVisible,  setModalVisible]  = useState(false);
-  const [editingItem,   setEditingItem]   = useState(null); // null = new
+  const [editingItem,   setEditingItem]   = useState(null);
   const [form,          setForm]          = useState(EMPTY_FORM);
   const [formErrors,    setFormErrors]    = useState({});
   const [saving,        setSaving]        = useState(false);
   const [uploading,     setUploading]     = useState(false);
   const [deleting,      setDeleting]      = useState("");
   const [searchQuery,   setSearchQuery]   = useState("");
-  const [filterStatus,  setFilterStatus]  = useState("ALL"); // ALL | ACTIVE | INACTIVE
-  const [selectedIds,   setSelectedIds]   = useState(new Set()); // bulk selection
+  const [filterStatus,  setFilterStatus]  = useState("ALL");
+  const [selectedIds,   setSelectedIds]   = useState(new Set());
   const [bulkUpdating,  setBulkUpdating]  = useState(false);
+  const [markupMap,     setMarkupMap]     = useState({}); // category → markup amount
+
+  // Projected price calculated from basePrice + markup
+  const projectedPrice = useMemo(() => {
+    const base = Number(form.basePrice);
+    if (!form.category || !base || isNaN(base)) return null;
+    let markup = 0;
+    if (form.category === "Snacks" && form.snackSize) {
+      // DB keys are "Snacks-half" and "Snacks-full"
+      markup = markupMap[`Snacks-${form.snackSize}`] ?? markupMap["Snacks"] ?? 0;
+    } else {
+      markup = markupMap[form.category] ?? 0;
+    }
+    return base + markup;
+  }, [form.basePrice, form.category, form.snackSize, markupMap]);
+
+  // ── Load markups ─────────────────────────────────────────────────
+  useEffect(() => {
+    apiRequest(API_ENDPOINTS.platformMarkup)
+      .then((res) => {
+        const map = {};
+        (res.data || []).forEach((m) => { map[m.category] = Number(m.markup); });
+        setMarkupMap(map);
+      })
+      .catch(() => {}); // silent — markup display is non-critical
+  }, []);
 
   // ── Load ─────────────────────────────────────────────────────────
   const load = useCallback(async ({ silent = false } = {}) => {
@@ -126,13 +156,14 @@ export default function MenuScreen() {
     setForm({
       name:        item.name || "",
       description: item.description || "",
-      price:       String(item.price || ""),
+      basePrice:   String(item.basePrice ?? item.price ?? ""),
       category:    item.category || "",
       imageUrl:    item.imageUrl || "",
       isVeg:       Boolean(item.isVeg),
       status:      item.status || "ACTIVE",
       sizes:       Array.isArray(item.sizes) ? item.sizes : [],
       sideDishes:  Array.isArray(item.sideDishes) ? item.sideDishes.join(", ") : (item.sideDishes || ""),
+      snackSize:   item.snackSize || null,
     });
     setFormErrors({});
     setModalVisible(true);
@@ -190,16 +221,17 @@ export default function MenuScreen() {
   // ── Validate ──────────────────────────────────────────────────────
   const validate = () => {
     const e = {};
-    if (!form.name.trim())     e.name     = "Item name is required";
-    if (!form.price.trim())    e.price    = "Price is required";
-    else if (isNaN(Number(form.price)) || Number(form.price) <= 0)
-                               e.price    = "Enter a valid price";
-    if (!form.category.trim()) e.category = "Category is required";
+    if (!form.name.trim())          e.name      = "Item name is required";
+    if (!form.basePrice.trim())     e.basePrice = "Your price is required";
+    else if (isNaN(Number(form.basePrice)) || Number(form.basePrice) <= 0)
+                                    e.basePrice = "Enter a valid price";
+    if (!form.category.trim())      e.category  = "Category is required";
+    if (form.category === "Snacks" && !form.snackSize)
+                                    e.snackSize = "Select half or full for snacks";
     setFormErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  // ── Save ──────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!validate()) return;
     if (!restaurant?.id) { Alert.alert("Error", "No restaurant selected"); return; }
@@ -209,8 +241,9 @@ export default function MenuScreen() {
         restaurantId: restaurant.id,
         name:         form.name.trim(),
         description:  form.description.trim(),
-        price:        Number(form.price),
+        basePrice:    Number(form.basePrice),
         category:     form.category,
+        snackSize:    form.snackSize || undefined,
         imageUrl:     form.imageUrl || null,
         isVeg:        form.isVeg,
         status:       form.status,
@@ -337,7 +370,12 @@ export default function MenuScreen() {
           ? <Text style={styles.itemDesc} numberOfLines={2}>{item.description}</Text>
           : null}
         <View style={styles.itemBottomRow}>
-          <Text style={styles.itemPrice}>{fmt(item.price)}</Text>
+          <View>
+            {item.basePrice != null && (
+              <Text style={styles.itemBasePrice}>You earn: {fmt(item.basePrice)}</Text>
+            )}
+            <Text style={styles.itemPrice}>Customer: {fmt(item.price)}</Text>
+          </View>
           <Switch
             value={item.status === "ACTIVE"}
             onValueChange={() => handleToggleStatus(item)}
@@ -554,15 +592,35 @@ export default function MenuScreen() {
                   error={formErrors.name}
                 />
 
-                {/* Price */}
+                {/* Base Price */}
                 <InputField
-                  label="Price (Rs) *"
-                  placeholder="e.g. 199"
-                  value={form.price}
-                  onChangeText={setField("price")}
+                  label="Your Price (Rs) *"
+                  placeholder="e.g. 169"
+                  value={form.basePrice}
+                  onChangeText={setField("basePrice")}
                   keyboardType="numeric"
-                  error={formErrors.price}
+                  error={formErrors.basePrice}
                 />
+
+                {/* Projected price preview */}
+                {projectedPrice !== null && (
+                  <View style={styles.projectedBox}>
+                    <View style={styles.projectedRow}>
+                      <Text style={styles.projectedLabel}>Your earnings (base price)</Text>
+                      <Text style={styles.projectedBase}>Rs {Math.floor(Number(form.basePrice) || 0)}</Text>
+                    </View>
+                    <View style={styles.projectedRow}>
+                      <Text style={styles.projectedLabel}>Dodago markup</Text>
+                      <Text style={styles.projectedMarkup}>
+                        + Rs {projectedPrice - Number(form.basePrice)}
+                      </Text>
+                    </View>
+                    <View style={[styles.projectedRow, styles.projectedTotalRow]}>
+                      <Text style={styles.projectedTotalLabel}>Customer sees (projected price)</Text>
+                      <Text style={styles.projectedTotal}>Rs {Math.floor(projectedPrice)}</Text>
+                    </View>
+                  </View>
+                )}
 
                 {/* Category */}
                 <View>
@@ -580,6 +638,30 @@ export default function MenuScreen() {
                   </ScrollView>
                   {formErrors.category ? <Text style={styles.errorText}>{formErrors.category}</Text> : null}
                 </View>
+
+                {/* Snack size — only for Snacks category */}
+                {form.category === "Snacks" && (
+                  <View>
+                    <Text style={styles.fieldLabel}>Snack Size *</Text>
+                    <View style={styles.chipRow}>
+                    {SNACK_SIZES.map((s) => {
+                        const snackMarkup = markupMap[`Snacks-${s}`] ?? (s === "half" ? 20 : 30);
+                        return (
+                          <TouchableOpacity
+                            key={s}
+                            style={[styles.chip, form.snackSize === s && styles.chipActive]}
+                            onPress={() => { setField("snackSize")(s); setFormErrors((p) => ({ ...p, snackSize: "" })); }}
+                          >
+                            <Text style={[styles.chipText, form.snackSize === s && styles.chipTextActive]}>
+                              {s === "half" ? `Half  (+Rs ${snackMarkup})` : `Full  (+Rs ${snackMarkup})`}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                    {formErrors.snackSize ? <Text style={styles.errorText}>{formErrors.snackSize}</Text> : null}
+                  </View>
+                )}
 
                 {/* Description */}
                 <InputField
@@ -700,7 +782,8 @@ const styles = StyleSheet.create({
   itemCategory:{ alignSelf: "flex-start" },
   itemDesc:    { fontSize: 12, color: colors.muted, fontWeight: "700", lineHeight: 17 },
   itemBottomRow:{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  itemPrice:   { fontSize: 15, fontWeight: "900", color: colors.primaryDark },
+  itemPrice:    { fontSize: 14, fontWeight: "900", color: colors.primaryDark },
+  itemBasePrice:{ fontSize: 11, fontWeight: "700", color: colors.muted },
   itemSwitch:  { transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] },
   itemActions: { justifyContent: "center", gap: 8, paddingRight: 12 },
   itemActionBtn:{ width: 36, height: 36, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center" },
@@ -736,6 +819,20 @@ const styles = StyleSheet.create({
   toggleLabel: { fontSize: 13, fontWeight: "800", color: colors.ink },
 
   saveBtn:     { marginTop: 4 },
+
+  // ── Projected price preview ──
+  projectedBox: {
+    backgroundColor: "#f0fdf4", borderRadius: 16,
+    padding: 14, gap: 8,
+    borderWidth: 1.5, borderColor: "#bbf7d0",
+  },
+  projectedRow:       { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  projectedTotalRow:  { borderTopWidth: 1, borderTopColor: "#86efac", paddingTop: 8, marginTop: 4 },
+  projectedLabel:     { fontSize: 13, color: colors.muted, fontWeight: "700" },
+  projectedBase:      { fontSize: 14, fontWeight: "900", color: colors.ink },
+  projectedMarkup:    { fontSize: 14, fontWeight: "900", color: colors.warning },
+  projectedTotalLabel:{ fontSize: 13, fontWeight: "900", color: "#166534" },
+  projectedTotal:     { fontSize: 18, fontWeight: "900", color: "#15803d" },
 
   // ── Bulk action bar ──
   bulkBar: {
