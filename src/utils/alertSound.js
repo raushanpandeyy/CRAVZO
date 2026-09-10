@@ -100,13 +100,6 @@ const playAlertSound = (loop = false, urgency = "normal") => {
     playSequence();
     const interval = urgency === "urgent" ? 800 : 1500;
     alertIntervalId = setInterval(playSequence, interval);
-    // Auto-stop after 15 seconds — don't blast sound for the full countdown
-    setTimeout(() => {
-      if (alertIntervalId) {
-        clearInterval(alertIntervalId);
-        alertIntervalId = null;
-      }
-    }, 15000);
   } else {
     if (alertIntervalId) clearInterval(alertIntervalId);
     playSequence();

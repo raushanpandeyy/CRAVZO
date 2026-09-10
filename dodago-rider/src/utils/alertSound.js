@@ -16,12 +16,10 @@ const VIBRATION_PATTERN = [0, 300, 100, 300, 100, 300, 200, 500];
 
 // How long the WAV is — we restart just before it ends to avoid silence gaps
 const WAV_DURATION_MS = 10_000;
-const RESTART_BEFORE_END_MS = 200; // restart 200ms before WAV finishes
-const SOUND_AUTO_STOP_MS = 15_000; // stop looping after 15 seconds
+const RESTART_BEFORE_END_MS = 200;
 
 let player          = null;
 let loopTimerId     = null;
-let autoStopTimerId = null;
 let isPlaying       = false;
 
 export const playAlertSound = async () => {
@@ -64,11 +62,6 @@ export const playAlertSound = async () => {
     };
 
     scheduleRestart();
-
-    // Auto-stop sound after 15 seconds — countdown still runs on screen
-    autoStopTimerId = setTimeout(() => {
-      if (isPlaying) stopAlertSound();
-    }, SOUND_AUTO_STOP_MS);
   } catch {
     // expo-audio unavailable — vibration still runs
   }
@@ -81,11 +74,6 @@ export const stopAlertSound = async () => {
   if (loopTimerId) {
     clearTimeout(loopTimerId);
     loopTimerId = null;
-  }
-
-  if (autoStopTimerId) {
-    clearTimeout(autoStopTimerId);
-    autoStopTimerId = null;
   }
 
   if (player) {
