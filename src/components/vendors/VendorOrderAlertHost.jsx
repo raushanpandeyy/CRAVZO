@@ -72,7 +72,18 @@ const VendorOrderAlertHost = () => {
     // even when this browser tab is in background or browser is minimised.
     ensureFcmToken().catch(() => {});
 
-    showOrderPopup();
+    // If vendor tapped a background notification, the SW navigates to
+    // /vendor-dashboard?orderId=xxx — read it and immediately show the popup.
+    const params = new URLSearchParams(window.location.search);
+    const notifOrderId = params.get("orderId");
+    if (notifOrderId) {
+      // Clean the URL so refreshing doesn't re-trigger the popup
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, "", cleanUrl);
+      showOrderPopup(notifOrderId);
+    } else {
+      showOrderPopup();
+    }
 
     const cleanups = [
       onNewOrder((payload) => {
@@ -111,6 +122,19 @@ const VendorOrderAlertHost = () => {
     };
   }, [showOrderPopup]);
 
+  const handleCountdownExpire = useCallback(() => {
+    // Countdown hit 0 — dismiss popup and allow this order to be shown again
+    // after the next poll (in case vendor was away and comes back)
+    setShowRequest(false);
+    setOrderRequest((current) => {
+      if (current) {
+        // Remove from shown set so it re-appears if still PENDING on next poll
+        shownOrderIdsRef.current.delete(current.id);
+      }
+      return null;
+    });
+  }, []);
+
   const handleAcceptOrder = async (orderId) => {
     await updateOrderStatus(orderId, "ACCEPTED");
     setShowRequest(false);
@@ -132,6 +156,7 @@ const VendorOrderAlertHost = () => {
         type="vendor"
         onAccept={handleAcceptOrder}
         onReject={handleRejectOrder}
+        onCountdownExpire={handleCountdownExpire}
         onClose={() => {
           setShowRequest(false);
           setOrderRequest(null);

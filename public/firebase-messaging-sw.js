@@ -37,20 +37,28 @@ if (hasFirebaseConfig) {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  const clickUrl = event.notification.data?.clickUrl || "/";
-  const targetOrigin = self.location.origin;
+  const clickUrl = event.notification.data?.clickUrl || "/vendor-dashboard";
+  const orderId  = event.notification.data?.orderId  || null;
+
+  // Build final URL — always land on vendor dashboard with orderId param
+  // so VendorOrderAlertHost can immediately show the order popup.
+  const baseUrl = self.location.origin;
+  const landingPath = orderId
+    ? `/vendor-dashboard?orderId=${encodeURIComponent(orderId)}`
+    : clickUrl;
+  const targetUrl = baseUrl + landingPath;
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      const client = clients.find((c) => c.url.startsWith(targetOrigin));
-      if (client) {
-        return client.navigate(targetOrigin + clickUrl).then((navigatedClient) => {
+      // If the vendor dashboard is already open, navigate that tab
+      const vendorClient = clients.find((c) => c.url.includes("/vendor-dashboard"));
+      if (vendorClient) {
+        return vendorClient.navigate(targetUrl).then((navigatedClient) => {
           if (navigatedClient) navigatedClient.focus();
-        }).catch(() => {
-          return self.clients.openWindow(targetOrigin + clickUrl);
-        });
+        }).catch(() => self.clients.openWindow(targetUrl));
       }
-      return self.clients.openWindow(targetOrigin + clickUrl);
+      // Otherwise open a new window
+      return self.clients.openWindow(targetUrl);
     }),
   );
 });

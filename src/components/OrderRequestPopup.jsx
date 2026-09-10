@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, MapPin, Package, Clock, Navigation, Phone, ChevronRight, Check } from "lucide-react";
 import { playAlertSound, stopAlertSound } from "../utils/alertSound.js";
 
-const OrderRequestPopup = ({ order, onAccept, onReject, onClose, type = "rider" }) => {
+const VENDOR_COUNTDOWN_SECONDS = 30;
+
+const OrderRequestPopup = ({ order, onAccept, onReject, onClose, onCountdownExpire, type = "rider" }) => {
   const [isAccepting, setIsAccepting] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [countdown, setCountdown] = useState(type === "vendor" ? VENDOR_COUNTDOWN_SECONDS : null);
+  const expiredRef = useRef(false);
 
   useEffect(() => {
     if (order) {
@@ -12,6 +16,21 @@ const OrderRequestPopup = ({ order, onAccept, onReject, onClose, type = "rider" 
     }
     return () => stopAlertSound();
   }, [order]);
+
+  // 30-second countdown for vendor — auto-reject when it hits 0
+  useEffect(() => {
+    if (type !== "vendor" || countdown === null) return;
+    if (countdown <= 0) {
+      if (!expiredRef.current) {
+        expiredRef.current = true;
+        stopAlertSound();
+        onCountdownExpire?.();
+      }
+      return;
+    }
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [type, countdown, onCountdownExpire]);
 
   const handleAccept = async () => {
     stopAlertSound();
@@ -124,6 +143,13 @@ if (!order) return null;
   }
 
   if (type === "vendor") {
+    // SVG progress ring values
+    const radius = 20;
+    const circumference = 2 * Math.PI * radius;
+    const progress = countdown !== null ? countdown / VENDOR_COUNTDOWN_SECONDS : 1;
+    const dashOffset = circumference * (1 - progress);
+    const isUrgent = countdown !== null && countdown <= 10;
+
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
         <div className="w-full max-w-md animate-bounce-in rounded-3xl bg-white shadow-2xl">
@@ -134,7 +160,7 @@ if (!order) return null;
             >
               <X className="h-5 w-5" />
             </button>
-            
+
             <div className="text-center">
               <p className="text-sm font-medium uppercase tracking-wider text-orange-200">New Order Received!</p>
               <h2 className="mt-2 text-2xl font-black">Order #{order.id?.slice(-6) || "New"}</h2>
@@ -150,6 +176,28 @@ if (!order) return null;
                 <p className="mt-1 text-2xl font-black">{order.items?.length || 0}</p>
               </div>
             </div>
+
+            {/* Countdown ring */}
+            {countdown !== null && (
+              <div className="mt-4 flex items-center justify-center gap-3">
+                <svg width="52" height="52" className="shrink-0 -rotate-90">
+                  <circle cx="26" cy="26" r={radius} fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="4" />
+                  <circle
+                    cx="26" cy="26" r={radius}
+                    fill="none"
+                    stroke={isUrgent ? "#fca5a5" : "#ffffff"}
+                    strokeWidth="4"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={dashOffset}
+                    strokeLinecap="round"
+                    style={{ transition: "stroke-dashoffset 0.9s linear, stroke 0.3s" }}
+                  />
+                </svg>
+                <p className={`text-sm font-bold ${isUrgent ? "text-red-200 animate-pulse" : "text-orange-100"}`}>
+                  Auto-reject in <span className="text-xl font-black text-white">{countdown}s</span>
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="p-6">
