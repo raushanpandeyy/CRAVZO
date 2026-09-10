@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { loadCurrentUser, login as loginRequest, logout as logoutRequest } from "../services/authService";
 import { setUnauthorizedHandler } from "../services/api";
 import { registerForPushNotifications, deregisterPushNotifications } from "./notificationService";
+import { stopBackgroundLocation } from "./locationTaskService";
 
 const AuthContext = createContext(null);
 
@@ -39,6 +40,7 @@ export const AuthProvider = ({ children, navigationRef }) => {
   }, []);
 
   const logout = useCallback(async () => {
+    await stopBackgroundLocation();
     await deregisterPushNotifications();
     await logoutRequest();
     setUser(null);

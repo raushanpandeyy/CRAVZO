@@ -36,6 +36,7 @@
       ]
     },
     "plugins": [
+      "expo-splash-screen",
       [
         "expo-image-picker",
         {

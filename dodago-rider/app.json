@@ -16,7 +16,9 @@
       "bundleIdentifier": "shop.dodago.rider",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Dodago Rider needs your location to assign orders and share live delivery updates.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Dodago Rider needs location while you deliver active orders."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Dodago Rider needs your location in the background to keep sharing live delivery updates.",
+        "NSLocationAlwaysUsageDescription": "Dodago Rider needs your location in the background to keep sharing live delivery updates.",
+        "UIBackgroundModes": ["location", "remote-notification", "fetch"]
       }
     },
     "android": {
@@ -30,6 +32,9 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
         "ACCESS_NETWORK_STATE"
@@ -47,7 +52,17 @@
           "androidCollapsedTitle": "New Order"
         }
       ],
-      "expo-location"
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Dodago Rider needs your location in the background to keep sharing live delivery updates.",
+          "locationAlwaysPermission": "Dodago Rider needs your location in the background to keep sharing live delivery updates.",
+          "locationWhenInUsePermission": "Dodago Rider needs your location to assign orders and share live delivery updates.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "expo-task-manager"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

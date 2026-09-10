@@ -9,6 +9,7 @@ import { OrderCard } from "../components/OrderCard";
 import { colors } from "../constants/colors";
 import { getRiderOrders, updateOrderStatus, verifyDeliveryOtp } from "../services/orderService";
 import { updateRiderLocation, updateRiderStatus } from "../services/riderService";
+import { startBackgroundLocation, stopBackgroundLocation } from "../services/locationTaskService";
 import { onNewOrder, onOrderStatusUpdate } from "../services/socketService";
 import { formatCurrency, formatCustomerAddress, formatDistance, formatRestaurantAddress, openNavigation } from "../utils/formatters";
 import { useAuth } from "../services/AuthContext";
@@ -55,38 +56,54 @@ export default function DashboardScreen({ navigation }) {
   const locationSub = useRef(null);
   const isOnlineRef = useRef(Boolean(user?.isOnline));
 
-  const syncLocation = useCallback(async (coords) => {
-    if (!isOnlineRef.current || !coords) return;
-    try {
-      setLocationStatus("syncing");
-      await updateRiderLocation(coords.latitude, coords.longitude, {
-        accuracy: coords.accuracy,
-        heading: coords.heading,
-        speed: coords.speed,
-        timestamp: Date.now(),
-      });
-      setLocationStatus("synced");
-    } catch {
-      setLocationStatus("error");
-    }
-  }, []);
-
   const startLocationWatch = useCallback(async () => {
-    const permission = await Location.requestForegroundPermissionsAsync();
-    if (permission.status !== "granted") {
+    // Step 1: foreground permission (always required)
+    const fg = await Location.requestForegroundPermissionsAsync();
+    if (fg.status !== "granted") {
       setLocationStatus("denied");
       return;
     }
-    locationSub.current?.remove?.();
-    locationSub.current = await Location.watchPositionAsync(
-      { accuracy: Location.Accuracy.High, timeInterval: 12000, distanceInterval: 30 },
-      (position) => syncLocation(position.coords)
-    );
-  }, [syncLocation]);
+
+    // Step 2: background permission — ask without blocking if user denies
+    const bg = await Location.requestBackgroundPermissionsAsync();
+    if (bg.status !== "granted") {
+      // Fallback: foreground-only watch (works while app is open)
+      locationSub.current?.remove?.();
+      locationSub.current = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, timeInterval: 12000, distanceInterval: 30 },
+        async (position) => {
+          if (!isOnlineRef.current) return;
+          try {
+            setLocationStatus("syncing");
+            const { latitude, longitude, accuracy, heading, speed } = position.coords;
+            await updateRiderLocation(latitude, longitude, { accuracy, heading, speed, timestamp: Date.now() });
+            setLocationStatus("synced");
+          } catch {
+            setLocationStatus("error");
+          }
+        }
+      );
+      return;
+    }
+
+    // Step 3: background permission granted — use the background task
+    await startBackgroundLocation();
+    setLocationStatus("synced");
+  }, []);
 
   useEffect(() => {
-    if (isOnline) startLocationWatch().catch(() => setLocationStatus("error"));
-    return () => locationSub.current?.remove?.();
+    if (isOnline) {
+      startLocationWatch().catch(() => setLocationStatus("error"));
+    } else {
+      // Stop background task when rider goes offline
+      locationSub.current?.remove?.();
+      locationSub.current = null;
+      stopBackgroundLocation();
+    }
+    return () => {
+      locationSub.current?.remove?.();
+      locationSub.current = null;
+    };
   }, [isOnline, startLocationWatch]);
 
   const loadOrders = useCallback(async ({ silent = false } = {}) => {

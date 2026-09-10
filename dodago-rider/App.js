@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useRef } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -7,23 +7,18 @@ import * as SplashScreen from "expo-splash-screen";
 import { AuthProvider } from "./src/services/AuthContext";
 import AppNavigator from "./src/navigation/AppNavigator";
 
-// Keep splash visible until app is ready
+// Keep native splash visible until NavigationContainer is mounted —
+// no artificial delay, hides as fast as possible.
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    // Small delay to let auth context initialize before hiding splash
-    const timer = setTimeout(() => setReady(true), 100);
-    return () => clearTimeout(timer);
-  }, []);
+  const hiddenRef = useRef(false);
 
   const onReady = useCallback(async () => {
-    if (ready) {
-      await SplashScreen.hideAsync();
-    }
-  }, [ready]);
+    if (hiddenRef.current) return;
+    hiddenRef.current = true;
+    await SplashScreen.hideAsync();
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

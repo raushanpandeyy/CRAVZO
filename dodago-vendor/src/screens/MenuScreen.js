@@ -31,7 +31,8 @@ const EMPTY_FORM = {
   name: "", description: "", basePrice: "",
   category: "", imageUrl: "",
   isVeg: false, status: "ACTIVE",
-  sizes: [], sideDishes: "",
+  sizes: [],        // [{ size: "S"|"M"|"L", price: "" }]
+  sideDishes: "",
   snackSize: null,
 };
 
@@ -161,7 +162,13 @@ export default function MenuScreen() {
       imageUrl:    item.imageUrl || "",
       isVeg:       Boolean(item.isVeg),
       status:      item.status || "ACTIVE",
-      sizes:       Array.isArray(item.sizes) ? item.sizes : [],
+      sizes:       Array.isArray(item.sizes)
+        ? item.sizes.map((s) =>
+            typeof s === "string"
+              ? { size: s, price: "" }                       // legacy string[] from old data
+              : { size: s.size, price: String(s.price ?? "") } // correct object format
+          )
+        : [],
       sideDishes:  Array.isArray(item.sideDishes) ? item.sideDishes.join(", ") : (item.sideDishes || ""),
       snackSize:   item.snackSize || null,
     });
@@ -177,13 +184,28 @@ export default function MenuScreen() {
     setFormErrors((p) => ({ ...p, [key]: "" }));
   };
 
+  // ── Size helpers — sizes is [{ size: "S"|"M"|"L", price: "" }] ──
+  const isSizeSelected = (size) => form.sizes.some((s) => s.size === size);
+
   const toggleSize = (size) => {
+    setForm((p) => {
+      const already = p.sizes.some((s) => s.size === size);
+      return {
+        ...p,
+        sizes: already
+          ? p.sizes.filter((s) => s.size !== size)
+          : [...p.sizes, { size, price: "" }],
+      };
+    });
+    setFormErrors((p) => ({ ...p, sizes: "" }));
+  };
+
+  const setSizePrice = (size, price) => {
     setForm((p) => ({
       ...p,
-      sizes: p.sizes.includes(size)
-        ? p.sizes.filter((s) => s !== size)
-        : [...p.sizes, size],
+      sizes: p.sizes.map((s) => s.size === size ? { ...s, price } : s),
     }));
+    setFormErrors((p) => ({ ...p, sizes: "" }));
   };
 
   // ── Image pick (camera or gallery) ────────────────────────────────
@@ -228,6 +250,12 @@ export default function MenuScreen() {
     if (!form.category.trim())      e.category  = "Category is required";
     if (form.category === "Snacks" && !form.snackSize)
                                     e.snackSize = "Select half or full for snacks";
+    if (form.sizes.length > 0) {
+      const missingPrice = form.sizes.some(
+        (s) => !s.price || isNaN(Number(s.price)) || Number(s.price) <= 0
+      );
+      if (missingPrice)             e.sizes = "Enter a valid price for each selected size";
+    }
     setFormErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -247,7 +275,9 @@ export default function MenuScreen() {
         imageUrl:     form.imageUrl || null,
         isVeg:        form.isVeg,
         status:       form.status,
-        sizes:        form.sizes,
+        sizes:        form.sizes.length > 0
+          ? form.sizes.map((s) => ({ size: s.size, price: Number(s.price) }))
+          : [],
         sideDishes:   form.sideDishes
           ? form.sideDishes.split(",").map((s) => s.trim()).filter(Boolean)
           : [],
@@ -678,16 +708,40 @@ export default function MenuScreen() {
                 <View>
                   <Text style={styles.fieldLabel}>Available Sizes (optional)</Text>
                   <View style={styles.chipRow}>
-                    {SIZES.map((size) => (
-                      <TouchableOpacity
-                        key={size}
-                        style={[styles.chip, form.sizes.includes(size) && styles.chipActive]}
-                        onPress={() => toggleSize(size)}
-                      >
-                        <Text style={[styles.chipText, form.sizes.includes(size) && styles.chipTextActive]}>{size}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {SIZES.map((size) => {
+                      const selected = isSizeSelected(size);
+                      return (
+                        <TouchableOpacity
+                          key={size}
+                          style={[styles.chip, selected && styles.chipActive]}
+                          onPress={() => toggleSize(size)}
+                        >
+                          <Text style={[styles.chipText, selected && styles.chipTextActive]}>{size}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
+                  {/* Price input per selected size */}
+                  {form.sizes.length > 0 && (
+                    <View style={styles.sizePriceList}>
+                      {form.sizes.map((entry) => (
+                        <View key={entry.size} style={styles.sizePriceRow}>
+                          <View style={[styles.chip, styles.chipActive, styles.sizePriceLabel]}>
+                            <Text style={[styles.chipText, styles.chipTextActive]}>{entry.size}</Text>
+                          </View>
+                          <InputField
+                            placeholder="Price (Rs)"
+                            value={entry.price}
+                            onChangeText={(v) => setSizePrice(entry.size, v)}
+                            keyboardType="numeric"
+                            containerStyle={styles.sizePriceInputContainer}
+                            inputStyle={styles.sizePriceInput}
+                          />
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                  {formErrors.sizes ? <Text style={styles.errorText}>{formErrors.sizes}</Text> : null}
                 </View>
 
                 {/* Side dishes */}
@@ -813,6 +867,12 @@ const styles = StyleSheet.create({
   chipText:    { fontSize: 13, fontWeight: "800", color: colors.muted },
   chipTextActive: { color: "#fff" },
   errorText:   { color: colors.danger, fontSize: 12, fontWeight: "700", marginTop: 4 },
+
+  sizePriceList:           { marginTop: 10, gap: 8 },
+  sizePriceRow:            { flexDirection: "row", alignItems: "center", gap: 10 },
+  sizePriceLabel:          { minWidth: 44, alignItems: "center", justifyContent: "center" },
+  sizePriceInputContainer: { flex: 1, marginBottom: 0 },
+  sizePriceInput:          { minHeight: 44 },
 
   toggleRow:   { flexDirection: "row", gap: 12 },
   toggleItem:  { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: colors.line },
