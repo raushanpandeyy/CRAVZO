@@ -3,6 +3,7 @@ import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 
 import { getVendorOrders, updateOrderStatus } from "../../services/orderService.js";
 import { onNewOrder, onOrderStatusUpdate } from "../../services/chatSocket.js";
 import { unlockAlertSound } from "../../utils/alertSound.js";
+import { ensureFcmToken } from "../../firebase/notificationService.js";
 
 const OrderRequestPopup = lazy(() => import("../OrderRequestPopup.jsx"));
 const ORDER_ALERT_POLL_MS = 5000;
@@ -66,6 +67,10 @@ const VendorOrderAlertHost = () => {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission().catch(() => {});
     }
+
+    // Register FCM token so backend can send push notifications
+    // even when this browser tab is in background or browser is minimised.
+    ensureFcmToken().catch(() => {});
 
     showOrderPopup();
 
