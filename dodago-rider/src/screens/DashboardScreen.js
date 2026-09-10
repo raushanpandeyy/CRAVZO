@@ -46,7 +46,7 @@ export default function DashboardScreen({ navigation }) {
   const [locationStatus, setLocationStatus] = useState("pending");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [orderRequest, setOrderRequest] = useState(null);
-  const [requestCountdown, setRequestCountdown] = useState(30);
+  const [requestCountdown, setRequestCountdown] = useState(120);
   const [otp, setOtp] = useState("");
   const [cancelTarget, setCancelTarget] = useState(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -201,14 +201,14 @@ export default function DashboardScreen({ navigation }) {
 
   useEffect(() => {
     if (!orderRequest) return;
-    setRequestCountdown(30);
+    setRequestCountdown(120);
     const timer = setInterval(() => {
       setRequestCountdown((current) => Math.max(0, current - 1));
     }, 1000);
     return () => clearInterval(timer);
   }, [orderRequest?.id]);
 
-  // Auto-dismiss the popup when the 30-second countdown expires.
+  // Auto-dismiss the popup when the 2-minute countdown expires.
   useEffect(() => {
     if (requestCountdown === 0 && orderRequest) {
       stopAlertSound();
@@ -416,7 +416,7 @@ export default function DashboardScreen({ navigation }) {
 
             {/* ── Countdown bar ── */}
             <View style={styles.countdownTrack}>
-              <View style={[styles.countdownFill, { width: `${Math.max(0, Math.min(100, (requestCountdown / 30) * 100))}%` }]} />
+              <View style={[styles.countdownFill, { width: `${Math.max(0, Math.min(100, (requestCountdown / 120) * 100))}%` }]} />
             </View>
             <Text style={styles.countdownText}>Auto-dismiss in {requestCountdown}s</Text>
 

@@ -9,7 +9,7 @@ const formatCurrency = (v) => `Rs ${Math.floor(v || 0)}`;
 const formatTime     = (v) => new Date(v).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
 
 export default function OrderAlertModal({ order, onAccept, onReject, onDismiss }) {
-  const [countdown, setCountdown] = useState(30);
+  const [countdown, setCountdown] = useState(120);
   const [accepting, setAccepting]  = useState(false);
   const [rejecting, setRejecting]  = useState(false);
   const dismissed = useRef(false);
@@ -18,7 +18,7 @@ export default function OrderAlertModal({ order, onAccept, onReject, onDismiss }
   useEffect(() => {
     if (!order) return;
     dismissed.current = false;
-    setCountdown(30);
+    setCountdown(120);
     playAlertSound();
 
     const timer = setInterval(() => {
@@ -94,7 +94,7 @@ export default function OrderAlertModal({ order, onAccept, onReject, onDismiss }
 
           {/* ── Countdown bar ── */}
           <View style={styles.countdownTrack}>
-            <View style={[styles.countdownFill, { width: `${(countdown / 30) * 100}%` }]} />
+            <View style={[styles.countdownFill, { width: `${(countdown / 120) * 100}%` }]} />
           </View>
           <Text style={styles.countdownText}>Auto-dismiss in {countdown}s</Text>
 

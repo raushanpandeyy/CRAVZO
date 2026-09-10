@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { X, MapPin, Package, Clock, Navigation, Phone, ChevronRight, Check } from "lucide-react";
 import { playAlertSound, stopAlertSound } from "../utils/alertSound.js";
 
-const VENDOR_COUNTDOWN_SECONDS = 30;
+const VENDOR_COUNTDOWN_SECONDS = 120;
 
 const OrderRequestPopup = ({ order, onAccept, onReject, onClose, onCountdownExpire, type = "rider" }) => {
   const [isAccepting, setIsAccepting] = useState(false);
@@ -148,7 +148,7 @@ if (!order) return null;
     const circumference = 2 * Math.PI * radius;
     const progress = countdown !== null ? countdown / VENDOR_COUNTDOWN_SECONDS : 1;
     const dashOffset = circumference * (1 - progress);
-    const isUrgent = countdown !== null && countdown <= 10;
+    const isUrgent = countdown !== null && countdown <= 30;
 
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
