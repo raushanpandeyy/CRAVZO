@@ -114,6 +114,18 @@ const createMenuItem = async (req, res) => {
   const basePrice = payload.basePrice ?? payload.price;
   const projectedPrice = Number(basePrice) + markup;
 
+  // Apply markup to each size's price so sized items carry the same markup as
+  // single-price items. Each size entry stores both basePrice (what the vendor
+  // set) and price (basePrice + category markup = customer-facing price).
+  let markedUpSizes = payload.sizes || undefined;
+  if (Array.isArray(payload.sizes) && payload.sizes.length > 0) {
+    markedUpSizes = payload.sizes.map((s) => ({
+      size: s.size,
+      basePrice: Number(s.basePrice ?? s.price),
+      price: Number(s.basePrice ?? s.price) + markup,
+    }));
+  }
+
   const item = await prisma.menuItem.create({
     data: {
       restaurantId: payload.restaurantId,
@@ -125,7 +137,7 @@ const createMenuItem = async (req, res) => {
       basePrice: basePrice,
       platformMarkup: markup,
       snackSize: snackSize,
-      sizes: payload.sizes || undefined,
+      sizes: markedUpSizes,
       sideDishes: payload.sideDishes || undefined,
       isVeg: Boolean(payload.isVeg),
       trackInventory: Boolean(payload.trackInventory),
@@ -171,6 +183,22 @@ const updateMenuItem = async (req, res) => {
   const markup = await getMarkupForCategory(newCategory, newSnackSize);
   const projectedPrice = Number(newBasePrice) + markup;
 
+  // Re-apply markup to sizes if sizes are being updated or markup changed.
+  // We always recompute sizes markup when category/snackSize changes so
+  // existing sizes don't silently retain a stale markup.
+  const incomingSizes = payload.sizes !== undefined ? payload.sizes : existingItem.sizes;
+  let newSizes = incomingSizes;
+  if (Array.isArray(incomingSizes) && incomingSizes.length > 0) {
+    newSizes = incomingSizes.map((s) => ({
+      size: s.size,
+      // If a basePrice was already stored on the entry, use it; otherwise
+      // treat the current price as the base (handles legacy entries that
+      // were saved without markup).
+      basePrice: Number(s.basePrice ?? s.price),
+      price: Number(s.basePrice ?? s.price) + markup,
+    }));
+  }
+
   const item = await prisma.menuItem.update({
     where: { id: req.params.menuItemId },
     data: {
@@ -182,7 +210,7 @@ const updateMenuItem = async (req, res) => {
       basePrice: newBasePrice,
       platformMarkup: markup,
       snackSize: newSnackSize,
-      sizes: payload.sizes !== undefined ? payload.sizes : existingItem.sizes,
+      sizes: newSizes,
       sideDishes: payload.sideDishes !== undefined ? payload.sideDishes : existingItem.sideDishes,
       isVeg: typeof payload.isVeg === "boolean" ? payload.isVeg : existingItem.isVeg,
       trackInventory: typeof payload.trackInventory === "boolean" ? payload.trackInventory : existingItem.trackInventory,

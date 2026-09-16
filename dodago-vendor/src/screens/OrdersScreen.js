@@ -10,9 +10,22 @@ import { Clock, Package, RefreshCw, X, MessageCircle } from "../components/Icons
 import OrderAlertModal from "../components/OrderAlertModal";
 import { getVendorOrders, updateOrderStatus } from "../services/orderService";
 import { onNewOrder, onOrderStatusUpdate } from "../services/socketService";
+import { setAlertModalVisible } from "../services/notificationService";
 
 const fmt     = (v) => `Rs ${Math.floor(v || 0)}`;
 const fmtTime = (v) => new Date(v).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+
+// Payout = what the restaurant earns on an order (sum of base prices × qty).
+// basePriceAtOrder is the vendor's price without platform markup, stored per
+// OrderItem since the markup feature was introduced. Falls back to unitPrice
+// for legacy orders that pre-date markup support.
+const calcPayout = (order) => {
+  if (!Array.isArray(order?.items) || order.items.length === 0) return 0;
+  return order.items.reduce((sum, item) => {
+    const base = item.basePriceAtOrder != null ? Number(item.basePriceAtOrder) : Number(item.unitPrice || 0);
+    return sum + base * Number(item.quantity || 1);
+  }, 0);
+};
 
 // Status flow for vendor actions
 const NEXT_STATUS = {
@@ -86,6 +99,7 @@ export default function OrdersScreen({ navigation }) {
     if (pending && !alertOrder) {
       shownIdsRef.current.add(pending.id);
       setAlertOrder(pending);
+      setAlertModalVisible(true);  // tell FCM listener not to double-play sound
     }
   }, [orders]);
 
@@ -159,7 +173,7 @@ export default function OrdersScreen({ navigation }) {
           <Text style={styles.orderCustomer} numberOfLines={1}>
             👤 {item.customer?.name || "Customer"}
           </Text>
-          <Text style={styles.orderAmt}>{fmt(item.totalAmount)}</Text>
+          <Text style={styles.orderAmt}>{fmt(calcPayout(item))}</Text>
         </View>
 
         {item.items?.length > 0 && (
@@ -273,7 +287,7 @@ export default function OrdersScreen({ navigation }) {
                     label={`${STATUS_META[selected.status]?.emoji}  ${STATUS_META[selected.status]?.label || selected.status}`}
                     tone={STATUS_META[selected.status]?.tone || "muted"}
                   />
-                  <Text style={styles.detailAmt}>{fmt(selected.totalAmount)}</Text>
+                  <Text style={styles.detailAmt}>{fmt(calcPayout(selected))}</Text>
                 </View>
 
                 {/* Customer */}
@@ -373,9 +387,9 @@ export default function OrdersScreen({ navigation }) {
       {/* ── Alert popup ── */}
       <OrderAlertModal
         order={alertOrder}
-        onAccept={async (o) => { await updateOrderStatus(o.id, "ACCEPTED"); setAlertOrder(null); load({ silent: true }); }}
-        onReject={async (o) => { await updateOrderStatus(o.id, "REJECTED"); setAlertOrder(null); load({ silent: true }); }}
-        onDismiss={() => setAlertOrder(null)}
+        onAccept={async (o) => { await updateOrderStatus(o.id, "ACCEPTED"); setAlertOrder(null); setAlertModalVisible(false); load({ silent: true }); }}
+        onReject={async (o) => { await updateOrderStatus(o.id, "REJECTED"); setAlertOrder(null); setAlertModalVisible(false); load({ silent: true }); }}
+        onDismiss={() => { setAlertOrder(null); setAlertModalVisible(false); }}
       />
     </SafeAreaView>
   );

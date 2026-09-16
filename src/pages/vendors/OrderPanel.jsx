@@ -19,6 +19,16 @@ const vendorStatusLabel = {
 };
 
 const formatCurrency = (amount) => `Rs ${Number(amount || 0).toFixed(0)}`;
+
+// Restaurant payout = sum of base prices × qty (excludes platform markup/fees).
+// Falls back to unitPrice for legacy orders that pre-date markup support.
+const calcPayout = (order) => {
+  if (!Array.isArray(order?.items) || order.items.length === 0) return 0;
+  return order.items.reduce((sum, item) => {
+    const base = item.basePriceAtOrder != null ? Number(item.basePriceAtOrder) : Number(item.unitPrice || 0);
+    return sum + base * Number(item.quantity || 1);
+  }, 0);
+};
 const OrderChatModal = lazy(() => import("../../components/OrderChatModal.jsx"));
 const riderChatClosedStatuses = ["DELIVERED", "CANCELLED", "REJECTED"];
 
@@ -189,7 +199,8 @@ const OrderPanel = () => {
                     <p className="text-gray-500 text-xs">{formatOrderTime(order.createdAt)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-lg">{formatCurrency(order.totalAmount)}</p>
+                    <p className="font-bold text-lg">{formatCurrency(calcPayout(order))}</p>
+                    <p className="text-xs text-slate-400">Your earnings</p>
                     <span className="px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
                       {order.status.replaceAll("_", " ")}
                     </span>
@@ -309,8 +320,8 @@ const OrderPanel = () => {
                 </div>
               ))}
               <div className="border-t mt-2 pt-2 flex justify-between font-bold">
-                <span>Total:</span>
-                <span>{formatCurrency(selectedOrder.totalAmount)}</span>
+                <span>Your Earnings:</span>
+                <span>{formatCurrency(calcPayout(selectedOrder))}</span>
               </div>
             </div>
 

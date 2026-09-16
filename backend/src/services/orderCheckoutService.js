@@ -156,6 +156,7 @@ const serializeOrder = (order) => ({
     quantity: item.quantity,
     unitPrice: Number(item.unitPrice),
     totalPrice: Number(item.totalPrice),
+    basePriceAtOrder: item.basePriceAtOrder != null ? Number(item.basePriceAtOrder) : null,
     size: item.size,
     notes: item.notes,
     selectedSideDishes: item.selectedSideDishes,
@@ -224,6 +225,24 @@ db = prisma,
     }
     if (sizes.length > 0) throw new ApiError(400, `Select a size for ${menuItem.name}`);
     return Number(menuItem.price);
+  };
+
+  // Returns the vendor's base price (without markup) for the selected size.
+  // For single-price items this is menuItem.basePrice. For sized items we
+  // look up the basePrice stored on the size entry (added when markup support
+  // for sizes was introduced). Falls back to unitPrice when no base is found
+  // so legacy items without markup data still work.
+  const getItemBasePrice = (menuItem, selectedSize, unitPrice) => {
+    if (selectedSize) {
+      const sizes = Array.isArray(menuItem.sizes) ? menuItem.sizes : [];
+      const sizeEntry = sizes.find((s) => s.size === selectedSize);
+      if (sizeEntry && sizeEntry.basePrice != null) return Number(sizeEntry.basePrice);
+      // Legacy size entry without basePrice: fall back to unitPrice
+      return unitPrice;
+    }
+    // Non-sized item: use the item-level basePrice field
+    if (menuItem.basePrice != null) return Number(menuItem.basePrice);
+    return unitPrice;
   };
 
   const resolveSideDishes = (menuItem, selections) => {
@@ -449,11 +468,11 @@ db = prisma,
     resolvedAddressId,
     itemRows: resolvedItems.map(({ item, menuItem, sideDishes, basePrice, sideDishTotal }) => {
       const unitPrice = basePrice + sideDishTotal;
-      // basePriceAtOrder = menuItem's basePrice (what restaurant earns) at order time
-      // Falls back to unitPrice if basePrice not set (old items without markup)
-      const basePriceAtOrder = menuItem.basePrice != null
-        ? Number(menuItem.basePrice)
-        : unitPrice;
+      // basePriceAtOrder = vendor's base price (without platform markup) at
+      // order time. For sized items this reads the per-size basePrice stored in
+      // the sizes JSON. For single-price items it uses menuItem.basePrice.
+      // Falls back to unitPrice for legacy items that pre-date markup support.
+      const basePriceAtOrder = getItemBasePrice(menuItem, item.size || null, unitPrice);
       return {
         menuItemId: item.menuItemId,
         quantity: item.quantity,

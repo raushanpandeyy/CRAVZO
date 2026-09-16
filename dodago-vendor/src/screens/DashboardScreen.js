@@ -7,14 +7,23 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { colors } from "../constants/colors";
 import { Badge, Card, EmptyState, PrimaryButton } from "../components/Primitives";
 import { Bell, Clock, IndianRupee, Package, Power, RefreshCw, Store } from "../components/Icons";
-import OrderAlertModal from "../components/OrderAlertModal";
-import { getVendorOrders, updateOrderStatus } from "../services/orderService";
+import { getVendorOrders } from "../services/orderService";
 import { getMyRestaurant, saveRestaurant, updateAvailability } from "../services/vendorService";
 import { onNewOrder, onOrderStatusUpdate } from "../services/socketService";
 import { useAuth } from "../services/AuthContext";
 
 const fmt   = (v) => `Rs ${Math.floor(v || 0)}`;
 const fmtTime = (v) => new Date(v).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+
+// Payout = what the restaurant earns (base prices × qty, no platform markup).
+// Falls back to unitPrice for legacy orders pre-dating markup support.
+const calcPayout = (order) => {
+  if (!Array.isArray(order?.items) || order.items.length === 0) return 0;
+  return order.items.reduce((sum, item) => {
+    const base = item.basePriceAtOrder != null ? Number(item.basePriceAtOrder) : Number(item.unitPrice || 0);
+    return sum + base * Number(item.quantity || 1);
+  }, 0);
+};
 
 const STATUS_COLOR = {
   PENDING:         { tone: "orange",  label: "Pending" },
@@ -36,11 +45,9 @@ export default function DashboardScreen({ navigation }) {
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
   const [toggling,    setToggling]    = useState(false);
-  const [alertOrder,  setAlertOrder]  = useState(null);
   const [hoursAlert,  setHoursAlert]  = useState(null); // { type: "closing"|"opening", minutesLeft }
   const [hoursSaving, setHoursSaving] = useState(false);
   const snoozedUntilRef = useRef(0);
-  const shownIdsRef = useRef(new Set());
 
   // ── Load ────────────────────────────────────────────────────────
   const load = useCallback(async ({ silent = false } = {}) => {
@@ -62,25 +69,11 @@ export default function DashboardScreen({ navigation }) {
   useEffect(() => {
     load();
     const cleanups = [
-      onNewOrder((payload) => {
-        load({ silent: true });
-        // Will surface via the orders refresh — alert shown in next effect
-      }),
+      onNewOrder(() => load({ silent: true })),
       onOrderStatusUpdate(() => load({ silent: true })),
     ];
     return () => cleanups.forEach((fn) => fn?.());
   }, [load]);
-
-  // ── Show alert popup for new PENDING orders ─────────────────────
-  useEffect(() => {
-    const pending = orders.find(
-      (o) => o.status === "PENDING" && !shownIdsRef.current.has(o.id)
-    );
-    if (pending && !alertOrder) {
-      shownIdsRef.current.add(pending.id);
-      setAlertOrder(pending);
-    }
-  }, [orders]);
 
   // ── Smart hours alert ────────────────────────────────────────────
   useEffect(() => {
@@ -127,7 +120,7 @@ export default function DashboardScreen({ navigation }) {
   );
   const todayRevenue = todayOrders
     .filter((o) => !["CANCELLED","REJECTED"].includes(o.status))
-    .reduce((s, o) => s + Number(o.totalAmount || 0), 0);
+    .reduce((s, o) => s + calcPayout(o), 0);
   const activeCount = orders.filter((o) => ACTIVE_STATUSES.includes(o.status)).length;
   const pendingCount= orders.filter((o) => o.status === "PENDING").length;
   const recentOrders= orders.slice(0, 8);
@@ -181,19 +174,6 @@ export default function DashboardScreen({ navigation }) {
     }
   };
 
-  // ── Alert handlers ────────────────────────────────────────────────
-  const handleAccept = async (order) => {
-    await updateOrderStatus(order.id, "ACCEPTED");
-    setAlertOrder(null);
-    load({ silent: true });
-  };
-
-  const handleReject = async (order) => {
-    await updateOrderStatus(order.id, "REJECTED");
-    setAlertOrder(null);
-    load({ silent: true });
-  };
-
   // ── Render order row ──────────────────────────────────────────────
   const renderOrder = ({ item }) => {
     const sc = STATUS_COLOR[item.status] || { tone: "muted", label: item.status };
@@ -210,7 +190,7 @@ export default function DashboardScreen({ navigation }) {
           </Text>
         </View>
         <View style={styles.orderRowRight}>
-          <Text style={styles.orderRowAmt}>{fmt(item.totalAmount)}</Text>
+          <Text style={styles.orderRowAmt}>{fmt(calcPayout(item))}</Text>
           <Badge label={sc.label} tone={sc.tone} style={styles.orderRowBadge} />
         </View>
       </TouchableOpacity>
@@ -414,13 +394,6 @@ export default function DashboardScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* ── New order alert modal ── */}
-      <OrderAlertModal
-        order={alertOrder}
-        onAccept={handleAccept}
-        onReject={handleReject}
-        onDismiss={() => setAlertOrder(null)}
-      />
     </SafeAreaView>
   );
 }

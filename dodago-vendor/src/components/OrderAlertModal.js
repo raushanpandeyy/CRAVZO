@@ -8,6 +8,15 @@ import { useEffect, useRef, useState } from "react";
 const formatCurrency = (v) => `Rs ${Math.floor(v || 0)}`;
 const formatTime     = (v) => new Date(v).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
 
+// Restaurant payout = sum of base prices × qty (no platform markup).
+const calcPayout = (order) => {
+  if (!Array.isArray(order?.items) || order.items.length === 0) return 0;
+  return order.items.reduce((sum, item) => {
+    const base = item.basePriceAtOrder != null ? Number(item.basePriceAtOrder) : Number(item.unitPrice || 0);
+    return sum + base * Number(item.quantity || 1);
+  }, 0);
+};
+
 export default function OrderAlertModal({ order, onAccept, onReject, onDismiss }) {
   const [countdown, setCountdown] = useState(120);
   const [accepting, setAccepting]  = useState(false);
@@ -106,8 +115,8 @@ export default function OrderAlertModal({ order, onAccept, onReject, onDismiss }
             {/* ── Stats row ── */}
             <View style={styles.statsRow}>
               <View style={[styles.statBox, styles.statGreen]}>
-                <Text style={styles.statLabel}>💰 Order Value</Text>
-                <Text style={styles.statValueGreen}>{formatCurrency(order?.totalAmount)}</Text>
+                <Text style={styles.statLabel}>💰 Your Earnings</Text>
+                <Text style={styles.statValueGreen}>{formatCurrency(calcPayout(order))}</Text>
               </View>
               <View style={[styles.statBox, styles.statBlue]}>
                 <Text style={styles.statLabel}>📦 Items</Text>

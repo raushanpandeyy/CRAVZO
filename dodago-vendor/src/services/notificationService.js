@@ -28,6 +28,14 @@ let _foregroundSub   = null;
 let _responseSub     = null;
 let _registeredToken = null;
 
+// ── Alert-modal visibility gate ─────────────────────────────────
+// OrdersScreen sets this to true when an OrderAlertModal is visible.
+// The FCM foreground listener checks this flag before playing the
+// alert sound so it doesn't fire a duplicate burst when the modal
+// is already playing the sound itself.
+let _alertModalVisible = false;
+export const setAlertModalVisible = (visible) => { _alertModalVisible = visible; };
+
 // ── Register ────────────────────────────────────────────────────
 export const registerForPushNotifications = async (navigationRef) => {
   try {
@@ -72,15 +80,17 @@ export const registerForPushNotifications = async (navigationRef) => {
       }),
     });
 
-    // Foreground notification listener — play loud alert when notification
-    // arrives while the vendor app is open (e.g. new order comes in)
+    // Foreground notification listener — play loud alert when a new-order
+    // push arrives while the app is open, BUT only if the OrderAlertModal
+    // is not already visible (which plays its own sound). Without this guard
+    // the sound fires twice: once from the modal and once here.
     if (_foregroundSub) _foregroundSub.remove();
     _foregroundSub = Notifications.addNotificationReceivedListener((notification) => {
       const type = notification?.request?.content?.data?.type;
-      // Play alert for new order notifications; the OrderAlertModal will call
-      // stopAlertSound() once the vendor accepts / rejects / dismisses
       if (type === "NEW_ORDER" || type === "VENDOR_NEW_ORDER" || !type) {
-        playAlertSound();
+        if (!_alertModalVisible) {
+          playAlertSound();
+        }
       }
     });
 
@@ -103,6 +113,7 @@ export const registerForPushNotifications = async (navigationRef) => {
 // ── Deregister on logout ────────────────────────────────────────
 export const deregisterPushNotifications = async () => {
   stopAlertSound();
+  _alertModalVisible = false;
   try {
     if (_registeredToken) {
       await apiRequest(`${BASE}/notifications/fcm-token`, {
