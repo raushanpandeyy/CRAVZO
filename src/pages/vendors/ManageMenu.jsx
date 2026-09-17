@@ -248,7 +248,9 @@ const ManageMenu = () => {
       basePrice: String(item.basePrice ?? item.price ?? ""),
       category: item.category,
       imageUrl: item.imageUrl || "",
-      sizes: item.sizes || [],
+      sizes: Array.isArray(item.sizes)
+        ? item.sizes.map((s) => ({ size: s.size, price: s.basePrice ?? s.price ?? "" }))
+        : [],
       sideDishes: item.sideDishes || [],
       isVeg: item.isVeg,
       status: item.status,
@@ -605,45 +607,62 @@ const ManageMenu = () => {
 
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Sizes &amp; Prices (optional)</label>
+                <p className="text-xs text-slate-500 mb-2">Enter <strong>your price</strong> for each size — customer will see your price + Dodago markup.</p>
                 <div className="flex flex-wrap gap-2">
                   {ALL_SIZES.map((size) => {
                     const entry = formData.sizes.find((s) => s.size === size);
+                    // Calculate customer-facing price for this size
+                    let sizeMarkup = 0;
+                    if (formData.category === "Snacks" && formData.snackSize) {
+                      sizeMarkup = markupMap[`Snacks-${formData.snackSize}`] ?? markupMap["Snacks"] ?? 0;
+                    } else if (formData.category) {
+                      sizeMarkup = markupMap[formData.category] ?? 0;
+                    }
+                    const sizeBase = entry ? Number(entry.price) : 0;
+                    const sizeCustomerPrice = entry && sizeBase > 0 ? sizeBase + sizeMarkup : null;
                     return (
-                      <label key={size} className="flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1.5 text-xs cursor-pointer hover:border-indigo-300">
-                        <input
-                          type="checkbox"
-                          checked={!!entry}
-                          onChange={(e) => {
-                            const current = [...formData.sizes];
-                            if (e.target.checked) {
-                              current.push({ size, price: formData.price || "" });
-                            } else {
-                              setFormData((prev) => ({ ...prev, sizes: current.filter((s) => s.size !== size) }));
-                              return;
-                            }
-                            setFormData((prev) => ({ ...prev, sizes: current }));
-                          }}
-                          className="rounded border-gray-300"
-                        />
-                        <span className="font-medium">{size}</span>
-                        {entry && (
+                      <label key={size} className="flex flex-col gap-1 rounded-lg border border-gray-200 px-2 py-1.5 text-xs cursor-pointer hover:border-indigo-300">
+                        <div className="flex items-center gap-1">
                           <input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder="Price"
-                            className="w-16 border border-gray-200 rounded px-1 py-0.5 text-xs"
-                            value={entry.price}
-                            onClick={(e) => e.stopPropagation()}
+                            type="checkbox"
+                            checked={!!entry}
                             onChange={(e) => {
                               const current = [...formData.sizes];
-                              const idx = current.findIndex((s) => s.size === size);
-                              if (idx >= 0) {
-                                current[idx] = { ...current[idx], price: e.target.value };
-                                setFormData((prev) => ({ ...prev, sizes: current }));
+                              if (e.target.checked) {
+                                current.push({ size, price: formData.price || "" });
+                              } else {
+                                setFormData((prev) => ({ ...prev, sizes: current.filter((s) => s.size !== size) }));
+                                return;
                               }
+                              setFormData((prev) => ({ ...prev, sizes: current }));
                             }}
+                            className="rounded border-gray-300"
                           />
+                          <span className="font-medium">{size}</span>
+                          {entry && (
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="Your price"
+                              className="w-20 border border-gray-200 rounded px-1 py-0.5 text-xs"
+                              value={entry.price}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                const current = [...formData.sizes];
+                                const idx = current.findIndex((s) => s.size === size);
+                                if (idx >= 0) {
+                                  current[idx] = { ...current[idx], price: e.target.value };
+                                  setFormData((prev) => ({ ...prev, sizes: current }));
+                                }
+                              }}
+                            />
+                          )}
+                        </div>
+                        {sizeCustomerPrice !== null && (
+                          <span className="text-emerald-600 font-bold text-[10px] pl-5">
+                            Customer: Rs {Math.floor(sizeCustomerPrice)} (+Rs {sizeMarkup})
+                          </span>
                         )}
                       </label>
                     );

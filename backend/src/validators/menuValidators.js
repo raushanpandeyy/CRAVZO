@@ -18,7 +18,11 @@ const menuItemPayloadSchema = z.object({
     .array(
       z.object({
         size: z.enum(["S", "M", "L"]),
+        // price = vendor's base price as entered (markup added by backend)
         price: z.coerce.number().positive().max(100000),
+        // basePrice may be present when editing an existing item (already stored in DB)
+        // Backend uses this to avoid double-markup on re-save
+        basePrice: z.coerce.number().positive().max(100000).optional(),
       }),
     )
     .max(3)

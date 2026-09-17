@@ -165,8 +165,8 @@ export default function MenuScreen() {
       sizes:       Array.isArray(item.sizes)
         ? item.sizes.map((s) =>
             typeof s === "string"
-              ? { size: s, price: "" }                       // legacy string[] from old data
-              : { size: s.size, price: String(s.price ?? "") } // correct object format
+              ? { size: s, price: "" }                          // legacy string[] from old data
+              : { size: s.size, price: String(s.basePrice ?? s.price ?? "") } // show base price (pre-markup) so vendor edits their own price, not the customer price
           )
         : [],
       sideDishes:  Array.isArray(item.sideDishes) ? item.sideDishes.join(", ") : (item.sideDishes || ""),
@@ -721,24 +721,42 @@ export default function MenuScreen() {
                       );
                     })}
                   </View>
-                  {/* Price input per selected size */}
+                  {/* Price input per selected size + markup preview */}
                   {form.sizes.length > 0 && (
                     <View style={styles.sizePriceList}>
-                      {form.sizes.map((entry) => (
-                        <View key={entry.size} style={styles.sizePriceRow}>
-                          <View style={[styles.chip, styles.chipActive, styles.sizePriceLabel]}>
-                            <Text style={[styles.chipText, styles.chipTextActive]}>{entry.size}</Text>
+                      {form.sizes.map((entry) => {
+                        // Calculate what customer will see for this size
+                        const sizeBase = Number(entry.price);
+                        let sizeMarkup = 0;
+                        if (form.category === "Snacks" && form.snackSize) {
+                          sizeMarkup = markupMap[`Snacks-${form.snackSize}`] ?? markupMap["Snacks"] ?? 0;
+                        } else if (form.category) {
+                          sizeMarkup = markupMap[form.category] ?? 0;
+                        }
+                        const sizeCustomerPrice = sizeBase > 0 ? sizeBase + sizeMarkup : null;
+                        return (
+                          <View key={entry.size} style={styles.sizePriceRow}>
+                            <View style={[styles.chip, styles.chipActive, styles.sizePriceLabel]}>
+                              <Text style={[styles.chipText, styles.chipTextActive]}>{entry.size}</Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <InputField
+                                placeholder="Your price (Rs)"
+                                value={entry.price}
+                                onChangeText={(v) => setSizePrice(entry.size, v)}
+                                keyboardType="numeric"
+                                containerStyle={styles.sizePriceInputContainer}
+                                inputStyle={styles.sizePriceInput}
+                              />
+                              {sizeCustomerPrice !== null && (
+                                <Text style={styles.sizeCustomerPrice}>
+                                  Customer pays: Rs {Math.floor(sizeCustomerPrice)}  (+Rs {sizeMarkup} markup)
+                                </Text>
+                              )}
+                            </View>
                           </View>
-                          <InputField
-                            placeholder="Price (Rs)"
-                            value={entry.price}
-                            onChangeText={(v) => setSizePrice(entry.size, v)}
-                            keyboardType="numeric"
-                            containerStyle={styles.sizePriceInputContainer}
-                            inputStyle={styles.sizePriceInput}
-                          />
-                        </View>
-                      ))}
+                        );
+                      })}
                     </View>
                   )}
                   {formErrors.sizes ? <Text style={styles.errorText}>{formErrors.sizes}</Text> : null}
@@ -869,10 +887,11 @@ const styles = StyleSheet.create({
   errorText:   { color: colors.danger, fontSize: 12, fontWeight: "700", marginTop: 4 },
 
   sizePriceList:           { marginTop: 10, gap: 8 },
-  sizePriceRow:            { flexDirection: "row", alignItems: "center", gap: 10 },
-  sizePriceLabel:          { minWidth: 44, alignItems: "center", justifyContent: "center" },
+  sizePriceRow:            { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  sizePriceLabel:          { minWidth: 44, alignItems: "center", justifyContent: "center", marginTop: 10 },
   sizePriceInputContainer: { flex: 1, marginBottom: 0 },
   sizePriceInput:          { minHeight: 44 },
+  sizeCustomerPrice:       { fontSize: 11, fontWeight: "700", color: colors.accent, marginTop: 2, marginLeft: 4 },
 
   toggleRow:   { flexDirection: "row", gap: 12 },
   toggleItem:  { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#f8fafc", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: colors.line },
