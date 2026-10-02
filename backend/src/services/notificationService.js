@@ -378,3 +378,48 @@ const notifyVendorNewOrder = async (order) => {
 
 export { notifyChatMessage, notifyOrderCreated, notifyOrderStatusChanged, notifyRiderNewOrder, notifyVendorNewOrder, removeFcmToken, sendNotificationToUsers, upsertFcmToken };
 
+
+// ── Admin push notifications ──────────────────────────────────────────────────
+// Sends FCM push to all admin users. Called alongside socket admin:order-alert
+// so admins on the mobile app get a push even when the app is backgrounded.
+const getAdminUserIds = async () => {
+  const admins = await prisma.user.findMany({
+    where:  { role: "ADMIN", status: "ACTIVE" },
+    select: { id: true },
+  });
+  return admins.map((a) => a.id);
+};
+
+export const notifyAdminOrderAlert = async ({ type, title, body, order }) => {
+  try {
+    const adminIds = await getAdminUserIds();
+    if (!adminIds.length) return;
+
+    await sendNotificationToUsers({
+      userIds: adminIds,
+      title,
+      body,
+      data: {
+        type,
+        severity:       type === "ORDER_NOT_ACCEPTED" ? "danger" : "info",
+        orderId:        order?.id  || "",
+        restaurantName: order?.restaurant?.name || "",
+        customerName:   order?.customer?.name   || "",
+        totalAmount:    String(order?.totalAmount || 0),
+        clickUrl:       `/admin/orders?orderId=${order?.id || ""}`,
+        order:          JSON.stringify({
+          id:          order?.id,
+          status:      order?.status,
+          restaurant:  order?.restaurant ? { id: order.restaurant.id, name: order.restaurant.name } : null,
+          customer:    order?.customer   ? { id: order.customer.id,   name: order.customer.name, phone: order.customer.phone } : null,
+          rider:       order?.rider      ? { id: order.rider.id,      name: order.rider.name } : null,
+          totalAmount: order?.totalAmount,
+          createdAt:   order?.createdAt,
+        }),
+      },
+    });
+  } catch (err) {
+    logger.warn("Failed to send admin push notification", { error: err.message, type });
+  }
+};
+

@@ -8,6 +8,20 @@ import { useAuth } from "../services/AuthContext";
 
 const logo = require("../../assets/dodagologo.png");
 
+// Inline checkbox — no extra library needed
+function Checkbox({ checked, onPress }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.75}
+      style={[tcStyles.box, checked && tcStyles.boxChecked]}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      {checked ? <Text style={tcStyles.tick}>✓</Text> : null}
+    </TouchableOpacity>
+  );
+}
+
 const initialForm = {
   name: "",
   city: "",
@@ -28,6 +42,8 @@ export default function SignupScreen({ navigation }) {
   const [otp, setOtp] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState("");
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -50,6 +66,11 @@ export default function SignupScreen({ navigation }) {
       Alert.alert("Missing details", "Address aur shirt size fill karo.");
       return;
     }
+    if (!termsAccepted) {
+      setTermsError("Terms & Conditions accept karna zaroori hai.");
+      return;
+    }
+    setTermsError("");
     try {
       setLoading(true);
       setMessage("");
@@ -168,6 +189,36 @@ export default function SignupScreen({ navigation }) {
                     </TouchableOpacity>
                   ))}
                 </View>
+
+                {/* Terms & Conditions checkbox */}
+                <View style={tcStyles.row}>
+                  <Checkbox
+                    checked={termsAccepted}
+                    onPress={() => {
+                      setTermsAccepted((p) => !p);
+                      setTermsError("");
+                    }}
+                  />
+                  <Text style={tcStyles.label}>
+                    Maine{" "}
+                    <Text
+                      style={tcStyles.link}
+                      onPress={() => navigation.navigate("Terms")}
+                    >
+                      Terms &amp; Conditions
+                    </Text>
+                    {" "}aur{" "}
+                    <Text
+                      style={tcStyles.link}
+                      onPress={() => navigation.navigate("Privacy")}
+                    >
+                      Privacy Policy
+                    </Text>
+                    {" "}padh li hai aur main agree karta/karti hoon.
+                  </Text>
+                </View>
+                {termsError ? <Text style={tcStyles.error}>{termsError}</Text> : null}
+
                 <View style={styles.actionRow}><PrimaryButton title="Back" tone="muted" onPress={() => setStep(2)} style={styles.flex} /><PrimaryButton title="Send OTP" loading={loading} onPress={requestOtp} style={styles.flex} /></View>
               </View>
             ) : null}
@@ -224,4 +275,19 @@ const styles = StyleSheet.create({
   otp: { textAlign: "center", fontSize: 22, letterSpacing: 6, fontWeight: "900" },
   loginLink: { alignItems: "center", paddingVertical: 4 },
   loginText: { color: colors.primaryDark, fontWeight: "900" },
+});
+
+// Terms & Conditions checkbox styles
+const tcStyles = StyleSheet.create({
+  row:        { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  box: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2,
+    borderColor: colors.line, backgroundColor: "#fff",
+    alignItems: "center", justifyContent: "center", marginTop: 2,
+  },
+  boxChecked: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
+  tick:       { color: "#fff", fontSize: 13, fontWeight: "900", lineHeight: 16 },
+  label:      { flex: 1, fontSize: 13, color: colors.muted, fontWeight: "700", lineHeight: 20 },
+  link:       { color: colors.primaryDark, fontWeight: "900", textDecorationLine: "underline" },
+  error:      { color: "#ef4444", fontSize: 12, fontWeight: "800" },
 });

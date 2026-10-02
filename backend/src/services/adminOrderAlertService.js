@@ -1,5 +1,6 @@
 import { prisma } from "../config/database.js";
 import { emitAdminOrderEvent } from "../socket/chatSocket.js";
+import { notifyAdminOrderAlert } from "./notificationService.js";
 
 const ACCEPT_TIMEOUT_MS = Number(process.env.ADMIN_ORDER_ACCEPT_TIMEOUT_MS || 2 * 60 * 1000);
 const pendingAlerts = new Map();
@@ -35,13 +36,15 @@ const buildOrderPayload = (order) => ({
 });
 
 const emitAdminOrderCreated = async (order) => {
+  const title   = "New live order";
+  const message = `${order.restaurant?.name || "Restaurant"} received order #${order.id.slice(-6)}.`;
   emitAdminOrderEvent({
-    type: "ORDER_CREATED",
-    severity: "info",
-    title: "New live order",
-    message: `${order.restaurant?.name || "Restaurant"} received order #${order.id.slice(-6)}.`,
+    type: "ORDER_CREATED", severity: "info",
+    title, message,
     order: buildOrderPayload(order),
   });
+  // Also push to admin mobile app
+  notifyAdminOrderAlert({ type: "ORDER_CREATED", title, body: message, order }).catch(() => {});
 };
 
 const emitAdminOrderStatusChanged = async ({ order, actorRole }) => {
@@ -80,13 +83,19 @@ const scheduleAdminUnacceptedOrderAlert = (orderId) => {
 
     if (!order) return;
 
+    const title   = "Restaurant has not accepted";
+    const message = `${order.restaurant?.name || "Restaurant"} has not accepted order #${order.id.slice(-6)} yet.`;
+
     emitAdminOrderEvent({
       type: "ORDER_NOT_ACCEPTED",
       severity: "danger",
-      title: "Restaurant has not accepted",
-      message: `${order.restaurant?.name || "Restaurant"} has not accepted order #${order.id.slice(-6)} yet.`,
+      title,
+      message,
       order: buildOrderPayload(order),
     });
+
+    // Push to admin mobile app (backgrounded admins get this)
+    notifyAdminOrderAlert({ type: "ORDER_NOT_ACCEPTED", title, body: message, order }).catch(() => {});
   }, ACCEPT_TIMEOUT_MS);
 
   pendingAlerts.set(orderId, timeoutId);

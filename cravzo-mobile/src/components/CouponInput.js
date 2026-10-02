@@ -5,7 +5,7 @@ import { colors } from "../constants/colors";
 
 const formatCurrency = (amount) => `\u20B9${Math.floor(amount)}`;
 
-const CouponInput = ({ onApply, currentDiscount, onRemove }) => {
+const CouponInput = ({ onApply, currentDiscount, onRemove, placeholder = "Enter coupon code", accentColor = "#059669", accentBgColor = "#ecfdf5" }) => {
   const [couponCode, setCouponCode] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
@@ -29,21 +29,22 @@ const CouponInput = ({ onApply, currentDiscount, onRemove }) => {
   return (
     <View className="border-t border-slate-100 pt-4">
       {currentDiscount > 0 ? (
-        <View className="flex-row items-center justify-between rounded-xl bg-emerald-50 p-4">
+        <View className="flex-row items-center justify-between rounded-xl p-4" style={{ backgroundColor: accentBgColor }}>
           <View className="flex-row items-center gap-3">
-            <View className="h-10 w-10 items-center justify-center rounded-full bg-emerald-100">
-              <Tag size={20} color="#059669" />
+            <View className="h-10 w-10 items-center justify-center rounded-full" style={{ backgroundColor: accentBgColor }}>
+              <Tag size={20} color={accentColor} />
             </View>
             <View>
-              <Text className="font-bold text-emerald-700">Coupon Applied</Text>
-              <Text className="text-sm text-emerald-600">-{formatCurrency(currentDiscount)}</Text>
+              <Text className="font-bold" style={{ color: accentColor }}>Code Applied</Text>
+              <Text className="text-sm" style={{ color: accentColor }}>-{formatCurrency(currentDiscount)}</Text>
             </View>
           </View>
           <TouchableOpacity
             onPress={onRemove}
-            className="h-8 w-8 items-center justify-center rounded-full bg-emerald-100"
+            className="h-8 w-8 items-center justify-center rounded-full"
+            style={{ backgroundColor: accentBgColor }}
           >
-            <X size={16} color="#059669" />
+            <X size={16} color={accentColor} />
           </TouchableOpacity>
         </View>
       ) : (
@@ -63,7 +64,7 @@ const CouponInput = ({ onApply, currentDiscount, onRemove }) => {
               <TextInput
                 value={couponCode}
                 onChangeText={(t) => setCouponCode(t.toUpperCase())}
-                placeholder="Enter coupon code"
+                placeholder={placeholder}
                 placeholderTextColor={colors.slate[500]}
                 autoCapitalize="characters"
                 className="flex-1 rounded-xl border border-slate-200 px-4 py-3 text-sm text-slate-900"
@@ -71,7 +72,8 @@ const CouponInput = ({ onApply, currentDiscount, onRemove }) => {
               <TouchableOpacity
                 onPress={handleApply}
                 disabled={!couponCode.trim() || isApplying}
-                className="rounded-xl bg-indigo-600 px-6 py-3 items-center justify-center"
+                className="rounded-xl px-6 py-3 items-center justify-center"
+                style={{ backgroundColor: accentColor, opacity: (!couponCode.trim() || isApplying) ? 0.6 : 1 }}
               >
                 <Text className="font-bold text-white">{isApplying ? "..." : "Apply"}</Text>
               </TouchableOpacity>

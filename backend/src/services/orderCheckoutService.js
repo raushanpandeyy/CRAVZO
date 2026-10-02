@@ -8,6 +8,7 @@ import {
   previewVoucher,
   redeemVoucherInTx,
 } from "./referralService.js";
+import { previewPromoCode, redeemPromoCodeInTx } from "./promoCodeService.js";
 import { getPricingSettings } from "./pricingSettingsService.js";
 
 const DELIVERY_BASE_FEE = env.DELIVERY_BASE_FEE;
@@ -113,6 +114,8 @@ const serializeOrder = (order) => ({
   referralVoucherCode: order.referralVoucherCode,
   referralVoucherId: order.referralVoucherId,
   referralVoucherDiscount: Number(order.referralVoucherDiscount || 0),
+  promoCode: order.promoCode ?? null,
+  promoCodeDiscount: Number(order.promoCodeDiscount || 0),
   totalTax: Number(order.totalTax),
   totalAmount: Number(order.totalAmount),
   deliveryDistance: order.deliveryDistance ? Number(order.deliveryDistance) : null,
@@ -184,6 +187,7 @@ const prepareOrderDraft = async ({
   tipAmount = 0,
   couponCode = null,
   referralVoucherCode = null,
+  promoCode = null,
   persistAddress = true,
 },
 // Fix #1: Accept an optional Prisma transaction client.
@@ -420,6 +424,25 @@ db = prisma,
     appliedReferralRewardType = voucherPreview.rewardType;
   }
 
+  // Promo code (admin-created campaign codes — separate from coupon + referral voucher)
+  let promoCodeDiscount = 0;
+  let appliedPromoCode = null;
+  let appliedPromoCodeId = null;
+  if (promoCode) {
+    const promoPreview = await previewPromoCode({
+      customerId,
+      code: promoCode,
+      draftSubtotal: subtotal,
+      draftDeliveryFee: deliveryBreakdown.total,
+    });
+    if (!promoPreview) {
+      throw new ApiError(400, "Promo code is invalid, expired, or not applicable to this order");
+    }
+    promoCodeDiscount = promoPreview.discount;
+    appliedPromoCode  = promoPreview.code;
+    appliedPromoCodeId = promoPreview.promoCodeId;
+  }
+
   const subtotalBeforeExtra = subtotal + deliveryBreakdown.total + PLATFORM_FEE + packagingFeeBase + packagingTax + foodGst;
   
   let gatewayFee = 0;
@@ -432,9 +455,9 @@ db = prisma,
 
   const totalTax = foodGst + packagingTax + deliveryBreakdown.tax + platformTax;
 
-  const totalAmount = subtotal + foodGst + packagingFeeBase + packagingTax + deliveryBreakdown.total + PLATFORM_FEE + gatewayFee + codCharge + Number(tipAmount) - discount - referralVoucherDiscount;
+  const totalAmount = subtotal + foodGst + packagingFeeBase + packagingTax + deliveryBreakdown.total + PLATFORM_FEE + gatewayFee + codCharge + Number(tipAmount) - discount - referralVoucherDiscount - promoCodeDiscount;
 
-  const totalDiscount = Number((discount + referralVoucherDiscount).toFixed(2));
+  const totalDiscount = Number((discount + referralVoucherDiscount + promoCodeDiscount).toFixed(2));
 
   return {
     restaurantId,
@@ -462,6 +485,9 @@ db = prisma,
     referralVoucherId: appliedReferralVoucherId,
     referralRewardType: appliedReferralRewardType,
     referralVoucherDiscount: Number(referralVoucherDiscount.toFixed(2)),
+    promoCode: appliedPromoCode,
+    promoCodeId: appliedPromoCodeId,
+    promoCodeDiscount: Number(promoCodeDiscount.toFixed(2)),
     totalTax: Number(totalTax.toFixed(2)),
     totalAmount: Number(totalAmount.toFixed(2)),
     deliveryDistance,
@@ -505,6 +531,7 @@ const createPersistedOrder = async ({
   gatewaySignature = null,
   couponCode = null,
   referralVoucherCode = null,
+  promoCode = null,
 }) => {
   // Fix #1: Wrap the entire order creation in a serializable transaction.
   //
@@ -533,6 +560,7 @@ const createPersistedOrder = async ({
           tipAmount,
           couponCode,
           referralVoucherCode,
+          promoCode,
         },
         tx, // pass the transaction client so all queries inside use it
       );
@@ -576,6 +604,8 @@ const createPersistedOrder = async ({
           referralVoucherCode: draft.referralVoucherCode,
           referralVoucherId: draft.referralVoucherId,
           referralVoucherDiscount: draft.referralVoucherDiscount,
+          promoCode: draft.promoCode,
+          promoCodeDiscount: draft.promoCodeDiscount,
           totalTax: draft.totalTax,
           totalAmount: draft.totalAmount,
           deliveryDistance: draft.deliveryDistance,
@@ -619,6 +649,14 @@ const createPersistedOrder = async ({
         await redeemVoucherInTx(tx, {
           voucherCode: draft.referralVoucherCode,
           orderId: createdOrder.id,
+        });
+      }
+
+      if (draft.promoCodeId) {
+        await redeemPromoCodeInTx(tx, {
+          promoCodeId: draft.promoCodeId,
+          userId:      customerId,
+          orderId:     createdOrder.id,
         });
       }
 

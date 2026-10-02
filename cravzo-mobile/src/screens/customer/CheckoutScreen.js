@@ -29,6 +29,7 @@ import {
   Bike,
   Gift,
   Navigation,
+  BadgePercent,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { ACTION_BAR_BOTTOM_PADDING, MIN_BOTTOM_BAR_PADDING, MIN_DEVICE_NAV_GAP } from "../../constants/layout";
@@ -241,6 +242,12 @@ const PricingSummary = ({
           <Text className="text-sm font-medium text-emerald-600">-{formatCurrency(discount)}</Text>
         </View>
       ) : null}
+      {displayPromoCodeDiscount > 0 ? (
+        <View className="flex-row justify-between">
+          <Text className="text-sm text-violet-600">Promo Code Discount</Text>
+          <Text className="text-sm font-medium text-violet-600">-{formatCurrency(displayPromoCodeDiscount)}</Text>
+        </View>
+      ) : null}
 
       <View className="border-t-2 border-indigo-600 pt-3">
         <View className="flex-row justify-between">
@@ -270,6 +277,8 @@ export default function CheckoutScreen({ navigation, route }) {
   const [isPickingCurrentAddress, setIsPickingCurrentAddress] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [couponCode, setCouponCode] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+  const [promoCodeDiscount, setPromoCodeDiscount] = useState(0);
   const [referralVoucherCode, setReferralVoucherCode] = useState("");
   const [distanceKm, setDistanceKm] = useState(3);
   const [pricingConfig, setPricingConfig] = useState(null);
@@ -449,6 +458,32 @@ export default function CheckoutScreen({ navigation, route }) {
     setCouponCode("");
     setCouponDiscount(0);
   };
+
+  const handleApplyPromoCode = async (code) => {
+    try {
+      // Use the quote endpoint to validate — pass as promoCode field
+      const quote = await quoteOrder({
+        ...buildOrderPayload(selectedAddressId || null),
+        promoCode: code.trim().toUpperCase(),
+        couponCode: null, // validate promo independently
+      });
+      const discount = Number(quote?.promoCodeDiscount || 0);
+      if (!discount && !quote?.promoCode) {
+        throw new Error("Promo code is invalid, expired, or not applicable to this order");
+      }
+      setPromoCode(code.trim().toUpperCase());
+      setPromoCodeDiscount(discount);
+      setMessage("Promo code applied!");
+      setTimeout(() => setMessage(""), 3000);
+    } catch (err) {
+      throw new Error(err.message || "Invalid promo code");
+    }
+  };
+
+  const handleRemovePromoCode = () => {
+    setPromoCode("");
+    setPromoCodeDiscount(0);
+  };
   const itemTotal = useMemo(
     () =>
       cartItems.reduce((acc, item) => {
@@ -513,8 +548,8 @@ const {
   }, [itemTotal, deliveryTotal, pricingConfig, packagingFeeBase, packagingTax, foodGst, selectedPayment]);
 
   const finalTotal = useMemo(
-    () => Math.floor(grandTotal - couponDiscount + tipAmount + computedGatewayFee + (selectedPayment === "COD" ? Number(pricingConfig?.codCharge || 0) : 0)),
-    [grandTotal, couponDiscount, tipAmount, computedGatewayFee, pricingConfig, selectedPayment]
+    () => Math.floor(grandTotal - couponDiscount - promoCodeDiscount + tipAmount + computedGatewayFee + (selectedPayment === "COD" ? Number(pricingConfig?.codCharge || 0) : 0)),
+    [grandTotal, couponDiscount, promoCodeDiscount, tipAmount, computedGatewayFee, pricingConfig, selectedPayment]
   );
 
   const quotedDiscount = Number(orderQuote?.discount || 0) + Number(orderQuote?.referralVoucherDiscount || 0);
@@ -522,6 +557,7 @@ const {
   const displayGatewayFee = orderQuote?.gatewayFee ?? computedGatewayFee;
   const displayCodCharge = orderQuote?.codCharge ?? (selectedPayment === "COD" ? Number(pricingConfig?.codCharge || 0) : 0);
   const displayDiscount = orderQuote ? quotedDiscount : couponDiscount;
+  const displayPromoCodeDiscount = orderQuote ? Number(orderQuote.promoCodeDiscount || 0) : promoCodeDiscount;
   const displayDistanceKm = orderQuote?.deliveryDistance ?? distanceKm;
   const savedUpiIds = Array.isArray(profile?.paymentMethods?.upiIds) ? profile.paymentMethods.upiIds : [];
 
@@ -558,6 +594,7 @@ const {
     paymentMethod: selectedPayment,
     couponCode: couponCode || null,
     referralVoucherCode: referralVoucherCode.trim().toUpperCase() || null,
+    promoCode: promoCode || null,
     restaurantInstructions: restaurantInstructions.trim() || null,
     deliveryInstructions: [...deliveryOptions, customDeliveryInstruction.trim()].filter(Boolean).join("; ") || null,
     tipAmount,
@@ -1016,6 +1053,27 @@ const {
             onApply={handleApplyCoupon}
             currentDiscount={couponDiscount}
             onRemove={handleRemoveCoupon}
+          />
+        </View>
+
+        {/* Promo Code */}
+        <View className="rounded-3xl border border-white bg-white p-5 shadow-xl shadow-slate-200/70 mb-4">
+          <View className="flex-row items-center gap-3 mb-4">
+            <View className="h-8 w-8 items-center justify-center rounded-xl bg-violet-100">
+              <BadgePercent size={16} color="#7c3aed" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-lg font-bold text-slate-900">Promo Code</Text>
+              <Text className="text-xs text-slate-500">Apply a campaign code (e.g. DIWALI50)</Text>
+            </View>
+          </View>
+          <CouponInput
+            onApply={handleApplyPromoCode}
+            currentDiscount={promoCodeDiscount}
+            onRemove={handleRemovePromoCode}
+            placeholder="Enter promo code"
+            accentColor="#7c3aed"
+            accentBgColor="#f5f3ff"
           />
         </View>
 

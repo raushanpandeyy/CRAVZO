@@ -2,6 +2,7 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import {
   BarChart3,
+  BadgePercent,
   Headphones,
   Image,
   IndianRupee,
@@ -13,14 +14,15 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { path: "/admin/featured", icon: Star, label: "Featured & Ads" },
-  { path: "/admin/orders", icon: ShoppingBag, label: "Orders" },
-  { path: "/admin/users", icon: Users, label: "Users" },
-  { path: "/admin/restaurants", icon: Store, label: "Vendors" },
-  { path: "/admin/pending", icon: UserPlus, label: "Pending" },
-  { path: "/admin/support", icon: Headphones, label: "Support" },
-  { path: "/admin/analytics", icon: BarChart3, label: "Analytics" },
-  { path: "/admin/promotions", icon: Image, label: "Promotions" },
+  { path: "/admin/featured",      icon: Star,         label: "Featured & Ads" },
+  { path: "/admin/orders",        icon: ShoppingBag,  label: "Orders" },
+  { path: "/admin/users",         icon: Users,        label: "Users" },
+  { path: "/admin/restaurants",   icon: Store,        label: "Vendors" },
+  { path: "/admin/pending",       icon: UserPlus,     label: "Pending" },
+  { path: "/admin/support",       icon: Headphones,   label: "Support" },
+  { path: "/admin/analytics",     icon: BarChart3,    label: "Analytics" },
+  { path: "/admin/promotions",    icon: Image,        label: "Promotions" },
+  { path: "/admin/promo-codes",   icon: BadgePercent, label: "Promo Codes" },
   { path: "/admin/markup-settings", icon: IndianRupee, label: "Markup Settings" },
 ];
 

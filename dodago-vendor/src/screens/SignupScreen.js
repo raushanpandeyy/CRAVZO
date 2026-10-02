@@ -9,14 +9,29 @@ import { InputField, PrimaryButton, TextButton } from "../components/Primitives"
 import { Eye, EyeOff } from "../components/Icons";
 import { signup } from "../services/authService";
 
+// Minimal checkbox — no extra library needed
+function Checkbox({ checked, onPress }) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      activeOpacity={0.75}
+      style={[tcStyles.box, checked && tcStyles.boxChecked]}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      {checked ? <Text style={tcStyles.tick}>✓</Text> : null}
+    </TouchableOpacity>
+  );
+}
+
 export default function SignupScreen({ navigation }) {
   const [form, setForm] = useState({
     name: "", email: "", phone: "", password: "", confirmPassword: "",
   });
-  const [showPwd,  setShowPwd]  = useState(false);
-  const [showCPwd, setShowCPwd] = useState(false);
-  const [loading,  setLoading]  = useState(false);
-  const [errors,   setErrors]   = useState({});
+  const [showPwd,       setShowPwd]       = useState(false);
+  const [showCPwd,      setShowCPwd]      = useState(false);
+  const [loading,       setLoading]       = useState(false);
+  const [errors,        setErrors]        = useState({});
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const set = (key) => (val) => {
     setForm((p) => ({ ...p, [key]: val }));
@@ -36,6 +51,7 @@ export default function SignupScreen({ navigation }) {
     else if (!/[0-9]/.test(form.password)) e.password = "Must have at least one number";
     else if (!/[^A-Za-z0-9]/.test(form.password)) e.password = "Must have at least one special character";
     if (form.password !== form.confirmPassword) e.confirmPassword = "Passwords do not match";
+    if (!termsAccepted) e.terms = "You must accept the Terms & Conditions to continue";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -164,6 +180,36 @@ export default function SignupScreen({ navigation }) {
                 ))}
               </View>
 
+              {/* Terms & Conditions */}
+              <View style={tcStyles.row}>
+                <Checkbox
+                  checked={termsAccepted}
+                  onPress={() => {
+                    setTermsAccepted((p) => !p);
+                    setErrors((p) => ({ ...p, terms: "" }));
+                  }}
+                />
+                <Text style={tcStyles.label}>
+                  I have read and agree to the{" "}
+                  <Text
+                    style={tcStyles.link}
+                    onPress={() => navigation.navigate("Terms")}
+                  >
+                    Terms &amp; Conditions
+                  </Text>
+                  {" "}and{" "}
+                  <Text
+                    style={tcStyles.link}
+                    onPress={() => navigation.navigate("Privacy")}
+                  >
+                    Privacy Policy
+                  </Text>
+                </Text>
+              </View>
+              {errors.terms ? (
+                <Text style={tcStyles.error}>{errors.terms}</Text>
+              ) : null}
+
               <PrimaryButton
                 title="Create Account →"
                 onPress={handleSignup}
@@ -215,4 +261,19 @@ const styles = StyleSheet.create({
 
   footer:     { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 24, marginBottom: 16 },
   footerText: { color: colors.muted, fontSize: 14, fontWeight: "700" },
+});
+
+// Terms & Conditions checkbox styles (separate from main StyleSheet to keep it clean)
+const tcStyles = StyleSheet.create({
+  row:   { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  box: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2,
+    borderColor: colors.line, backgroundColor: "#fff",
+    alignItems: "center", justifyContent: "center", marginTop: 1,
+  },
+  boxChecked: { backgroundColor: colors.primaryDark, borderColor: colors.primaryDark },
+  tick:  { color: "#fff", fontSize: 13, fontWeight: "900", lineHeight: 16 },
+  label: { flex: 1, fontSize: 13, color: colors.muted, fontWeight: "700", lineHeight: 20 },
+  link:  { color: colors.primaryDark, fontWeight: "900", textDecorationLine: "underline" },
+  error: { color: "#ef4444", fontSize: 12, fontWeight: "800", marginTop: -6 },
 });

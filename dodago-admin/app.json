@@ -1,0 +1,52 @@
+{
+  "expo": {
+    "name": "Dodago Admin",
+    "slug": "dodago-admin",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "dodago-admin",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1e1b4b"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.dodago.admin",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Location is used to view rider position on the map.",
+        "UIBackgroundModes": ["fetch", "remote-notification"]
+      }
+    },
+    "android": {
+      "package": "com.dodago.admin",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1e1b4b"
+      },
+      "permissions": [
+        "INTERNET",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#4f46e5",
+          "androidMode": "default",
+          "androidCollapsedTitle": "Dodago Admin"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "dodago-admin"
+      }
+    }
+  }
+}

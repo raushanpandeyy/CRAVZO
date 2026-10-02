@@ -96,6 +96,8 @@ export default function AppNavigator() {
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Signup" getComponent={() => require("../screens/SignupScreen").default} />
+          <Stack.Screen name="Terms"   getComponent={() => require("../screens/LegalScreens").TermsScreen} />
+          <Stack.Screen name="Privacy" getComponent={() => require("../screens/LegalScreens").PrivacyScreen} />
         </>
       )}
     </Stack.Navigator>
