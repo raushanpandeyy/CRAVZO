@@ -10,13 +10,18 @@ export function AuthProvider({ children }) {
 
   // Restore session on mount
   useEffect(() => {
-    const storedUser  = getStoredUser();
-    const storedToken = getStoredToken();
-    if (storedUser && storedToken) {
-      setUser(storedUser);
-      connectSocket();
+    try {
+      const storedUser  = getStoredUser();
+      const storedToken = getStoredToken();
+      if (storedUser && storedToken) {
+        setUser(storedUser);
+        connectSocket();
+      }
+    } catch (e) {
+      console.warn("Session restore failed:", e.message);
+    } finally {
+      setBooting(false);
     }
-    setBooting(false);
   }, []);
 
   const login = async (email, password) => {

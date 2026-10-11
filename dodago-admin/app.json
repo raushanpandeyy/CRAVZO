@@ -45,7 +45,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "dodago-admin"
+        "projectId": ""
       }
     }
   }

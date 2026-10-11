@@ -6,6 +6,7 @@ import AccessPending from "./components/common/AccessPending";
 import AppLoader from "./components/common/AppLoader";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import InstallAppPrompt from "./components/InstallAppPrompt";
+import PreLaunchOverlay, { STORAGE_KEY as PRELAUNCH_KEY } from "./components/PreLaunchOverlay";
 import { useAuth } from "./hooks/useAuth";
 import { useNotifications } from "./hooks/useNotifications";
 
@@ -57,6 +58,15 @@ const App = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [toast, setToast] = useState(null);
+
+  // ── Pre-launch overlay ──────────────────────────────────────────────────────
+  // Show only when VITE_PRELAUNCH_ENABLED=true, user is NOT logged in, and they
+  // haven't already dismissed/signed-up (tracked via localStorage).
+  const preLaunchEnabled = import.meta.env.VITE_PRELAUNCH_ENABLED === "true";
+  const [showPreLaunch, setShowPreLaunch] = useState(() => {
+    if (!preLaunchEnabled) return false;
+    return !localStorage.getItem(PRELAUNCH_KEY);
+  });
   const publicCustomerPathPrefixes = [
     "/r/",
     "/restaurant/",
@@ -153,6 +163,10 @@ const App = () => {
         <InstallAppPrompt />
         {toast && (
           <InAppToast toast={toast} onDismiss={() => setToast(null)} />
+        )}
+        {/* Pre-launch overlay — only on "/" for non-logged-in visitors */}
+        {showPreLaunch && !user?.isLoggedIn && location.pathname === "/" && (
+          <PreLaunchOverlay onDismiss={() => setShowPreLaunch(false)} />
         )}
       </>
     );

@@ -52,7 +52,16 @@ export const setupNotifications = async () => {
 
   // Get push token
   try {
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    // projectId must be a real EAS UUID — skip gracefully if not configured
+    const projectId =
+      require("expo-constants").default?.expoConfig?.extra?.eas?.projectId;
+
+    if (!projectId || projectId === "dodago-admin" || projectId.length < 10) {
+      console.warn("Push tokens skipped: real EAS projectId not configured");
+      return null;
+    }
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
     const token = tokenData.data;
     await registerFcmToken(token, Platform.OS === "ios" ? "IOS" : "ANDROID");
     return token;
