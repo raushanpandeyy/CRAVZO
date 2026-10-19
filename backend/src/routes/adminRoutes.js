@@ -30,6 +30,16 @@ import {
   deletePromoCode,
   getPromoCodeStats,
 } from "../controllers/adminPromoCodeController.js";
+import {
+  listRiderReferrals,
+  getRiderReferralDetail,
+} from "../controllers/adminRiderReferralController.js";
+import {
+  listCustomerReferrals,
+  listReferralMilestones,
+  getCustomerReferralDetail,
+  flagReferral,
+} from "../controllers/adminCustomerReferralController.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { authenticate, authorize } from "../middleware/authMiddleware.js";
 
@@ -65,6 +75,16 @@ adminRouter.get("/promo-codes/:id",    asyncHandler(getPromoCode));
 adminRouter.post("/promo-codes",       asyncHandler(createPromoCode));
 adminRouter.patch("/promo-codes/:id",  asyncHandler(updatePromoCode));
 adminRouter.delete("/promo-codes/:id", asyncHandler(deletePromoCode));
+
+// ── Rider Referrals ───────────────────────────────────────────────────────────
+adminRouter.get("/rider-referrals",     asyncHandler(listRiderReferrals));
+adminRouter.get("/rider-referrals/:id", asyncHandler(getRiderReferralDetail));
+
+// ── Customer Referrals ────────────────────────────────────────────────────────
+adminRouter.get("/customer-referrals",              asyncHandler(listCustomerReferrals));
+adminRouter.get("/customer-referrals/milestones",   asyncHandler(listReferralMilestones));
+adminRouter.get("/customer-referrals/:id",          asyncHandler(getCustomerReferralDetail));
+adminRouter.patch("/customer-referrals/:id/flag",   asyncHandler(flagReferral));
 
 export { adminRouter };
 

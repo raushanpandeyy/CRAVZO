@@ -25,10 +25,10 @@ export const getAppConfig = async (req, res) => {
           deliveryBaseKm: env.DELIVERY_BASE_KM,
           deliveryPerKmRate: env.DELIVERY_PER_KM_RATE,
           deliverySlabs: [
-            { maxKm: 1, fee: 17 },
-            { maxKm: 2, fee: 25 },
+            { maxKm: 1, fee: 20 },
+            { maxKm: 2, fee: 24 },
             { maxKm: 3, fee: 33 },
-            { maxKm: 4, fee: 40 },
+            { maxKm: 4, fee: 44 },
           ],
           foodGstRate: env.FOOD_GST_RATE,
           deliveryGstRate: env.DELIVERY_GST_RATE,

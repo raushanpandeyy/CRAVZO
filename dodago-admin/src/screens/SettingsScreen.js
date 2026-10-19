@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity, Alert, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LogOut, Shield, Wifi, WifiOff, Bell, Trash2, RefreshCw } from "lucide-react-native";
+import { LogOut, Shield, Wifi, WifiOff, Bell, Trash2, RefreshCw, Users } from "lucide-react-native";
 import { useAuth } from "../context/AuthContext.js";
 import { useAlerts } from "../context/AlertsContext.js";
 import { isConnected } from "../services/socketService.js";
@@ -35,7 +35,7 @@ function Row({ icon: Icon, label, sub, onPress, danger }) {
   );
 }
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }) {
   const { user, logout } = useAuth();
   const { clearAlerts, alerts } = useAlerts();
   const [connected, setConnected] = React.useState(isConnected());
@@ -123,6 +123,18 @@ export default function SettingsScreen() {
               { text: "Cancel", style: "cancel" },
               { text: "Clear", style: "destructive", onPress: clearAlerts },
             ])}
+          />
+          <Row
+            icon={Users}
+            label="Rider Referrals"
+            sub="View all rider-to-rider referrals & payouts"
+            onPress={() => navigation.navigate("RiderReferrals")}
+          />
+          <Row
+            icon={Users}
+            label="Customer Referrals"
+            sub="Refer & Earn vouchers, milestones, suspect flags"
+            onPress={() => navigation.navigate("CustomerReferrals")}
           />
         </View>
 

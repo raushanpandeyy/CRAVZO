@@ -12,35 +12,16 @@ import { useSelector, useDispatch } from "react-redux";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Minus, Plus, Trash2, ChevronLeft,
-  ChevronDown, ChevronUp, ShoppingCart,
+  ShoppingCart,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
 import { ACTION_BAR_BOTTOM_PADDING, MIN_BOTTOM_BAR_PADDING, MIN_DEVICE_NAV_GAP } from "../../constants/layout";
 import { updateQuantity, removeItem, updateItemNotes, clearCart } from "../../store/slices/cartSlice";
 import { setShowAuthModal, setPendingNavigationRoute } from "../../store/slices/userSlice";
 import CouponInput from "../../components/CouponInput";
-import { apiRequest } from "../../services/api";
-import { getAppConfig } from "../../services/configService";
 
 const formatCurrency = (amount) => `\u20B9${Math.floor(amount)}`;
 const getPrice = (price) => (typeof price === "number" ? price : parseInt(String(price).replace(/[^0-9]/g, ""), 10) || 0);
-
-const calculateDeliveryBase = (distanceKm, pricing) => {
-  const d = distanceKm || 1;
-  const slabs = pricing?.deliverySlabs || [];
-  for (const slab of slabs) { if (d <= slab.maxKm) return slab.fee; }
-  const last = slabs[slabs.length - 1];
-  if (last) return last.fee + Math.ceil(d - last.maxKm) * Number(pricing.deliveryPerKmRate || 0);
-  return Number(pricing?.deliveryBaseFee || 0);
-};
-const toRadians = (v) => (v * Math.PI) / 180;
-const getDistanceKm = (lat1, lng1, lat2, lng2) => {
-  const R = 6371;
-  const dLat = toRadians(lat2 - lat1);
-  const dLng = toRadians(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
 
 export default function CartScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -48,39 +29,10 @@ export default function CartScreen({ navigation }) {
   const dispatch = useDispatch();
   const isLoggedIn = useSelector(selectIsLoggedIn);
   const cart = useSelector((state) => state.cart.items);
-  const [showTax, setShowTax] = useState(false);
   const [couponDiscount, setCouponDiscount] = useState(0);
   const [msg, setMsg] = useState("");
-  const [distanceKm, setDistanceKm] = useState(3);
-  const [pricingConfig, setPricingConfig] = useState(null);
 
-  useEffect(() => {
-    getAppConfig()
-      .then((config) => setPricingConfig(config.pricing))
-      .catch((err) => Alert.alert("Pricing unavailable", err.message || "Could not load current fees and taxes."));
-  }, []);
-  useEffect(() => {
-    (async () => {
-      if (cart.length === 0) return;
-      const restaurantId = cart[0]?.restaurantId || cart[0]?.itemKey?.split("|")[1];
-      if (!restaurantId) return;
-      try {
-        const res = await apiRequest(`/api/restaurants/${restaurantId}`);
-        const rest = res.data || res.restaurant || res;
-        if (rest?.latitude && rest?.longitude) {
-          const addrRes = await apiRequest("/api/users/profile");
-          const profile = addrRes.data || addrRes.user || addrRes;
-          const addr = profile?.defaultAddress || profile?.addresses?.[0];
-          if (addr?.latitude && addr?.longitude) {
-            const dist = getDistanceKm(addr.latitude, addr.longitude, rest.latitude, rest.longitude);
-            setDistanceKm(Math.round(dist * 10) / 10);
-          }
-        }
-      } catch (err) {
-        setMsg(err.message || "Could not calculate delivery distance.");
-      }
-    })();
-  }, [cart]);
+  // Distance + pricing config no longer needed in cart (shown at checkout only)
 
   const handleApplyCoupon = async (code) => {
     const subtotal = cart.reduce((acc, item) => {
@@ -146,18 +98,11 @@ export default function CartScreen({ navigation }) {
         (item.selectedSideDishes || []).reduce((s, sd) => s + Number(sd.price), 0) * item.quantity;
       return acc + baseTotal + sideTotal;
     }, 0);
-    const deliveryBase = calculateDeliveryBase(distanceKm, pricingConfig);
-    const deliveryGst = deliveryBase * Number(pricingConfig?.deliveryGstRate || 0);
-    const deliveryTotal = deliveryBase + deliveryGst;
-    const packagingFeeBase = Math.floor(itemTotal * Number(pricingConfig?.packagingPercent || 0));
-    const foodGst = itemTotal * Number(pricingConfig?.foodGstRate || 0);
-    const packagingTax = packagingFeeBase * Number(pricingConfig?.foodGstRate || 0);
-    const totalTax = foodGst + packagingTax + deliveryGst;
-    const grandTotal = itemTotal + foodGst + packagingFeeBase + packagingTax + deliveryTotal + Number(pricingConfig?.platformFee || 0);
-    const coupon = Math.min(couponDiscount, grandTotal);
-    const finalTotal = grandTotal - coupon;
-    return { itemTotal, deliveryBase, deliveryGst, deliveryTotal, packagingFeeBase, packagingTax, foodGst, totalTax, grandTotal, cgst: totalTax / 2, sgst: totalTax / 2, coupon, finalTotal };
-  }, [cart, distanceKm, couponDiscount, pricingConfig]);
+    // Keep coupon logic for the cart-level coupon input
+    const coupon = Math.min(couponDiscount, itemTotal);
+    const finalItemTotal = itemTotal - coupon;
+    return { itemTotal, coupon, finalItemTotal };
+  }, [cart, couponDiscount]);
 
   if (cart.length === 0) {
     return (
@@ -246,60 +191,25 @@ export default function CartScreen({ navigation }) {
               <Text className="text-sm text-slate-600">Item Total</Text>
               <Text className="text-sm font-medium">{formatCurrency(pricing.itemTotal)}</Text>
             </View>
-            {pricing.packagingFeeBase > 0 ? (
-              <View className="flex-row justify-between">
-                <Text className="text-sm text-slate-600">Packaging Fee</Text>
-                <Text className="text-sm font-medium">{formatCurrency(pricing.packagingFeeBase)}</Text>
-              </View>
-            ) : null}
-            <View className="bg-slate-50 rounded-xl">
-              <TouchableOpacity onPress={() => setShowTax(!showTax)}
-                className="flex-row items-center justify-between p-3">
-                <Text className="text-sm font-bold text-slate-800">Delivery & Tax</Text>
-                <View className="flex-row items-center gap-1.5">
-                  <Text className="text-sm">{formatCurrency(pricing.deliveryTotal + pricing.foodGst + pricing.packagingTax)}</Text>
-                  {showTax ? <ChevronUp size={16} color={colors.slate[900]} /> : <ChevronDown size={16} color={colors.slate[900]} />}
-                </View>
-              </TouchableOpacity>
-              {showTax ? (
-                <View className="px-3 pb-3 border-t border-slate-200 pt-2.5 space-y-1.5">
-                  <View className="flex-row justify-between">
-                    <Text className="text-xs text-slate-500">Delivery ({distanceKm.toFixed(1)} km)</Text>
-                    <Text className="text-xs">{formatCurrency(pricing.deliveryBase)}</Text>
-                  </View>
-                  <View className="flex-row justify-between">
-                    <Text className="text-xs text-slate-500">Food GST (5%)</Text>
-                    <Text className="text-xs">{formatCurrency(pricing.foodGst + pricing.packagingTax)}</Text>
-                  </View>
-                  <View className="flex-row justify-between">
-                    <Text className="text-xs text-slate-500">Delivery GST (18%)</Text>
-                    <Text className="text-xs">{formatCurrency(pricing.deliveryGst)}</Text>
-                  </View>
-                  <View className="border-t border-slate-200 pt-1.5 mt-1.5 flex-row justify-between">
-                    <Text className="text-xs font-medium text-slate-600">CGST (50%)</Text>
-                    <Text className="text-xs font-medium text-slate-600">{formatCurrency(pricing.cgst)}</Text>
-                  </View>
-                  <View className="flex-row justify-between">
-                    <Text className="text-xs font-medium text-slate-600">SGST (50%)</Text>
-                    <Text className="text-xs font-medium text-slate-600">{formatCurrency(pricing.sgst)}</Text>
-                  </View>
-                </View>
-              ) : null}
-            </View>
 
             <CouponInput onApply={handleApplyCoupon} currentDiscount={pricing.coupon} onRemove={handleRemoveCoupon} />
 
             {pricing.coupon > 0 ? (
-              <View className="flex-row justify-between pt-2">
+              <View className="flex-row justify-between">
                 <Text className="text-sm text-emerald-600">Coupon Discount</Text>
                 <Text className="text-sm font-medium text-emerald-600">-{formatCurrency(pricing.coupon)}</Text>
               </View>
             ) : null}
 
-            <View className="border-t-2 border-indigo-600 pt-3">
-              <View className="flex-row justify-between">
-                <Text className="text-base font-bold text-slate-900">Grand Total</Text>
-                <Text className="text-lg font-extrabold text-indigo-700">{formatCurrency(pricing.finalTotal)}</Text>
+            <View className="border-t border-slate-200 pt-3">
+              <View className="flex-row justify-between items-center">
+                <View>
+                  <Text className="text-base font-bold text-slate-900">
+                    {pricing.coupon > 0 ? "Items after discount" : "Item Total"}
+                  </Text>
+                  <Text className="text-xs text-slate-400 mt-0.5">Delivery & taxes shown at checkout</Text>
+                </View>
+                <Text className="text-lg font-extrabold text-indigo-700">{formatCurrency(pricing.finalItemTotal)}</Text>
               </View>
             </View>
           </View>
@@ -324,7 +234,10 @@ export default function CartScreen({ navigation }) {
           className="rounded-2xl bg-indigo-600 py-4 shadow-lg shadow-indigo-200"
         >
           <Text className="text-base font-extrabold text-white text-center">
-            Proceed to Checkout - {formatCurrency(pricing.finalTotal)}
+            Proceed to Checkout
+          </Text>
+          <Text className="text-xs text-indigo-200 text-center mt-0.5">
+            Delivery & taxes calculated at next step
           </Text>
         </TouchableOpacity>
       </View>

@@ -3,6 +3,7 @@ import { connectRedis } from "../config/redis.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { emitRiderLocationUpdate } from "../services/orderSocketService.js";
+import { endGig } from "../services/gigService.js";
 
 const RIDER_GEO_KEY = "rider:geo";
 
@@ -48,6 +49,11 @@ export const updateRiderStatus = async (req, res) => {
           }
         })(),
   ]);
+
+  // If rider is going offline, auto-end any active gig (marked as ended early)
+  if (!isOnline) {
+    await endGig(req.user.sub, { endedEarly: true });
+  }
 
   res.status(200).json(
     apiResponse({
@@ -117,68 +123,103 @@ export const updateRiderLocation = async (req, res) => {
 export const getRiderEarnings = async (req, res) => {
   const riderId = req.user.sub;
 
-  const orders = await prisma.order.findMany({
-    where: {
-      OR: [
-        { riderId, status: "DELIVERED" },
-        { cancelledRiderId: riderId, status: "CANCELLED", riderCancellationEarning: { gt: 0 } },
-      ],
-    },
-    select: {
-      id: true,
-      status: true,
-      deliveryFee: true,
-      tipAmount: true,
-      riderCancellationEarning: true,
-      createdAt: true,
-      deliveredAt: true,
-      cancelledAt: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const weekStart = new Date(today);
   weekStart.setDate(weekStart.getDate() - weekStart.getDay());
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
+  // Run all aggregates in parallel — let DB compute sums, not JS
+  const [
+    totalEarningsAgg,
+    totalTipsAgg,
+    todayEarningsAgg,
+    weekEarningsAgg,
+    monthEarningsAgg,
+    totalDeliveries,
+    todayDeliveries,
+    compensatedCancellations,
+    recentOrders,
+  ] = await Promise.all([
+    // Total delivered earnings (deliveryFee + tip)
+    prisma.order.aggregate({
+      where: { riderId, status: "DELIVERED" },
+      _sum: { deliveryFee: true, tipAmount: true },
+    }),
+    // Total tips only
+    prisma.order.aggregate({
+      where: { riderId, status: "DELIVERED" },
+      _sum: { tipAmount: true },
+    }),
+    // Today earnings (delivered)
+    prisma.order.aggregate({
+      where: { riderId, status: "DELIVERED", deliveredAt: { gte: today } },
+      _sum: { deliveryFee: true, tipAmount: true },
+    }),
+    // Week earnings
+    prisma.order.aggregate({
+      where: { riderId, status: "DELIVERED", deliveredAt: { gte: weekStart } },
+      _sum: { deliveryFee: true, tipAmount: true },
+    }),
+    // Month earnings
+    prisma.order.aggregate({
+      where: { riderId, status: "DELIVERED", deliveredAt: { gte: monthStart } },
+      _sum: { deliveryFee: true, tipAmount: true },
+    }),
+    // Total deliveries count
+    prisma.order.count({ where: { riderId, status: "DELIVERED" } }),
+    // Today deliveries count
+    prisma.order.count({ where: { riderId, status: "DELIVERED", deliveredAt: { gte: today } } }),
+    // Compensated cancellations
+    prisma.order.count({
+      where: { cancelledRiderId: riderId, status: "CANCELLED", riderCancellationEarning: { gt: 0 } },
+    }),
+    // Last 30 orders for history display
+    prisma.order.findMany({
+      where: {
+        OR: [
+          { riderId, status: "DELIVERED" },
+          { cancelledRiderId: riderId, status: "CANCELLED", riderCancellationEarning: { gt: 0 } },
+        ],
+      },
+      select: {
+        id: true,
+        status: true,
+        deliveryFee: true,
+        tipAmount: true,
+        riderCancellationEarning: true,
+        createdAt: true,
+        deliveredAt: true,
+        cancelledAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    }),
+  ]);
+
+  const sum = (agg) =>
+    Number(agg._sum.deliveryFee || 0) + Number(agg._sum.tipAmount || 0);
+
   const orderEarning = (order) =>
     order.status === "CANCELLED"
       ? Number(order.riderCancellationEarning || 0)
       : Number(order.deliveryFee || 0) + Number(order.tipAmount || 0);
-  const earningDate = (order) => new Date(order.deliveredAt || order.cancelledAt || order.createdAt);
-  const totalTips = orders
-    .filter((order) => order.status === "DELIVERED")
-    .reduce((sum, order) => sum + Number(order.tipAmount || 0), 0);
-  const totalEarnings = orders.reduce((sum, order) => sum + orderEarning(order), 0);
-  const todayEarnings = orders
-    .filter((o) => earningDate(o) >= today)
-    .reduce((sum, order) => sum + orderEarning(order), 0);
-  const weekEarnings = orders
-    .filter((o) => earningDate(o) >= weekStart)
-    .reduce((sum, order) => sum + orderEarning(order), 0);
-  const monthEarnings = orders
-    .filter((o) => earningDate(o) >= monthStart)
-    .reduce((sum, order) => sum + orderEarning(order), 0);
-
-  const deliveredOrders = orders.filter((order) => order.status === "DELIVERED");
-  const totalDeliveries = deliveredOrders.length;
-  const todayDeliveries = deliveredOrders.filter((o) => earningDate(o) >= today).length;
-  const compensatedCancellations = orders.filter((order) => order.status === "CANCELLED").length;
 
   res.status(200).json(
     apiResponse({
       data: {
-        totalEarnings,
-        totalTips,
-        todayEarnings,
-        weekEarnings,
-        monthEarnings,
+        totalEarnings:            sum(totalEarningsAgg),
+        totalTips:                Number(totalTipsAgg._sum.tipAmount || 0),
+        todayEarnings:            sum(todayEarningsAgg),
+        weekEarnings:             sum(weekEarningsAgg),
+        monthEarnings:            sum(monthEarningsAgg),
         totalDeliveries,
         todayDeliveries,
         compensatedCancellations,
-        recentOrders: orders.slice(0, 20),
+        recentOrders:             recentOrders.map((o) => ({ ...o, earning: orderEarning(o) })),
+      },
+    }),
+  );
       },
     }),
   );

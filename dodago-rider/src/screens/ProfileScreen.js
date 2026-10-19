@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { Bike, ClipboardList, Mail, MessageCircle, Phone, Star, User } from "../components/Icons";
+import { Bike, ClipboardList, Mail, MessageCircle, Phone, Share2, Star, Trophy, User, Zap } from "../components/Icons";
 import { Card, PrimaryButton } from "../components/Primitives";
 import { ScreenWithHeader } from "../components/RiderChrome";
 import { colors } from "../constants/colors";
 import { useAuth } from "../services/AuthContext";
 import { disconnectSocket } from "../services/socketService";
 import { getProfile, updateProfile } from "../services/userService";
+import { GIG_TIERS, MIN_GIG_HOURS } from "../services/gigService";
 
 const logo = require("../../assets/dodagologo.png");
 
@@ -103,6 +104,50 @@ export default function ProfileScreen({ navigation }) {
           <QuickLink icon={Star} label="Reviews" onPress={() => navigation.navigate("Reviews")} />
           <QuickLink icon={MessageCircle} label="Support" onPress={() => navigation.navigate("Support")} />
         </View>
+
+        {/* ── Refer & Earn Banner ── */}
+        <TouchableOpacity style={styles.referBanner} activeOpacity={0.85} onPress={() => navigation.navigate("RiderReferral")}>
+          <View style={styles.referBannerLeft}>
+            <Trophy size={20} color="#fbbf24" />
+            <View>
+              <Text style={styles.referBannerTitle}>Refer a Rider</Text>
+              <Text style={styles.referBannerSub}>Earn up to ₹1,000 per referral</Text>
+            </View>
+          </View>
+          <Share2 size={20} color="#fff" />
+        </TouchableOpacity>
+
+        {/* ── Gig Incentive Tiers ── */}
+        <Card style={styles.card}>
+          <View style={styles.gigCardHeader}>
+            <Trophy size={20} color="#f59e0b" />
+            <Text style={styles.sectionTitle}>Gig Incentives</Text>
+          </View>
+          <Text style={styles.gigCardSub}>
+            Book a gig (min {MIN_GIG_HOURS} hrs) from the Home screen. Complete orders during your gig to unlock these bonuses — on top of your per-order delivery earnings.
+          </Text>
+          <View style={styles.gigTiersTable}>
+            {/* Header */}
+            <View style={[styles.gigTierRow, styles.gigTierHeader]}>
+              <Text style={[styles.gigTierCell, styles.gigTierHeaderText]}>Orders</Text>
+              <Text style={[styles.gigTierCell, styles.gigTierHeaderText, styles.gigTierCellRight]}>Bonus</Text>
+              <Text style={[styles.gigTierCell, styles.gigTierHeaderText, styles.gigTierCellRight]}>Type</Text>
+            </View>
+            {GIG_TIERS.map((tier, idx) => (
+              <View key={tier.orders} style={[styles.gigTierRow, idx % 2 === 1 && styles.gigTierAlt]}>
+                <View style={styles.gigTierOrdWrap}>
+                  <Zap size={13} color="#f59e0b" />
+                  <Text style={styles.gigTierCell}>{tier.orders} orders</Text>
+                </View>
+                <Text style={[styles.gigTierCell, styles.gigTierCellRight, styles.gigTierBonusText]}>₹{tier.bonus}</Text>
+                <Text style={[styles.gigTierCell, styles.gigTierCellRight, styles.gigTierTypeText]}>Per gig</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.gigCardNote}>
+            ⚠ Tiers are not cumulative — you earn the bonus for the highest tier reached in a single gig.
+          </Text>
+        </Card>
 
         <Card style={styles.card}>
           <Text style={styles.sectionTitle}>Legal & Help</Text>
@@ -203,6 +248,27 @@ const styles = StyleSheet.create({
   segmentTextActive: { color: "#fff" },
   note: { color: colors.muted, fontWeight: "700", lineHeight: 21 },
   logout: { marginTop: 2 },
+
+  // Gig incentives card
+  gigCardHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  gigCardSub: { color: colors.muted, fontWeight: "700", lineHeight: 20, fontSize: 13 },
+  gigTiersTable: { borderRadius: 14, overflow: "hidden", borderWidth: 1, borderColor: "#fde68a" },
+  gigTierRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 11 },
+  gigTierHeader: { backgroundColor: "#fef3c7" },
+  gigTierHeaderText: { color: "#92400e", fontWeight: "900", fontSize: 12, textTransform: "uppercase" },
+  gigTierAlt: { backgroundColor: "#fffbeb" },
+  gigTierOrdWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 5 },
+  gigTierCell: { flex: 1, color: colors.ink, fontWeight: "800", fontSize: 14 },
+  gigTierCellRight: { textAlign: "right" },
+  gigTierBonusText: { color: "#b45309", fontWeight: "900", fontSize: 16 },
+  gigTierTypeText: { color: colors.muted, fontWeight: "700", fontSize: 12 },
+  gigCardNote: { color: colors.muted, fontWeight: "700", fontSize: 12, lineHeight: 18 },
+
+  // Refer & earn banner
+  referBanner: { borderRadius: 20, backgroundColor: colors.primaryDark, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  referBannerLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  referBannerTitle: { color: "#fff", fontWeight: "900", fontSize: 16 },
+  referBannerSub: { color: "#a5b4fc", fontWeight: "700", fontSize: 12 },
 });
 
 

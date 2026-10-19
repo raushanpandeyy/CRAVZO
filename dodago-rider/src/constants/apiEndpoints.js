@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
     location: "/api/v1/rider/location",
     earnings: "/api/v1/rider/earnings",
     stats:    "/api/v1/rider/stats",
+    referral: "/api/v1/rider/referral",
   },
   orders: {
     rider:                "/api/v1/orders/rider",
@@ -32,5 +33,12 @@ export const API_ENDPOINTS = {
   },
   notifications: {
     fcmToken: "/api/v1/notifications/fcm-token",
+  },
+  gig: {
+    book:   "/api/v1/rider/gig/book",
+    end:    "/api/v1/rider/gig/end",
+    active: "/api/v1/rider/gig/active",
+    stats:  "/api/v1/rider/gig/stats",
+    tiers:  "/api/v1/rider/gig/tiers",
   },
 };

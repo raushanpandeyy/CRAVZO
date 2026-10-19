@@ -13,7 +13,7 @@ import {
   Modal,
 } from "react-native";
 import { useDispatch } from "react-redux";
-import { Check, Lock, Mail, User, Phone, Shield, Square, X } from "lucide-react-native";
+import { Check, Lock, Mail, User, Phone, Shield, Square, X, Gift } from "lucide-react-native";
 import { dodagologo } from "../../constants/images";
 import OptimizedImage from "../../components/OptimizedImage";
 import { colors } from "../../constants/colors";
@@ -50,6 +50,7 @@ export default function LoginScreen({ navigation }) {
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [referralCode, setReferralCode] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [fpEmail, setFpEmail] = useState("");
   const [fpOtpSent, setFpOtpSent] = useState(false);
@@ -88,7 +89,15 @@ export default function LoginScreen({ navigation }) {
     setIsSubmitting(true);
     setMessage("");
     try {
-      await signup({ name, email, password, phone, role: "CUSTOMER" });
+      const trimmedReferral = referralCode.trim().toUpperCase();
+      await signup({
+        name,
+        email,
+        password,
+        phone,
+        role: "CUSTOMER",
+        ...(trimmedReferral ? { referralCode: trimmedReferral } : {}),
+      });
       savePrivacyConsent({ acceptedNotice: true, ageConfirmed, marketing: false });
       storage.set("otpEmail", email.trim().toLowerCase());
       storage.set("otpRole", "CUSTOMER");
@@ -168,6 +177,14 @@ export default function LoginScreen({ navigation }) {
                       value={phone}
                       onChangeText={setPhone}
                       keyboardType="phone-pad"
+                    />
+                    <AuthInput
+                      icon={Gift}
+                      placeholder="Referral code (optional)"
+                      value={referralCode}
+                      onChangeText={setReferralCode}
+                      autoCapitalize="characters"
+                      autoCorrect={false}
                     />
                   </>
                 ) : null}

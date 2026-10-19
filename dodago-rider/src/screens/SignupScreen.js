@@ -33,6 +33,7 @@ const initialForm = {
   email: "",
   phone: "",
   password: "",
+  referralCode: "",
 };
 
 export default function SignupScreen({ navigation }) {
@@ -80,6 +81,7 @@ export default function SignupScreen({ navigation }) {
         phone: form.phone,
         password: form.password,
         role: "RIDER",
+        ...(form.referralCode.trim() ? { referralCode: form.referralCode.trim().toUpperCase() } : {}),
         onboardingData: {
           city: form.city,
           vehicleType: form.vehicleType,
@@ -154,6 +156,7 @@ export default function SignupScreen({ navigation }) {
                 <Field placeholder="Mobile Number" value={form.phone} keyboardType="number-pad" maxLength={10} onChangeText={(value) => update("phone", value.replace(/\D/g, "").slice(0, 10))} />
                 <Field placeholder="Email" value={form.email} autoCapitalize="none" keyboardType="email-address" onChangeText={(value) => update("email", value)} />
                 <Field placeholder="Password" value={form.password} secureTextEntry onChangeText={(value) => update("password", value)} />
+                <Field placeholder="Referral code (optional)" value={form.referralCode} autoCapitalize="characters" autoCorrect={false} onChangeText={(value) => update("referralCode", value.toUpperCase())} />
                 <PrimaryButton title="Continue" onPress={next} />
               </View>
             ) : null}

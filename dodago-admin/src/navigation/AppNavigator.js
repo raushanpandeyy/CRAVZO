@@ -15,6 +15,8 @@ import LiveOrdersScreen   from "../screens/LiveOrdersScreen.js";
 import OrderDetailScreen  from "../screens/OrderDetailScreen.js";
 import NotificationsScreen from "../screens/NotificationsScreen.js";
 import SettingsScreen     from "../screens/SettingsScreen.js";
+import RiderReferralsScreen from "../screens/RiderReferralsScreen.js";
+import CustomerReferralsScreen from "../screens/CustomerReferralsScreen.js";
 
 const Stack = createNativeStackNavigator();
 const Tab   = createBottomTabNavigator();
@@ -93,8 +95,10 @@ function MainTabs() {
 function AppStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, animation: "slide_from_right" }}>
-      <Stack.Screen name="Main"        component={MainTabs} />
-      <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+      <Stack.Screen name="Main"            component={MainTabs} />
+      <Stack.Screen name="OrderDetail"     component={OrderDetailScreen} />
+      <Stack.Screen name="RiderReferrals"     component={RiderReferralsScreen} />
+      <Stack.Screen name="CustomerReferrals"  component={CustomerReferralsScreen} />
     </Stack.Navigator>
   );
 }

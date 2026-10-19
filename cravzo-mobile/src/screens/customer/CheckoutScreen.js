@@ -80,14 +80,35 @@ const getPrice = (price) => {
 };
 
 const calculateDeliveryBase = (distanceKm, pricing) => {
-  const distance = distanceKm || 1;
+  // Mirror backend logic exactly (orderCheckoutService.js)
+  // Round up to nearest 100 meters
+  const distance = Math.max(0.1, Math.ceil((distanceKm || 1) * 10) / 10);
   const slabs = pricing?.deliverySlabs || [];
-  for (const slab of slabs) {
-    if (distance <= slab.maxKm) return slab.fee;
+
+  // 0–1 km: flat ₹20
+  if (distance <= 1) return slabs[0]?.fee ?? 20;
+
+  // 1–2 km: flat ₹24
+  if (distance <= 2) return slabs[1]?.fee ?? 24;
+
+  // 2–3 km: ₹24 → ₹33 interpolated (₹9/km)
+  if (distance <= 3) {
+    const from = slabs[1]?.fee ?? 24;
+    const to   = slabs[2]?.fee ?? 33;
+    return Number((from + (distance - 2) * (to - from)).toFixed(2));
   }
-  const lastSlab = slabs[slabs.length - 1];
-  if (lastSlab) return lastSlab.fee + Math.ceil(distance - lastSlab.maxKm) * Number(pricing.deliveryPerKmRate || 0);
-  return Number(pricing?.deliveryBaseFee || 0);
+
+  // 3–4 km: ₹33 → ₹44 @ ₹1 per 100m (₹10/km), rounded to integer
+  if (distance <= 4) {
+    const from = slabs[2]?.fee ?? 33;
+    const extra = Math.round((distance - 3) * 10); // ₹1 per 100m = ₹10/km
+    return from + extra;
+  }
+
+  // 4 km+: ₹44 + ₹10/km extra
+  const lastFee = slabs[3]?.fee ?? 44;
+  const perKm   = Number(pricing?.deliveryPerKmRate || 10);
+  return Number((lastFee + (distance - 4) * perKm).toFixed(2));
 };
 const haversineKm = (lat1, lng1, lat2, lng2) => {
   const R = 6371;

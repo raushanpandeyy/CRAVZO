@@ -120,6 +120,21 @@ const createReferralAtSignup = async ({ referredUserId, referralCode, fingerprin
   });
   if (existing) return existing;
 
+  // Circular referral guard — block if the referrer was previously referred
+  // BY this new user (edge case: A referred B during onboarding, now B is
+  // signing up using A's code to refer A back).
+  const circularCheck = await prisma.referral.findFirst({
+    where: { referrerId: referredUserId, referredId: referrer.id },
+    select: { id: true },
+  });
+  if (circularCheck) {
+    logger.warn("Circular referral attempt blocked at signup", {
+      referredUserId,
+      referrerId: referrer.id,
+    });
+    return null;
+  }
+
   const status = suspectHint ? "SUSPECT" : "OTP_VERIFIED";
 
   const created = await prisma.referral.create({
@@ -186,17 +201,20 @@ const issueMilestonesForUser = async (referrerId) => {
     }),
   ]);
 
+  // Fetch all already-issued tiers in ONE query instead of per-tier inside loop
+  const issuedTiers = await prisma.referralMilestone.findMany({
+    where: { userId: referrerId },
+    select: { tier: true },
+  });
+  const issuedTierSet = new Set(issuedTiers.map((m) => m.tier));
+
   for (const tier of MILESTONES) {
     const hasEnoughVerified = verifiedCount >= tier.threshold;
     const hasEnoughQualified = completedCount >= (tier.minQualifiedReferrals || tier.threshold);
     if (!hasEnoughVerified || !hasEnoughQualified) continue;
 
     // Skip tiers the user has already earned (any status = ISSUED/REDEEMED/EXPIRED)
-    const alreadyIssued = await prisma.referralMilestone.findFirst({
-      where: { userId: referrerId, tier: tier.tier },
-      select: { id: true },
-    });
-    if (alreadyIssued) continue;
+    if (issuedTierSet.has(tier.tier)) continue;
 
     const expiresAt = new Date(Date.now() + tier.validityDays * 24 * 60 * 60 * 1000);
 
@@ -396,11 +414,54 @@ const getMyReferralStats = async (userId) => {
 // signup-immediate capture path (createReferralAtSignup) is preferred, but we
 // keep this around so legacy API callers (mobile app) don't error. Returns a
 // legacy-ish payload describing the result.
+//
+// FRAUD GUARDS (applied strictly):
+//  1. referredId @unique  — one referral per user, ever (DB + app level).
+//  2. CUSTOMER-only       — riders/vendors cannot earn referral rewards.
+//  3. No prior orders     — user must not have placed any order yet; prevents
+//                           existing active customers from farming rewards.
+//  4. Account age gate    — account must be < REFERRAL_APPLY_WINDOW_DAYS old;
+//                           stops long-dormant accounts from retroactively
+//                           applying codes.
+//  5. Self-referral block — cannot use own code.
+//  6. Circular referral   — if the referrer was themselves referred by the
+//                           current user (A→B, now B wants to use A's code),
+//                           block it explicitly.
+const REFERRAL_APPLY_WINDOW_DAYS = 7; // must apply within 7 days of account creation
+
 const applyReferralCode = async (userId, rawCode) => {
   const code = String(rawCode || "").trim().toUpperCase();
   if (!code) throw new Error("Referral code is required");
 
-  // If referral already exists for this user, return current state info.
+  // ── Guard 1 & 2: fetch the calling user's role, creation date ──────────
+  const callingUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, role: true, createdAt: true },
+  });
+  if (!callingUser) throw new Error("User not found");
+
+  // Guard 2 — CUSTOMER only
+  if (callingUser.role !== "CUSTOMER") {
+    throw new Error("Referral rewards are only available for customer accounts");
+  }
+
+  // Guard 4 — account age
+  const accountAgeDays = (Date.now() - new Date(callingUser.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+  if (accountAgeDays > REFERRAL_APPLY_WINDOW_DAYS) {
+    throw new Error(
+      `Referral codes can only be applied within ${REFERRAL_APPLY_WINDOW_DAYS} days of account creation`,
+    );
+  }
+
+  // Guard 3 — no prior orders placed
+  const orderCount = await prisma.order.count({
+    where: { customerId: userId },
+  });
+  if (orderCount > 0) {
+    throw new Error("Referral codes cannot be applied once you have already placed an order");
+  }
+
+  // ── Guard 1: already has a referral record ──────────────────────────────
   const existing = await prisma.referral.findUnique({
     where: { referredId: userId },
     select: { id: true, status: true, referrerId: true },
@@ -414,23 +475,39 @@ const applyReferralCode = async (userId, rawCode) => {
     };
   }
 
+  // ── Resolve referrer ────────────────────────────────────────────────────
   const referrer = await prisma.user.findUnique({
     where: { referralCode: code },
-    select: { id: true, status: true, walletBalance: true },
+    select: { id: true, status: true },
   });
   if (!referrer) throw new Error("Invalid referral code");
+
+  // Guard 5 — self-referral
   if (referrer.id === userId) throw new Error("You cannot use your own referral code");
 
+  // Guard 6 — circular referral: check if the referrer was previously referred
+  // BY the current user (A referred B, now B is trying to refer A back).
+  const circularCheck = await prisma.referral.findFirst({
+    where: { referrerId: userId, referredId: referrer.id },
+    select: { id: true },
+  });
+  if (circularCheck) {
+    throw new Error("Referral not allowed: circular referral detected");
+  }
+
+  // ── All guards passed — create the referral ─────────────────────────────
   const created = await prisma.referral.create({
     data: {
       referrerId: referrer.id,
       referredId: userId,
-      status: "OTP_VERIFIED", // assume the OTP verification already happened
+      status: "OTP_VERIFIED",
       bonusAmount: 0,
     },
   });
 
-  // Stat return for UI consistency
+  // Check if this new referral pushes the referrer past a milestone threshold.
+  await issueMilestonesForUser(referrer.id);
+
   return {
     alreadyApplied: false,
     status: created.status,

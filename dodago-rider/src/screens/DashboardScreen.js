@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AppState, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
-import { BatteryWarning, MapPin, Power, X } from "../components/Icons";
+import { BatteryWarning, Clock, MapPin, Power, Trophy, X, Zap } from "../components/Icons";
 import { Card, EmptyState, PrimaryButton } from "../components/Primitives";
 import { ScreenWithHeader } from "../components/RiderChrome";
 import { OrderCard } from "../components/OrderCard";
 import { colors } from "../constants/colors";
 import { getRiderOrders, updateOrderStatus, verifyDeliveryOtp } from "../services/orderService";
 import { updateRiderLocation, updateRiderStatus } from "../services/riderService";
+import { bookGig, endGig, getActiveGig, GIG_TIERS, MIN_GIG_HOURS } from "../services/gigService";
 import { startBackgroundLocation, stopBackgroundLocation } from "../services/locationTaskService";
 import { onNewOrder, onOrderStatusUpdate } from "../services/socketService";
 import { formatCurrency, formatCustomerAddress, formatDistance, formatRestaurantAddress, openNavigation } from "../utils/formatters";
@@ -55,6 +56,88 @@ export default function DashboardScreen({ navigation }) {
   const dismissedRequestsRef = useRef(new Set());
   const locationSub = useRef(null);
   const isOnlineRef = useRef(Boolean(user?.isOnline));
+
+  // ── Gig state ──────────────────────────────────────────────────────────────
+  const [activeGig, setActiveGig] = useState(null);
+  const [gigLoading, setGigLoading] = useState(false);
+  const [showGigModal, setShowGigModal] = useState(false);
+  const [gigHours, setGigHours] = useState(2);
+  const [gigCountdown, setGigCountdown] = useState(null); // seconds remaining
+
+  const loadActiveGig = useCallback(async () => {
+    try {
+      const gig = await getActiveGig();
+      setActiveGig(gig);
+    } catch {
+      // non-critical
+    }
+  }, []);
+
+  useEffect(() => { loadActiveGig(); }, [loadActiveGig]);
+
+  // Countdown tick — recalculate every second from endsAt
+  useEffect(() => {
+    if (!activeGig) { setGigCountdown(null); return; }
+    const tick = () => {
+      const secsLeft = Math.max(0, Math.floor((new Date(activeGig.endsAt) - Date.now()) / 1000));
+      setGigCountdown(secsLeft);
+      if (secsLeft === 0) loadActiveGig(); // auto-refresh when timer hits zero
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [activeGig, loadActiveGig]);
+
+  const handleBookGig = useCallback(async () => {
+    if (gigHours < MIN_GIG_HOURS) {
+      Alert.alert("Minimum duration", `Gig must be at least ${MIN_GIG_HOURS} hours.`);
+      return;
+    }
+    if (!isOnline) {
+      Alert.alert("Go online first", "You must be online to book a gig.");
+      return;
+    }
+    setGigLoading(true);
+    try {
+      const gig = await bookGig(gigHours);
+      setActiveGig(gig);
+      setShowGigModal(false);
+    } catch (err) {
+      Alert.alert("Booking failed", err.message || "Could not book gig.");
+    } finally {
+      setGigLoading(false);
+    }
+  }, [gigHours, isOnline]);
+
+  const handleEndGig = useCallback(() => {
+    Alert.alert(
+      "End Gig?",
+      "Going offline will end your active gig early. Your bonus will be calculated on orders completed so far.",
+      [
+        { text: "Keep Going", style: "cancel" },
+        {
+          text: "End Gig",
+          style: "destructive",
+          onPress: async () => {
+            setGigLoading(true);
+            try {
+              const ended = await endGig();
+              setActiveGig(ended);
+              // Also go offline
+              const result = await updateRiderStatus(false);
+              setIsOnline(false);
+              setUser((current) => ({ ...current, isOnline: false, ...result }));
+              locationSub.current?.remove?.();
+            } catch (err) {
+              Alert.alert("Error", err.message || "Could not end gig.");
+            } finally {
+              setGigLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [setUser]);
 
   const startLocationWatch = useCallback(async () => {
     // Step 1: foreground permission (always required)
@@ -229,6 +312,11 @@ export default function DashboardScreen({ navigation }) {
   }, [orderRequest?.id]);
 
   const toggleOnline = useCallback(async () => {
+    // If rider tries to go offline during an active gig, show gig-end warning
+    if (isOnline && activeGig) {
+      handleEndGig();
+      return;
+    }
     try {
       const next = !isOnline;
       const result = await updateRiderStatus(next);
@@ -238,7 +326,7 @@ export default function DashboardScreen({ navigation }) {
     } catch (error) {
       Alert.alert("Status failed", error.message || "Could not update rider status.");
     }
-  }, [isOnline, setUser]);
+  }, [isOnline, activeGig, handleEndGig, setUser]);
 
   const refresh = useCallback(() => {
     setRefreshing(true);
@@ -362,6 +450,93 @@ export default function DashboardScreen({ navigation }) {
               <Text style={styles.locationText}>Location: {locationStatus}</Text>
               <BatteryWarning size={18} color={colors.warning} />
             </Card>
+
+            {/* ── Active Gig Widget ── */}
+            {activeGig ? (
+              <View style={styles.gigWidget}>
+                <View style={styles.gigWidgetTop}>
+                  <View style={styles.gigWidgetLeft}>
+                    <Trophy size={18} color="#f59e0b" />
+                    <Text style={styles.gigWidgetTitle}>Gig Active</Text>
+                  </View>
+                  <TouchableOpacity onPress={handleEndGig} style={styles.gigEndBtn}>
+                    <X size={14} color="#fff" />
+                    <Text style={styles.gigEndBtnText}>End</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Countdown */}
+                <View style={styles.gigCountdownRow}>
+                  <Clock size={14} color="#e0e7ff" />
+                  <Text style={styles.gigCountdownText}>
+                    {gigCountdown !== null
+                      ? `${String(Math.floor(gigCountdown / 3600)).padStart(2,"0")}:${String(Math.floor((gigCountdown % 3600) / 60)).padStart(2,"0")}:${String(gigCountdown % 60).padStart(2,"0")} remaining`
+                      : "Calculating..."}
+                  </Text>
+                </View>
+
+                {/* Orders progress */}
+                <View style={styles.gigOrdersRow}>
+                  <View style={styles.gigOrdersStat}>
+                    <Text style={styles.gigOrdersNum}>{activeGig.ordersCompleted}</Text>
+                    <Text style={styles.gigOrdersLabel}>Completed</Text>
+                  </View>
+                  <View style={styles.gigOrdersDivider} />
+                  <View style={styles.gigOrdersStat}>
+                    <Text style={[styles.gigOrdersNum, { color: "#fbbf24" }]}>
+                      ₹{activeGig.currentBonus || 0}
+                    </Text>
+                    <Text style={styles.gigOrdersLabel}>Bonus so far</Text>
+                  </View>
+                  {activeGig.nextTier ? (
+                    <>
+                      <View style={styles.gigOrdersDivider} />
+                      <View style={styles.gigOrdersStat}>
+                        <Text style={styles.gigOrdersNum}>
+                          {activeGig.nextTier.orders - activeGig.ordersCompleted}
+                        </Text>
+                        <Text style={styles.gigOrdersLabel}>
+                          For ₹{activeGig.nextTier.bonus}
+                        </Text>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.gigOrdersDivider} />
+                      <View style={styles.gigOrdersStat}>
+                        <Zap size={18} color="#fbbf24" />
+                        <Text style={styles.gigOrdersLabel}>Max tier!</Text>
+                      </View>
+                    </>
+                  )}
+                </View>
+
+                {/* Tier progress bar */}
+                {activeGig.nextTier ? (() => {
+                  const prevTier = [...GIG_TIERS].reverse().find((t) => t.orders <= activeGig.ordersCompleted);
+                  const from = prevTier?.orders || 0;
+                  const to = activeGig.nextTier.orders;
+                  const pct = Math.min(100, ((activeGig.ordersCompleted - from) / (to - from)) * 100);
+                  return (
+                    <View style={styles.gigProgressWrap}>
+                      <View style={styles.gigProgressTrack}>
+                        <View style={[styles.gigProgressFill, { width: `${pct}%` }]} />
+                      </View>
+                      <Text style={styles.gigProgressLabel}>
+                        {activeGig.ordersCompleted}/{to} for ₹{activeGig.nextTier.bonus} bonus
+                      </Text>
+                    </View>
+                  );
+                })() : null}
+              </View>
+            ) : isOnline ? (
+              /* ── Book a Gig button (only when online, no active gig) ── */
+              <TouchableOpacity style={styles.gigBookBtn} onPress={() => setShowGigModal(true)}>
+                <Trophy size={18} color="#fff" />
+                <Text style={styles.gigBookBtnText}>Book a Gig</Text>
+                <Text style={styles.gigBookBtnSub}>Earn up to ₹340 bonus</Text>
+              </TouchableOpacity>
+            ) : null}
             {activeFocusOrder ? (
               <Card style={styles.activeMission}>
                 <View style={styles.missionTop}>
@@ -541,6 +716,70 @@ export default function DashboardScreen({ navigation }) {
         </View>
       </Modal>
 
+      {/* ── Gig Booking Modal ── */}
+      <Modal
+        visible={showGigModal}
+        transparent
+        animationType="slide"
+        hardwareAccelerated
+        statusBarTranslucent
+        onRequestClose={() => setShowGigModal(false)}
+      >
+        <View style={styles.modalShade}>
+          <View style={styles.gigModalCard}>
+            <View style={styles.gigModalHeader}>
+              <Trophy size={22} color="#f59e0b" />
+              <Text style={styles.gigModalTitle}>Book a Gig</Text>
+              <TouchableOpacity onPress={() => setShowGigModal(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X size={22} color={colors.ink} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.gigModalSub}>
+              Stay online for your chosen duration. Complete orders to unlock bonus rewards on top of your delivery earnings.
+            </Text>
+
+            {/* Incentive tiers */}
+            <View style={styles.gigTiersWrap}>
+              {GIG_TIERS.map((tier, idx) => (
+                <View key={tier.orders} style={[styles.gigTierRow, idx < GIG_TIERS.length - 1 && styles.gigTierBorder]}>
+                  <Zap size={14} color="#f59e0b" />
+                  <Text style={styles.gigTierText}>{tier.orders} orders</Text>
+                  <Text style={styles.gigTierBonus}>+₹{tier.bonus} bonus</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Duration picker */}
+            <Text style={styles.gigDurationLabel}>Duration (hours)</Text>
+            <View style={styles.gigDurationRow}>
+              <TouchableOpacity
+                style={styles.gigDurationBtn}
+                onPress={() => setGigHours((h) => Math.max(MIN_GIG_HOURS, h - 1))}
+              >
+                <Text style={styles.gigDurationBtnText}>−</Text>
+              </TouchableOpacity>
+              <Text style={styles.gigDurationValue}>{gigHours} hr{gigHours !== 1 ? "s" : ""}</Text>
+              <TouchableOpacity
+                style={styles.gigDurationBtn}
+                onPress={() => setGigHours((h) => h + 1)}
+              >
+                <Text style={styles.gigDurationBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.gigDurationHint}>Minimum {MIN_GIG_HOURS} hours · No maximum</Text>
+
+            <PrimaryButton
+              title={gigLoading ? "Booking…" : "Start Gig"}
+              tone="success"
+              disabled={gigLoading}
+              onPress={handleBookGig}
+              style={{ marginTop: 16 }}
+            />
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Cancel Order Modal (3-step: reason → note → confirm) ── */}
       <Modal
         visible={Boolean(cancelTarget)}
@@ -695,6 +934,51 @@ const styles = StyleSheet.create({
   addressText: { color: colors.muted, lineHeight: 20 },
   modalActions: { flexDirection: "row", gap: 10 },
   otpRow: { flexDirection: "row", gap: 10, alignItems: "center" },
+  otpSection: { gap: 8, borderRadius: 18, backgroundColor: "#f0fdf4", padding: 14, borderWidth: 1, borderColor: "#6ee7b7" },
+  otpTitle: { color: "#065f46", fontWeight: "900", fontSize: 15 },
+  otpHint: { color: "#047857", fontSize: 13, fontWeight: "700" },
+  otpInput: { flex: 1, borderWidth: 2, borderColor: "#a7f3d0", borderRadius: 14, padding: 12, fontSize: 22, fontWeight: "900", textAlign: "center", color: colors.ink, backgroundColor: "#fff" },
+
+  // Gig widget (active gig card in header)
+  gigWidget: { borderRadius: 22, backgroundColor: colors.primaryDark, padding: 16, gap: 12 },
+  gigWidgetTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  gigWidgetLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  gigWidgetTitle: { color: "#fff", fontWeight: "900", fontSize: 16 },
+  gigEndBtn: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 12, backgroundColor: colors.danger, paddingHorizontal: 12, paddingVertical: 7 },
+  gigEndBtnText: { color: "#fff", fontWeight: "900", fontSize: 13 },
+  gigCountdownRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  gigCountdownText: { color: "#c7d2fe", fontWeight: "800", fontSize: 13 },
+  gigOrdersRow: { flexDirection: "row", alignItems: "center", gap: 0 },
+  gigOrdersStat: { flex: 1, alignItems: "center", gap: 3 },
+  gigOrdersNum: { color: "#fff", fontSize: 22, fontWeight: "900" },
+  gigOrdersLabel: { color: "#a5b4fc", fontSize: 11, fontWeight: "800", textAlign: "center" },
+  gigOrdersDivider: { width: 1, height: 36, backgroundColor: "rgba(255,255,255,0.15)" },
+  gigProgressWrap: { gap: 5 },
+  gigProgressTrack: { height: 7, borderRadius: 99, backgroundColor: "rgba(255,255,255,0.15)", overflow: "hidden" },
+  gigProgressFill: { height: "100%", borderRadius: 99, backgroundColor: "#fbbf24" },
+  gigProgressLabel: { color: "#c7d2fe", fontSize: 11, fontWeight: "800", textAlign: "right" },
+
+  // Book a gig button (shown when online, no active gig)
+  gigBookBtn: { borderRadius: 22, backgroundColor: "#1e3a5f", borderWidth: 1.5, borderColor: "#3b5998", padding: 16, flexDirection: "row", alignItems: "center", gap: 10 },
+  gigBookBtnText: { color: "#fff", fontWeight: "900", fontSize: 16, flex: 1 },
+  gigBookBtnSub: { color: "#fbbf24", fontWeight: "900", fontSize: 13 },
+
+  // Gig booking modal
+  gigModalCard: { backgroundColor: "#fff", borderRadius: 28, padding: 20, gap: 12, shadowColor: "#0f172a", shadowOpacity: 0.22, shadowRadius: 22, shadowOffset: { width: 0, height: 12 }, elevation: 10 },
+  gigModalHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
+  gigModalTitle: { color: colors.ink, fontSize: 22, fontWeight: "900", flex: 1 },
+  gigModalSub: { color: colors.muted, fontWeight: "700", lineHeight: 20, fontSize: 13 },
+  gigTiersWrap: { borderRadius: 16, backgroundColor: "#fffbeb", borderWidth: 1, borderColor: "#fde68a", overflow: "hidden" },
+  gigTierRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 11 },
+  gigTierBorder: { borderBottomWidth: 1, borderBottomColor: "#fde68a" },
+  gigTierText: { flex: 1, color: "#92400e", fontWeight: "800" },
+  gigTierBonus: { color: "#b45309", fontWeight: "900", fontSize: 15 },
+  gigDurationLabel: { color: colors.ink, fontWeight: "900" },
+  gigDurationRow: { flexDirection: "row", alignItems: "center", gap: 16, justifyContent: "center" },
+  gigDurationBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#eef2ff", alignItems: "center", justifyContent: "center" },
+  gigDurationBtnText: { fontSize: 26, fontWeight: "900", color: colors.primaryDark, lineHeight: 30 },
+  gigDurationValue: { color: colors.ink, fontSize: 28, fontWeight: "900", minWidth: 80, textAlign: "center" },
+  gigDurationHint: { color: colors.muted, fontWeight: "700", fontSize: 12, textAlign: "center" },
   otpInput: { flex: 1, backgroundColor: "#fff", borderRadius: 14, borderWidth: 2, borderColor: colors.primary, paddingHorizontal: 16, paddingVertical: 14, fontSize: 24, fontWeight: "900", color: colors.ink, textAlign: "center", letterSpacing: 8 },
   otpSection: { backgroundColor: "#f0fdf4", borderRadius: 20, padding: 20, gap: 12, borderWidth: 1, borderColor: "#bbf7d0" },
   otpTitle:   { fontSize: 18, fontWeight: "900", color: colors.ink, textAlign: "center" },

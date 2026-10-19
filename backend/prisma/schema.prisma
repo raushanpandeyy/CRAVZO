@@ -50,6 +50,9 @@ model User {
   deviceFingerprints        DeviceFingerprint[]
   referralMilestones        ReferralMilestone[]
   promoCodeRedemptions      PromoCodeRedemption[]
+  riderGigs                 RiderGig[]                 @relation("RiderGigs")
+  riderReferralsMade        RiderReferral[]             @relation("RiderReferralsMade")
+  riderReferralReceived     RiderReferral?              @relation("RiderReferralReceived")
 
   @@index([status])
   @@index([role, status, createdAt])
@@ -301,6 +304,7 @@ model Order {
   @@index([customerId, createdAt])
   @@index([restaurantId, createdAt])
   @@index([riderId, status, createdAt])
+  @@index([riderId, status, deliveredAt])
   @@index([cancelledRiderId, status, createdAt])
   @@index([status, createdAt])
   @@index([paymentMethod, createdAt])
@@ -674,5 +678,63 @@ model PromoCodeRedemption {
   @@index([promoCodeId, userId])
   @@index([userId, redeemedAt])
   @@index([promoCodeId, redeemedAt])
+}
+
+// ── Rider Gig Sessions ────────────────────────────────────────────────────────
+// A rider books a gig for a self-chosen duration (min 2 h, no max).
+// During the gig they must stay online. Going offline auto-ends the gig.
+// Incentive tiers (bonus on top of per-order distance earnings):
+//   10 orders → ₹140 bonus
+//   20 orders → ₹300 bonus  (replaces tier-1, not cumulative)
+//   24 orders → ₹340 bonus  (replaces tier-2, not cumulative)
+model RiderGig {
+  id              String       @id @default(cuid())
+  riderId         String
+  durationHours   Float        // chosen by rider at booking time (≥ 2)
+  startedAt       DateTime     @default(now())
+  endsAt          DateTime     // startedAt + durationHours
+  status          RiderGigStatus @default(ACTIVE)
+  ordersCompleted Int          @default(0)
+  bonusEarned     Float        @default(0)  // bonus issued at end (0 until gig ends)
+  endedEarly      Boolean      @default(false) // true if rider went offline before endsAt
+  endedAt         DateTime?    // actual end time
+
+  rider           User         @relation("RiderGigs", fields: [riderId], references: [id], onDelete: Cascade)
+
+  @@index([riderId, status])
+  @@index([status, endsAt])
+  @@index([riderId, status, endsAt])
+}
+
+enum RiderGigStatus {
+  ACTIVE
+  COMPLETED  // ended naturally (time elapsed)
+  ENDED_EARLY // rider went offline before time was up
+}
+
+// ── Rider-to-Rider Referral ───────────────────────────────────────────────────
+// When an existing rider shares their code and a new rider signs up with it,
+// the referrer earns staged payouts based on the referred rider's order count.
+// Stages (cumulative orders by referred rider):
+//   Stage 1 : 35 orders  → referrer earns ₹300
+//   Stage 2 : 50 orders  → referrer earns ₹300 more
+//   Stage 3 : 75 orders  → referrer earns ₹400 more
+//   Total                → ₹1,000
+model RiderReferral {
+  id                 String              @id @default(cuid())
+  referrerId         String              // existing rider who shared the code
+  referredId         String              @unique // new rider who used the code
+  referredOrderCount Int                 @default(0) // total delivered orders by referred rider
+  stage1PaidAt       DateTime?           // when 35-order milestone was reached
+  stage2PaidAt       DateTime?           // when 50-order milestone was reached
+  stage3PaidAt       DateTime?           // when 75-order milestone was reached
+  totalPaid          Float               @default(0)
+  createdAt          DateTime            @default(now())
+
+  referrer           User                @relation("RiderReferralsMade", fields: [referrerId], references: [id])
+  referred           User                @relation("RiderReferralReceived", fields: [referredId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
+  @@index([referrerId, referredOrderCount])
 }
 

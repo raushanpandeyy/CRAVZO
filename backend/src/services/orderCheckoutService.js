@@ -32,32 +32,35 @@ const geocodeDeliveryAddress = async (address) => {
   return getLatLngFromAddress(buildFullAddress(address));
 };
 
-const DELIVERY_SLABS = [
-  { maxKm: 1, fee: 17 },
-  { maxKm: 2, fee: 25 },
-  { maxKm: 3, fee: 33 },
-  { maxKm: 4, fee: 40 },
-];
-
+// Delivery fee slabs (base price, before GST/rain surcharge):
+//   0 – 1 km  : ₹20 flat
+//   1 – 2 km  : ₹24 flat
+//   2 – 3 km  : ₹24 → ₹33 interpolated (₹9/km)
+//   3 – 4 km  : ₹33 → ₹44 interpolated (₹11/km ≈ ₹1.1 per 100 m; rounded to ₹1/100 m)
+//   4 km +    : ₹44 + ₹10 per additional km
 const roundUpToHundredMeters = (distanceKm) => Math.max(0.1, Math.ceil(Number(distanceKm || 1) * 10) / 10);
-
-const interpolateFee = (distance, previous, next) => {
-  const progress = (distance - previous.maxKm) / (next.maxKm - previous.maxKm);
-  return previous.fee + progress * (next.fee - previous.fee);
-};
 
 const getDeliveryBaseFee = (distanceKm) => {
   const distance = roundUpToHundredMeters(distanceKm);
-  if (distance <= 1) return 17;
 
-  for (let index = 1; index < DELIVERY_SLABS.length; index += 1) {
-    const previous = DELIVERY_SLABS[index - 1];
-    const next = DELIVERY_SLABS[index];
-    if (distance <= next.maxKm) return Number(interpolateFee(distance, previous, next).toFixed(2));
+  if (distance <= 1) return 20;
+
+  if (distance <= 2) return 24;
+
+  if (distance <= 3) {
+    // ₹24 at 2 km → ₹33 at 3 km, linear (₹9 over 1 km)
+    const extra = (distance - 2) * 9;
+    return Number((24 + extra).toFixed(2));
   }
 
-  const lastSlab = DELIVERY_SLABS[DELIVERY_SLABS.length - 1];
-  return Number((lastSlab.fee + (distance - lastSlab.maxKm) * 10).toFixed(2));
+  if (distance <= 4) {
+    // ₹33 at 3 km → ₹44 at 4 km, ₹1 per 100 m = ₹10/km
+    const extra = Math.round((distance - 3) * 10); // round to nearest ₹1 (100 m steps)
+    return 33 + extra;
+  }
+
+  // Beyond 4 km: ₹44 + ₹10 per additional km
+  return Number((44 + (distance - 4) * 10).toFixed(2));
 };
 
 const calculateDeliveryWithBreakdown = (distanceKm, pricingSettings = {}) => {
@@ -565,19 +568,22 @@ const createPersistedOrder = async ({
         tx, // pass the transaction client so all queries inside use it
       );
 
+      // Fetch ALL tracked inventory items in ONE query instead of per-item loop
+      const trackedItemIds = draft.itemRows.map((i) => i.menuItemId);
+      const trackedItems = await tx.menuItem.findMany({
+        where: { id: { in: trackedItemIds }, trackInventory: true },
+        select: { id: true },
+      });
+      const trackedSet = new Set(trackedItems.map((i) => i.id));
+
       for (const item of draft.itemRows) {
-        const inventory = await tx.menuItem.findUnique({
-          where: { id: item.menuItemId },
-          select: { trackInventory: true },
+        if (!trackedSet.has(item.menuItemId)) continue;
+        const reserved = await tx.menuItem.updateMany({
+          where: { id: item.menuItemId, stockQuantity: { gte: item.quantity } },
+          data: { stockQuantity: { decrement: item.quantity } },
         });
-        if (inventory?.trackInventory) {
-          const reserved = await tx.menuItem.updateMany({
-            where: { id: item.menuItemId, stockQuantity: { gte: item.quantity } },
-            data: { stockQuantity: { decrement: item.quantity } },
-          });
-          if (reserved.count === 0) {
-            throw new ApiError(409, "An item just went out of stock. Refresh your cart and try again");
-          }
+        if (reserved.count === 0) {
+          throw new ApiError(409, "An item just went out of stock. Refresh your cart and try again");
         }
       }
       const createdOrder = await tx.order.create({

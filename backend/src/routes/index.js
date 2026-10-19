@@ -20,6 +20,7 @@ import riderRouter  from "./riderRoutes.js";
 import { platformMarkupRouter } from "./platformMarkupRoutes.js";
 import { referralRouter } from "./referralRoutes.js";
 import { v1Router } from "./v1/index.js";
+import { gigRouter } from "./gigRoutes.js";
 
 const apiRouter = Router();
 
@@ -42,6 +43,7 @@ apiRouter.use("/coupons", couponRouter);
 apiRouter.use("/rider-ratings", riderRatingRouter);
 apiRouter.use("/referrals", referralRouter);
 apiRouter.use("/platform-markup", platformMarkupRouter);
+apiRouter.use("/rider/gig", gigRouter);
 
 apiRouter.use("/v1", v1Router);
 

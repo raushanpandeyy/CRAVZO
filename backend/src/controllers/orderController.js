@@ -12,6 +12,8 @@ import { initiateRazorpayRefund } from "../services/razorpayRefundService.js";
 import { createOrderSchema, quoteOrderSchema } from "../validators/orderValidators.js";
 import { getGoogleRouteSummary } from "../utils/googleMaps.js";
 import { buildVendorOrderAccessWhere, canVendorManageRestaurant } from "../utils/restaurantAccess.js";
+import { incrementGigOrderCount } from "../services/gigService.js";
+import { incrementRiderReferralOrderCount } from "../services/riderReferralService.js";
 
 const RIDER_GEO_KEY = "rider:geo";
 
@@ -953,6 +955,12 @@ const updateOrderStatus = async (req, res) => {
   // Real-time socket push eliminates frontend polling for this update.
   emitOrderStatusUpdate(updatedOrder, req.user.role);
 
+  // Increment active gig order count when a rider marks an order as delivered
+  if (status === "DELIVERED" && updatedOrder.riderId) {
+    await incrementGigOrderCount(updatedOrder.riderId);
+    await incrementRiderReferralOrderCount(updatedOrder.riderId);
+  }
+
   // Queue notification; background worker handles FCM send.
   queueNotification("order-status-changed", { order: updatedOrder, actorRole: req.user.role });
 
@@ -1073,6 +1081,10 @@ const verifyDeliveryOtp = async (req, res) => {
     orderId: updated.id,
     paymentStatus: updated.paymentStatus,
   });
+  // Increment active gig order count for the delivering rider
+  if (updated.riderId) await incrementGigOrderCount(updated.riderId);
+  // Check rider referral stage milestones
+  if (updated.riderId) await incrementRiderReferralOrderCount(updated.riderId);
   emitOrderStatusUpdate(updated, req.user.role);
   queueNotification("order-status-changed", { order: updated, actorRole: req.user.role });
   res.status(200).json(apiResponse({ message: "Delivery completed successfully", data: serializeOrder(updated) }));

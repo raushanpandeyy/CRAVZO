@@ -6,6 +6,7 @@ import { prisma } from "../config/database.js";
 import { ROLES } from "../constants/roles.js";
 import { generateOTP } from "../services/otpService.js";
 import { createReferralAtSignup } from "../services/referralService.js";
+import { createRiderReferralAtSignup } from "../services/riderReferralService.js";
 import { ApiError } from "../utils/apiError.js";
 import { apiResponse } from "../utils/apiResponse.js";
 import { emailBloomFilter, otpBloomFilter } from "../utils/bloomFilter.js";
@@ -142,6 +143,13 @@ const captureSignupDevice = async ({ req, user, fingerprintHash, referralCode })
       ipHash,
       suspectHint: Boolean(risk.suspect),
       suspectReason: risk.reason || null,
+    });
+  }
+
+  if (referralCode && user.role === ROLES.RIDER) {
+    await createRiderReferralAtSignup({
+      referredUserId: user.id,
+      referralCode,
     });
   }
 };

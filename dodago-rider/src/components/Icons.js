@@ -129,3 +129,27 @@ export const X = (props) => (
     <Line x1="6" y1="6" x2="18" y2="18" />
   </Svg>
 );
+
+export const Trophy = (props) => (
+  <Svg {...iconProps(props)}>
+    <Path d="M6 9H4a2 2 0 0 1-2-2V5h4" />
+    <Path d="M18 9h2a2 2 0 0 0 2-2V5h-4" />
+    <Path d="M6 9a6 6 0 0 0 12 0" />
+    <Path d="M12 15v4" />
+    <Path d="M8 19h8" />
+    <Path d="M6 5h12" />
+  </Svg>
+);
+
+export const Clock = (props) => (
+  <Svg {...iconProps(props)}>
+    <Circle cx="12" cy="12" r="10" />
+    <Path d="M12 6v6l4 2" />
+  </Svg>
+);
+
+export const Zap = (props) => (
+  <Svg {...iconProps(props)}>
+    <Path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" />
+  </Svg>
+);
