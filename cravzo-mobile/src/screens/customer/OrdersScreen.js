@@ -27,8 +27,10 @@ import {
   CheckCircle2,
   Search,
   ReceiptText,
+  Download,
 } from "lucide-react-native";
 import { colors } from "../../constants/colors";
+import { generateAndShareInvoice } from "../../utils/generateInvoice";
 import { TAB_SCREEN_BOTTOM_PADDING, MODAL_BOTTOM_PADDING } from "../../constants/layout";
 import { useDispatch } from "react-redux";
 import { getMyOrders, cancelOrder, getReorderData } from "../../services/orderService";
@@ -619,6 +621,15 @@ export default function OrdersScreen({ navigation }) {
                 </View>
               );
             })()}
+                {selectedOrder?.status === "DELIVERED" && (
+                  <TouchableOpacity
+                    onPress={() => generateAndShareInvoice(selectedOrder)}
+                    className="flex-row items-center justify-center gap-2 rounded-2xl bg-indigo-50 border border-indigo-200 py-3.5"
+                  >
+                    <Download size={16} color={colors.brand[600]} />
+                    <Text className="text-sm font-extrabold text-indigo-700">Download Invoice</Text>
+                  </TouchableOpacity>
+                )}
             <View className="flex-row gap-3 mt-5">
               <TouchableOpacity
                 onPress={() => setCancelConfirmOrder(null)}

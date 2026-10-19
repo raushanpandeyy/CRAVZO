@@ -49,7 +49,8 @@
           "color": "#4f46e5"
         }
       ],
-      "./plugins/withGoogleMapsKey"
+      "./plugins/withGoogleMapsKey",
+      "expo-sharing"
     ],
     "extra": {
       "eas": {
