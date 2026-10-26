@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Clipboard,
   RefreshControl,
   ScrollView,
   Share,
@@ -11,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import * as ExpoClipboard from "expo-clipboard";
 import { ChevronLeft, Copy, Share2, Trophy, Users, Zap } from "../components/Icons";
 import { Card } from "../components/Primitives";
 import { colors } from "../constants/colors";
@@ -29,7 +29,7 @@ export default function RiderReferralScreen({ navigation }) {
       const data = await getRiderReferralStats();
       setStats(data);
     } catch (err) {
-      if (!silent) Alert.alert("Error", err.message || "Could not load referral data.");
+      Alert.alert("Error", err.message || "Could not load referral data. Please try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -48,9 +48,9 @@ export default function RiderReferralScreen({ navigation }) {
     } catch {}
   };
 
-  const copyCode = () => {
+  const copyCode = async () => {
     if (!stats?.referralCode) return;
-    Clipboard.setString(stats.referralCode);
+    await ExpoClipboard.setStringAsync(stats.referralCode);
     Alert.alert("Copied!", "Referral code copied to clipboard.");
   };
 

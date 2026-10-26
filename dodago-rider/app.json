@@ -42,6 +42,7 @@
     },
     "plugins": [
       "expo-splash-screen",
+      "expo-clipboard",
       [
         "expo-notifications",
         {
